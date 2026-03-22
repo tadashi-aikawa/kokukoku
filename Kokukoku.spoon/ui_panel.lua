@@ -46,6 +46,7 @@ local COLORS = {
 	subText = { red = 0.6, green = 0.6, blue = 0.6, alpha = 1 },
 	activeText = { red = 1.0, green = 0.85, blue = 0.35, alpha = 1 },
 	separator = { red = 0.3, green = 0.3, blue = 0.3, alpha = 1 },
+	resetConfirmBg = { red = 0.5, green = 0.15, blue = 0.15, alpha = 1 },
 }
 
 local function isIconUrl(icon)
@@ -111,6 +112,7 @@ function M.new(options)
 	local visible = false
 	local selectedIndex = nil
 	local isClosing = false
+	local resetConfirming = false
 	local feedbackDelayTimer = nil
 	local feedbackFadeTimer = nil
 	local iconCache = {}
@@ -478,11 +480,19 @@ function M.new(options)
 		local isResetSelected = selectedIndex == #nonBreakProjects + 2
 
 		-- Reset button background (for hover)
+		local resetBgColor
+		if resetConfirming then
+			resetBgColor = COLORS.resetConfirmBg
+		elseif isResetSelected then
+			resetBgColor = COLORS.footerHoverBg
+		else
+			resetBgColor = COLORS.footerBg
+		end
 		table.insert(elements, {
 			type = "rectangle",
 			action = "fill",
 			frame = { x = PANEL_WIDTH - PADDING - 114, y = footerY + 4, w = 118, h = 30 },
-			fillColor = isResetSelected and COLORS.footerHoverBg or COLORS.footerBg,
+			fillColor = resetBgColor,
 			roundedRectRadii = { xRadius = 6, yRadius = 6 },
 			trackMouseEnterExit = true,
 			trackMouseDown = true,
@@ -490,10 +500,11 @@ function M.new(options)
 		})
 
 		-- Reset button text
+		local resetText = resetConfirming and "r: ⚠️ 本当に?" or "r: 🔄 リセット"
 		table.insert(elements, {
 			type = "text",
 			frame = { x = PANEL_WIDTH - PADDING - 110, y = footerY + 8, w = 110, h = 24 },
-			text = "r: 🔄 リセット",
+			text = resetText,
 			textFont = fontName,
 			textSize = 14,
 			textColor = COLORS.subText,
@@ -527,6 +538,7 @@ function M.new(options)
 		visible = false
 		selectedIndex = nil
 		isClosing = false
+		resetConfirming = false
 	end
 
 	local function findElementIndexById(c, elementId)
@@ -599,6 +611,7 @@ function M.new(options)
 	end
 
 	local function selectProject(projectId)
+		resetConfirming = false
 		local state = getState()
 		local isAlreadyActive = state.activeProjectId == projectId
 		if onProjectSelect then
@@ -609,6 +622,18 @@ function M.new(options)
 		else
 			rebuildPanel()
 		end
+	end
+
+	local function handleResetAction()
+		if resetConfirming then
+			resetConfirming = false
+			if onReset then
+				onReset()
+			end
+		else
+			resetConfirming = true
+		end
+		rebuildPanel()
 	end
 
 	local function handleClick(_, _, elementId)
@@ -622,13 +647,13 @@ function M.new(options)
 				selectProject(projectId)
 				return
 			elseif elementId == "btn_break" then
+				resetConfirming = false
 				if onBreak then
 					onBreak()
 				end
 			elseif elementId == "btn_reset" then
-				if onReset then
-					onReset()
-				end
+				handleResetAction()
+				return
 			end
 		end
 
@@ -659,15 +684,13 @@ function M.new(options)
 			local project = nonBreakProjects[selectedIndex]
 			selectProject(project.id)
 		elseif selectedIndex == #nonBreakProjects + 1 then
+			resetConfirming = false
 			if onBreak then
 				onBreak()
 			end
 			rebuildPanel()
 		elseif selectedIndex == #nonBreakProjects + 2 then
-			if onReset then
-				onReset()
-			end
-			rebuildPanel()
+			handleResetAction()
 		end
 	end
 
@@ -780,16 +803,14 @@ function M.new(options)
 				rebuildPanel()
 				return true
 			elseif char == "0" then
+				resetConfirming = false
 				if onBreak then
 					onBreak()
 				end
 				rebuildPanel()
 				return true
 			elseif char == "r" then
-				if onReset then
-					onReset()
-				end
-				rebuildPanel()
+				handleResetAction()
 				return true
 			elseif char and char:match("^[1-9]$") then
 				local idx = tonumber(char)

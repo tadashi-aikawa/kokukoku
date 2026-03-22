@@ -74,6 +74,10 @@ spoon.SpoonInstall:andUse("Kokukoku", {
 })
 ```
 
+> [!TIP]
+> To install a specific version, change the `branch` value to `spoons-v{VERSION}` (e.g., `"spoons-v0.3.0"`).
+> The Spoon is downloaded only on the first install; subsequent launches load it locally without network access.
+
 To update an already installed Spoon (run once in Hammerspoon Console):
 
 ```lua

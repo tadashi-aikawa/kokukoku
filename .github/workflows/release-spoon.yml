@@ -29,3 +29,12 @@ jobs:
           publish_branch: spoons
           publish_dir: ./dist
           force_orphan: true
+
+      - name: Publish to versioned branch
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: spoons-${{ github.ref_name }}
+          publish_dir: ./dist
+          force_orphan: true

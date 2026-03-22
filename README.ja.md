@@ -74,6 +74,10 @@ spoon.SpoonInstall:andUse("Kokukoku", {
 })
 ```
 
+> [!TIP]
+> 特定のバージョンをインストールするには、`branch` の値を `spoons-v{バージョン}` に変更してください（例: `"spoons-v0.3.0"`）。
+> Spoonは初回インストール時のみダウンロードされ、以降の起動ではローカルからロードされます。
+
 インストール済みの Spoon を更新する場合（Hammerspoon Console で1回だけ実行）:
 
 ```lua

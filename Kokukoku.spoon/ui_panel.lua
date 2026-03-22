@@ -33,6 +33,7 @@ local COLORS = {
 	rowHoverBg = { red = 0.24, green = 0.24, blue = 0.24, alpha = 1 },
 	activeRowBg = { red = 0.1, green = 0.3, blue = 0.15, alpha = 1 },
 	activeRowHoverBg = { red = 0.12, green = 0.35, blue = 0.18, alpha = 1 },
+	switchSuccessBg = { red = 0.1, green = 0.5, blue = 0.25, alpha = 1 },
 	footerBg = { red = 0.12, green = 0.12, blue = 0.12, alpha = 1 },
 	footerHoverBg = { red = 0.2, green = 0.2, blue = 0.2, alpha = 1 },
 	text = { red = 0.9, green = 0.9, blue = 0.9, alpha = 1 },
@@ -56,6 +57,7 @@ function M.new(options)
 	local clickTap = nil
 	local visible = false
 	local selectedIndex = nil
+	local isClosing = false
 
 	local nonBreakProjects = {}
 	for _, p in ipairs(projects) do
@@ -300,43 +302,6 @@ function M.new(options)
 		return elements
 	end
 
-	local function rebuildPanel()
-		if canvas and visible then
-			local elements = buildElements()
-			while canvas:elementCount() > 0 do
-				canvas:removeElement(1)
-			end
-			for _, element in ipairs(elements) do
-				canvas:appendElements(element)
-			end
-		end
-	end
-
-	local function handleClick(_, _, elementId)
-		if not elementId then
-			return
-		end
-
-		if type(elementId) == "string" then
-			if elementId:match("^row_") then
-				local projectId = elementId:sub(5)
-				if onProjectSelect then
-					onProjectSelect(projectId)
-				end
-			elseif elementId == "btn_break" then
-				if onBreak then
-					onBreak()
-				end
-			elseif elementId == "btn_reset" then
-				if onReset then
-					onReset()
-				end
-			end
-		end
-
-		rebuildPanel()
-	end
-
 	local function hide()
 		if escTap then
 			escTap:stop()
@@ -352,6 +317,7 @@ function M.new(options)
 		end
 		visible = false
 		selectedIndex = nil
+		isClosing = false
 	end
 
 	local function findElementIndexById(c, elementId)
@@ -361,6 +327,95 @@ function M.new(options)
 			end
 		end
 		return nil
+	end
+
+	local FEEDBACK_DELAY = 0.4
+	local FADE_DURATION = 0.3
+	local FADE_STEPS = 10
+
+	local function hideWithFeedback(projectId)
+		if not canvas or not visible then
+			return
+		end
+
+		isClosing = true
+
+		-- 選択した行をハイライト
+		local rowId = "row_" .. projectId
+		local idx = findElementIndexById(canvas, rowId)
+		if idx then
+			canvas:elementAttribute(idx, "fillColor", COLORS.switchSuccessBg)
+		end
+
+		-- 一定時間後にフェードアウト開始
+		hs.timer.doAfter(FEEDBACK_DELAY, function()
+			if not canvas then
+				return
+			end
+			local step = 0
+			local fadeTimer
+			fadeTimer = hs.timer.doEvery(FADE_DURATION / FADE_STEPS, function()
+				step = step + 1
+				if not canvas then
+					if fadeTimer then
+						fadeTimer:stop()
+					end
+					return
+				end
+				local alpha = 1 - (step / FADE_STEPS)
+				if alpha <= 0 then
+					if fadeTimer then
+						fadeTimer:stop()
+					end
+					hide()
+				else
+					canvas:alpha(alpha)
+				end
+			end)
+		end)
+	end
+
+	local function rebuildPanel()
+		if canvas and visible then
+			local elements = buildElements()
+			while canvas:elementCount() > 0 do
+				canvas:removeElement(1)
+			end
+			for _, element in ipairs(elements) do
+				canvas:appendElements(element)
+			end
+		end
+	end
+
+	local function handleClick(_, _, elementId)
+		if not elementId or isClosing then
+			return
+		end
+
+		if type(elementId) == "string" then
+			if elementId:match("^row_") then
+				local projectId = elementId:sub(5)
+				local state = getState()
+				local isAlreadyActive = state.activeProjectId == projectId
+				if onProjectSelect then
+					onProjectSelect(projectId)
+				end
+				if not isAlreadyActive then
+					hideWithFeedback(projectId)
+					return
+				end
+			elseif elementId == "btn_break" then
+				if onBreak then
+					onBreak()
+				end
+			elseif elementId == "btn_reset" then
+				if onReset then
+					onReset()
+				end
+			end
+		end
+
+		rebuildPanel()
 	end
 
 	local function screenForMousePosition()
@@ -379,14 +434,20 @@ function M.new(options)
 		return hs.screen.mainScreen()
 	end
 
+	-- 既にアクティブでないプロジェクトを選択した場合は projectId を返す
 	local function executeSelectedAction()
 		if not selectedIndex then
-			return
+			return nil
 		end
 		if selectedIndex <= #nonBreakProjects then
 			local project = nonBreakProjects[selectedIndex]
+			local state = getState()
+			local isAlreadyActive = state.activeProjectId == project.id
 			if onProjectSelect then
 				onProjectSelect(project.id)
+			end
+			if not isAlreadyActive then
+				return project.id
 			end
 		elseif selectedIndex == #nonBreakProjects + 1 then
 			if onBreak then
@@ -397,6 +458,7 @@ function M.new(options)
 				onReset()
 			end
 		end
+		return nil
 	end
 
 	local function show()
@@ -470,6 +532,10 @@ function M.new(options)
 
 		-- キーボード操作 (Escape, 数字キー, j/k, Enter, 0, r)
 		escTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+			if isClosing then
+				return true
+			end
+
 			local keyCode = event:getKeyCode()
 			local char = event:getCharacters()
 
@@ -478,8 +544,12 @@ function M.new(options)
 				return true
 			elseif keyCode == 36 then -- Enter/Return
 				if selectedIndex then
-					executeSelectedAction()
-					rebuildPanel()
+					local switchedProjectId = executeSelectedAction()
+					if switchedProjectId then
+						hideWithFeedback(switchedProjectId)
+					else
+						rebuildPanel()
+					end
 				end
 				return true
 			elseif char == "j" then
@@ -520,10 +590,16 @@ function M.new(options)
 				local idx = tonumber(char)
 				if idx <= #nonBreakProjects then
 					local project = nonBreakProjects[idx]
+					local state = getState()
+					local isAlreadyActive = state.activeProjectId == project.id
 					if onProjectSelect then
 						onProjectSelect(project.id)
 					end
-					rebuildPanel()
+					if not isAlreadyActive then
+						hideWithFeedback(project.id)
+					else
+						rebuildPanel()
+					end
 				end
 				return true
 			end

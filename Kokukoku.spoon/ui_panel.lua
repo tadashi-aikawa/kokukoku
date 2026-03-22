@@ -101,29 +101,33 @@ function M.new(options)
 			fillColor = COLORS.headerBg,
 		})
 
-		-- Header logo
+		-- Header logo + time (centered)
+		local logoSize = 28
+		local logoTextGap = 6
+		local timeTextWidth = 90
+		local totalWidth = logoSize + logoTextGap + timeTextWidth
+		local startX = (PANEL_WIDTH - totalWidth) / 2
+
 		local logoPath = resourcePath("kokukoku.webp")
 		local logoImage = hs.image.imageFromPath(logoPath)
 		if logoImage then
 			table.insert(elements, {
 				type = "image",
-				frame = { x = PADDING, y = 8, w = 28, h = 28 },
+				frame = { x = startX, y = 8, w = logoSize, h = logoSize },
 				image = logoImage,
 				imageScaling = "shrinkToFit",
 			})
 		end
 
-		-- Header text
-		if state.continuousStartedAt then
-			table.insert(elements, {
-				type = "text",
-				frame = { x = PADDING + 34, y = 12, w = PANEL_WIDTH - PADDING * 2 - 34, h = 28 },
-				text = "連続作業: " .. formatTime(continuousElapsed),
-				textFont = ".AppleSystemUIFontBold",
-				textSize = 16,
-				textColor = COLORS.text,
-			})
-		end
+		local timeText = state.continuousStartedAt and formatTime(continuousElapsed) or "--:--:--"
+		table.insert(elements, {
+			type = "text",
+			frame = { x = startX + logoSize + logoTextGap, y = 12, w = timeTextWidth, h = 28 },
+			text = timeText,
+			textFont = "Menlo",
+			textSize = 16,
+			textColor = state.continuousStartedAt and COLORS.text or COLORS.subText,
+		})
 
 		-- Separator after header
 		table.insert(elements, {

@@ -30,7 +30,11 @@ function M.new(options)
 				local minutes = math.floor(threshold / 60)
 				local message = string.format(messageTemplate, minutes)
 				if hs and hs.notify then
-					hs.notify.new({ title = "刻刻", informativeText = message }):send()
+					hs.notify.new(nil, {
+						title = "刻刻",
+						informativeText = message,
+						withdrawAfter = 0,
+					}):send()
 				end
 			end
 		end

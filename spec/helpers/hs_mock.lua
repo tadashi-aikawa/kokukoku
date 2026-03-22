@@ -34,7 +34,7 @@ function M.new()
 			end,
 		},
 		notify = {
-			new = function(opts)
+			new = function(_, opts)
 				local notification = {
 					title = opts.title,
 					informativeText = opts.informativeText,
@@ -46,6 +46,11 @@ function M.new()
 					return self
 				end
 				return notification
+			end,
+		},
+		mouse = {
+			absolutePosition = function()
+				return { x = 500, y = 500 }
 			end,
 		},
 		json = {
@@ -239,6 +244,21 @@ function M.new()
 					frame = function()
 						return { x = 0, y = 0, w = 1920, h = 1080 }
 					end,
+					fullFrame = function()
+						return { x = 0, y = 0, w = 1920, h = 1080 }
+					end,
+				}
+			end,
+			allScreens = function()
+				return {
+					{
+						frame = function()
+							return { x = 0, y = 0, w = 1920, h = 1080 }
+						end,
+						fullFrame = function()
+							return { x = 0, y = 0, w = 1920, h = 1080 }
+						end,
+					},
 				}
 			end,
 		},

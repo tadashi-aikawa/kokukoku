@@ -22,7 +22,7 @@ describe("timer_engine_config", function()
 
 		it("プロジェクトを設定できる", function()
 			local projects = {
-				{ id = "proj-a", name = "Project A" },
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
 				{ id = "proj-b", name = "Project B" },
 			}
 			local result = config.build({ projects = projects })
@@ -50,6 +50,12 @@ describe("timer_engine_config", function()
 		it("プロジェクトのnameが空文字の場合はエラー", function()
 			assert.has_error(function()
 				config.build({ projects = { { id = "a", name = "" } } })
+			end)
+		end)
+
+		it("プロジェクトのiconが文字列以外の場合はエラー", function()
+			assert.has_error(function()
+				config.build({ projects = { { id = "a", name = "A", icon = 1 } } })
 			end)
 		end)
 

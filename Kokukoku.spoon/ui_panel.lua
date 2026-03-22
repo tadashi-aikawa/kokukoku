@@ -25,6 +25,12 @@ local HEADER_HEIGHT = 44
 local ROW_HEIGHT = 36
 local FOOTER_HEIGHT = 40
 local PADDING = 12
+local PROJECT_CONTENT_X = PADDING + 22
+local PROJECT_NAME_RIGHT = 232
+local ICON_TEXT_WIDTH = 24
+local ICON_IMAGE_SIZE = 20
+local ICON_GAP = 8
+local ICON_SLOT_WIDTH = 24
 
 local COLORS = {
 	background = { red = 0.15, green = 0.15, blue = 0.15, alpha = 0.95 },
@@ -41,6 +47,51 @@ local COLORS = {
 	activeText = { red = 0.5, green = 1.0, blue = 0.6, alpha = 1 },
 	separator = { red = 0.3, green = 0.3, blue = 0.3, alpha = 1 },
 }
+
+local function isIconUrl(icon)
+	return type(icon) == "string" and icon:match("^https?://") ~= nil
+end
+
+local function isIconFilePath(icon)
+	return type(icon) == "string" and (icon:match("^/") ~= nil or icon:match("^~/") ~= nil)
+end
+
+local function expandHomePath(path)
+	if type(path) ~= "string" then
+		return path
+	end
+	if path:sub(1, 2) ~= "~/" then
+		return path
+	end
+
+	local home = os.getenv("HOME")
+	if not home or home == "" then
+		return path
+	end
+
+	return home .. path:sub(2)
+end
+
+local function centeredOffset(containerHeight, contentHeight)
+	return math.floor((containerHeight - contentHeight) / 2)
+end
+
+local function measureTextHeight(text, font, size)
+	local fallback = math.max(size + 8, size)
+	if not hs or not hs.drawing or not hs.drawing.getTextDrawingSize then
+		return fallback
+	end
+
+	local measured = hs.drawing.getTextDrawingSize(text ~= "" and text or " ", {
+		font = font,
+		size = size,
+	})
+	if not measured then
+		return fallback
+	end
+
+	return measured.h or measured.H or fallback
+end
 
 function M.new(options)
 	options = options or {}
@@ -62,16 +113,79 @@ function M.new(options)
 	local isClosing = false
 	local feedbackDelayTimer = nil
 	local feedbackFadeTimer = nil
+	local iconCache = {}
+	local rebuildPanel
 
 	local nonBreakProjects = {}
+	local breakProject = nil
 	for _, p in ipairs(projects) do
-		if not p.isBreak then
+		if p.isBreak and breakProject == nil then
+			breakProject = p
+		elseif not p.isBreak then
 			table.insert(nonBreakProjects, p)
 		end
 	end
 
 	local totalSelectableItems = #nonBreakProjects + 2 -- プロジェクト + 休憩 + リセット
 	local panelHeight = HEADER_HEIGHT + (#nonBreakProjects * ROW_HEIGHT) + FOOTER_HEIGHT
+
+	local function cacheImage(key, image)
+		if image then
+			iconCache[key] = {
+				status = "loaded",
+				image = image,
+			}
+		else
+			iconCache[key] = {
+				status = "failed",
+			}
+		end
+	end
+
+	local function resolveIconImage(icon)
+		if not hs or not hs.image or type(icon) ~= "string" or icon == "" then
+			return nil
+		end
+
+		if isIconUrl(icon) then
+			local cacheKey = "url:" .. icon
+			local cached = iconCache[cacheKey]
+			if cached then
+				if cached.status == "loaded" then
+					return cached.image
+				end
+				return nil
+			end
+
+			iconCache[cacheKey] = { status = "loading" }
+			hs.image.imageFromURL(icon, function(image)
+				cacheImage(cacheKey, image)
+				if rebuildPanel then
+					rebuildPanel()
+				end
+			end)
+			return nil
+		end
+
+		if isIconFilePath(icon) then
+			local resolvedPath = expandHomePath(icon)
+			local cacheKey = "path:" .. resolvedPath
+			local cached = iconCache[cacheKey]
+			if cached then
+				if cached.status == "loaded" then
+					return cached.image
+				end
+				return nil
+			end
+
+			cacheImage(cacheKey, hs.image.imageFromPath(resolvedPath))
+			if iconCache[cacheKey].status == "loaded" then
+				return iconCache[cacheKey].image
+			end
+		end
+
+		return nil
+	end
 
 	local function buildElements()
 		local state = getState()
@@ -173,10 +287,12 @@ function M.new(options)
 
 			-- Number indicator
 			if i <= 9 then
+				local numberText = tostring(i)
+				local numberHeight = measureTextHeight(numberText, monoFontName, 12)
 				table.insert(elements, {
 					type = "text",
-					frame = { x = PADDING, y = y + 6, w = 20, h = 24 },
-					text = tostring(i),
+					frame = { x = PADDING, y = y + centeredOffset(ROW_HEIGHT, numberHeight), w = 20, h = numberHeight },
+					text = numberText,
 					textFont = monoFontName,
 					textSize = 12,
 					textColor = COLORS.subText,
@@ -185,21 +301,57 @@ function M.new(options)
 
 			-- Icon + Project name
 			local icon = project.icon or ""
-			local displayName = icon .. " " .. project.name
+			local iconImage = resolveIconImage(icon)
+			local nameX = PROJECT_CONTENT_X
+			local nameWidth = PROJECT_NAME_RIGHT - nameX
+			local nameHeight = measureTextHeight(project.name, fontName, 14)
+			if iconImage then
+				table.insert(elements, {
+					type = "image",
+					frame = {
+						x = PROJECT_CONTENT_X + math.floor((ICON_SLOT_WIDTH - ICON_IMAGE_SIZE) / 2),
+						y = y + centeredOffset(ROW_HEIGHT, ICON_IMAGE_SIZE),
+						w = ICON_IMAGE_SIZE,
+						h = ICON_IMAGE_SIZE,
+					},
+					image = iconImage,
+					imageScaling = "scaleProportionally",
+				})
+			elseif icon ~= "" and not isIconUrl(icon) and not isIconFilePath(icon) then
+				local iconTextHeight = measureTextHeight(icon, fontName, 14)
+				table.insert(elements, {
+					type = "text",
+					frame = {
+						x = PROJECT_CONTENT_X,
+						y = y + centeredOffset(ROW_HEIGHT, iconTextHeight),
+						w = ICON_SLOT_WIDTH,
+						h = iconTextHeight,
+					},
+					text = icon,
+					textFont = fontName,
+					textSize = 14,
+					textColor = isActive and COLORS.activeText or COLORS.text,
+					textAlignment = "center",
+				})
+			end
+			nameX = PROJECT_CONTENT_X + ICON_SLOT_WIDTH + ICON_GAP
+			nameWidth = PROJECT_NAME_RIGHT - nameX
 			table.insert(elements, {
 				type = "text",
-				frame = { x = PADDING + 22, y = y + 6, w = 198, h = 24 },
-				text = displayName,
+				frame = { x = nameX, y = y + centeredOffset(ROW_HEIGHT, nameHeight), w = nameWidth, h = nameHeight },
+				text = project.name,
 				textFont = fontName,
 				textSize = 14,
 				textColor = isActive and COLORS.activeText or COLORS.text,
 			})
 
 			-- Accumulated time
+			local accumulatedText = formatTime(accumulated)
+			local accumulatedHeight = measureTextHeight(accumulatedText, monoFontName, 14)
 			table.insert(elements, {
 				type = "text",
-				frame = { x = 240, y = y + 6, w = 100, h = 24 },
-				text = formatTime(accumulated),
+				frame = { x = 240, y = y + centeredOffset(ROW_HEIGHT, accumulatedHeight), w = 100, h = accumulatedHeight },
+				text = accumulatedText,
 				textFont = monoFontName,
 				textSize = 14,
 				textColor = isActive and COLORS.activeText or COLORS.subText,
@@ -208,10 +360,12 @@ function M.new(options)
 
 			-- Active indicator
 			if isActive then
+				local activeText = "▶ 計測中"
+				local activeHeight = measureTextHeight(activeText, fontName, 11)
 				table.insert(elements, {
 					type = "text",
-					frame = { x = 350, y = y + 6, w = 60, h = 24 },
-					text = "▶ 計測中",
+					frame = { x = 350, y = y + centeredOffset(ROW_HEIGHT, activeHeight), w = 60, h = activeHeight },
+					text = activeText,
 					textFont = fontName,
 					textSize = 11,
 					textColor = COLORS.activeText,
@@ -255,12 +409,17 @@ function M.new(options)
 		})
 
 		local isBreakSelected = selectedIndex == #nonBreakProjects + 1
+		local breakConfig = breakProject or { name = "休憩", icon = "☕" }
+		local breakName = breakConfig.name or "休憩"
+		local breakIcon = breakConfig.icon or ""
+		local breakIconImage = resolveIconImage(breakIcon)
+		local breakTextHeight = measureTextHeight(breakName, fontName, 14)
 
 		-- Break button background (for hover)
 		table.insert(elements, {
 			type = "rectangle",
 			action = "fill",
-			frame = { x = PADDING - 4, y = footerY + 4, w = 100, h = 30 },
+			frame = { x = PADDING - 4, y = footerY + 4, w = 132, h = 30 },
 			fillColor = isBreakSelected and COLORS.footerHoverBg or COLORS.footerBg,
 			roundedRectRadii = { xRadius = 6, yRadius = 6 },
 			trackMouseEnterExit = true,
@@ -268,11 +427,49 @@ function M.new(options)
 			id = "btn_break",
 		})
 
-		-- Break button text
+		-- Break button content
 		table.insert(elements, {
 			type = "text",
-			frame = { x = PADDING, y = footerY + 8, w = 120, h = 24 },
-			text = "0: ☕ 休憩",
+			frame = { x = PADDING, y = footerY + centeredOffset(30, breakTextHeight), w = 24, h = breakTextHeight },
+			text = "0:",
+			textFont = monoFontName,
+			textSize = 14,
+			textColor = COLORS.text,
+		})
+		local breakIconX = PADDING + 24
+		if breakIconImage then
+			table.insert(elements, {
+				type = "image",
+				frame = {
+					x = breakIconX + math.floor((ICON_SLOT_WIDTH - ICON_IMAGE_SIZE) / 2),
+					y = footerY + 5 + centeredOffset(24, ICON_IMAGE_SIZE),
+					w = ICON_IMAGE_SIZE,
+					h = ICON_IMAGE_SIZE,
+				},
+				image = breakIconImage,
+				imageScaling = "scaleProportionally",
+			})
+		elseif breakIcon ~= "" and not isIconUrl(breakIcon) and not isIconFilePath(breakIcon) then
+			local breakIconHeight = measureTextHeight(breakIcon, fontName, 14)
+			table.insert(elements, {
+				type = "text",
+				frame = {
+					x = breakIconX,
+					y = footerY + 5 + centeredOffset(24, breakIconHeight),
+					w = ICON_SLOT_WIDTH,
+					h = breakIconHeight,
+				},
+				text = breakIcon,
+				textFont = fontName,
+				textSize = 14,
+				textColor = COLORS.text,
+				textAlignment = "center",
+			})
+		end
+		table.insert(elements, {
+			type = "text",
+			frame = { x = breakIconX + ICON_SLOT_WIDTH + ICON_GAP, y = footerY + centeredOffset(30, breakTextHeight), w = 72, h = breakTextHeight },
+			text = breakName,
 			textFont = fontName,
 			textSize = 14,
 			textColor = COLORS.text,
@@ -389,7 +586,7 @@ function M.new(options)
 		end)
 	end
 
-	local function rebuildPanel()
+	rebuildPanel = function()
 		if canvas and visible then
 			local elements = buildElements()
 			while canvas:elementCount() > 0 do

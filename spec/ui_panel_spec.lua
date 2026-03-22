@@ -1,0 +1,165 @@
+local hsMock = require("spec.helpers.hs_mock")
+
+local function findElement(elements, matcher)
+	for _, element in ipairs(elements) do
+		if matcher(element) then
+			return element
+		end
+	end
+	return nil
+end
+
+describe("ui_panel", function()
+	local uiPanel
+	local mock
+	local state
+
+	before_each(function()
+		mock = hsMock.new()
+		_G.hs = mock.hs
+		state = {
+			accumulated = {},
+			activeProjectId = nil,
+			activeStartedAt = nil,
+			continuousStartedAt = nil,
+		}
+		uiPanel = dofile("./Kokukoku.spoon/ui_panel.lua")
+	end)
+
+	after_each(function()
+		_G.hs = nil
+	end)
+
+	local function newPanel(projects)
+		return uiPanel.new({
+			projects = projects,
+			getState = function()
+				return state
+			end,
+		})
+	end
+
+	it("絵文字iconはテキストとして表示する", function()
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = "🔵" },
+		})
+
+		panel.show()
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "🔵"
+		end))
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "Project A"
+		end))
+	end)
+
+	it("ローカルファイルiconは画像として表示する", function()
+		local image = { id = "local-image" }
+		mock.state.image.pathResults["/tmp/project.png"] = image
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = "/tmp/project.png" },
+		})
+
+		panel.show()
+
+		assert.is_true(#mock.state.image.pathRequests >= 1)
+		assert.is_not_nil(findElement(mock.state.image.pathRequests, function(path)
+			return path == "/tmp/project.png"
+		end))
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "image" and element.image == image and element.frame.y > 44
+		end))
+		assert.is_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "/tmp/project.png"
+		end))
+	end)
+
+	it("ホームディレクトリ付きパスを展開して画像を読む", function()
+		local home = os.getenv("HOME")
+		assert.is_truthy(home)
+		local resolvedPath = home .. "/project.png"
+		mock.state.image.pathResults[resolvedPath] = { id = "home-image" }
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = "~/project.png" },
+		})
+
+		panel.show()
+
+		assert.is_not_nil(findElement(mock.state.image.pathRequests, function(path)
+			return path == resolvedPath
+		end))
+	end)
+
+	it("URL iconは非同期で一度だけ取得して表示する", function()
+		local url = "https://example.com/project.png"
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = url },
+		})
+
+		panel.show()
+		panel.update({})
+
+		assert.are.equal(1, #mock.state.image.urlRequests)
+		assert.are.equal(url, mock.state.image.urlRequests[1].url)
+
+		local beforeElements = mock.state.canvases[1].elements
+		assert.is_nil(findElement(beforeElements, function(element)
+			return element.type == "image" and element.frame.y > 44
+		end))
+
+		local image = { id = "remote-image" }
+		mock.state.image.urlRequests[1].callback(image)
+
+		local afterElements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(afterElements, function(element)
+			return element.type == "image" and element.image == image and element.frame.y > 44
+		end))
+
+		panel.update({})
+		assert.are.equal(1, #mock.state.image.urlRequests)
+	end)
+
+	it("画像取得に失敗してもパス文字列は表示しない", function()
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = "https://example.com/missing.png" },
+		})
+
+		panel.show()
+		mock.state.image.urlRequests[1].callback(nil)
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "Project A"
+		end))
+		assert.is_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "https://example.com/missing.png"
+		end))
+	end)
+
+	it("休憩ボタンは設定したiconと名前を表示する", function()
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = "🔵" },
+			{ id = "break", name = "深呼吸", icon = "🫖", isBreak = true },
+		})
+
+		panel.show()
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "0:"
+		end))
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "🫖"
+		end))
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "深呼吸"
+		end))
+		assert.is_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "0: ☕ 休憩"
+		end))
+	end)
+end)

@@ -28,6 +28,9 @@ function M.build(options)
 		if type(project.name) ~= "string" or project.name == "" then
 			error(string.format("[kokukoku.timer_engine] projects[%d].name must be a non-empty string", i))
 		end
+		if project.icon ~= nil and type(project.icon) ~= "string" then
+			error(string.format("[kokukoku.timer_engine] projects[%d].icon must be a string", i))
+		end
 		if projectIds[project.id] then
 			error(string.format("[kokukoku.timer_engine] duplicate project id: %s", project.id))
 		end

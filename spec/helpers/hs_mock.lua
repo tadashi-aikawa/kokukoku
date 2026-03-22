@@ -4,6 +4,13 @@ function M.new()
 	local state = {
 		timers = {},
 		notifications = {},
+		canvases = {},
+		image = {
+			pathRequests = {},
+			pathResults = {},
+			urlRequests = {},
+			urlResults = {},
+		},
 	}
 
 	local hs = {
@@ -46,6 +53,16 @@ function M.new()
 					return self
 				end
 				return notification
+			end,
+		},
+		drawing = {
+			getTextDrawingSize = function(text, style)
+				local fontSize = style and style.size or 14
+				local content = text or ""
+				return {
+					w = math.max(1, math.floor(#content * fontSize * 0.6)),
+					h = math.max(1, math.floor(fontSize * 1.2)),
+				}
 			end,
 		},
 		mouse = {
@@ -203,10 +220,11 @@ function M.new()
 			},
 			new = function(frame)
 				local c = {
-					frame = frame,
+					frameData = frame,
 					visible = false,
 					deleted = false,
 					elements = {},
+					alphaValue = 1,
 				}
 				function c:level()
 					return self
@@ -225,8 +243,27 @@ function M.new()
 					table.remove(self.elements, idx)
 					return self
 				end
+				function c:elementAttribute(idx, key, value)
+					if value == nil then
+						return self.elements[idx] and self.elements[idx][key]
+					end
+					if self.elements[idx] then
+						self.elements[idx][key] = value
+					end
+					return self
+				end
 				function c:mouseCallback()
 					return self
+				end
+				function c:alpha(value)
+					if value == nil then
+						return self.alphaValue
+					end
+					self.alphaValue = value
+					return self
+				end
+				function c:frame()
+					return self.frameData
 				end
 				function c:show()
 					self.visible = true
@@ -235,7 +272,24 @@ function M.new()
 				function c:delete()
 					self.deleted = true
 				end
+				table.insert(state.canvases, c)
 				return c
+			end,
+		},
+		image = {
+			imageFromPath = function(path)
+				table.insert(state.image.pathRequests, path)
+				return state.image.pathResults[path]
+			end,
+			imageFromURL = function(url, callback)
+				table.insert(state.image.urlRequests, {
+					url = url,
+					callback = callback,
+				})
+				if callback then
+					return nil
+				end
+				return state.image.urlResults[url]
 			end,
 		},
 		screen = {
@@ -281,6 +335,7 @@ function M.new()
 			event = {
 				types = {
 					keyDown = "keyDown",
+					leftMouseDown = "leftMouseDown",
 				},
 			},
 		},

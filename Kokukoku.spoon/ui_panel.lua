@@ -541,7 +541,7 @@ function M.new(options)
 		canvas:show()
 		visible = true
 
-		-- キーボード操作 (Escape, 数字キー, j/k, Enter, 0, r)
+		-- キーボード操作 (Escape, 数字キー, j/k/↑/↓, Enter, 0, r)
 		escTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
 			if isClosing then
 				return true
@@ -558,7 +558,7 @@ function M.new(options)
 					executeSelectedAction()
 				end
 				return true
-			elseif char == "j" then
+			elseif char == "j" or keyCode == 125 then -- 125 = Down arrow
 				if selectedIndex == nil then
 					selectedIndex = 1
 				else
@@ -569,7 +569,7 @@ function M.new(options)
 				end
 				rebuildPanel()
 				return true
-			elseif char == "k" then
+			elseif char == "k" or keyCode == 126 then -- 126 = Up arrow
 				if selectedIndex == nil then
 					selectedIndex = totalSelectableItems
 				else

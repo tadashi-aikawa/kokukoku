@@ -34,6 +34,7 @@ function M.new(options)
 						title = "刻刻",
 						informativeText = message,
 						withdrawAfter = 0,
+						soundName = "default",
 					}):send()
 				end
 			end

@@ -58,6 +58,8 @@ function M.new(options)
 	local visible = false
 	local selectedIndex = nil
 	local isClosing = false
+	local feedbackDelayTimer = nil
+	local feedbackFadeTimer = nil
 
 	local nonBreakProjects = {}
 	for _, p in ipairs(projects) do
@@ -303,6 +305,14 @@ function M.new(options)
 	end
 
 	local function hide()
+		if feedbackFadeTimer then
+			feedbackFadeTimer:stop()
+			feedbackFadeTimer = nil
+		end
+		if feedbackDelayTimer then
+			feedbackDelayTimer:stop()
+			feedbackDelayTimer = nil
+		end
 		if escTap then
 			escTap:stop()
 			escTap = nil
@@ -348,24 +358,26 @@ function M.new(options)
 		end
 
 		-- 一定時間後にフェードアウト開始
-		hs.timer.doAfter(FEEDBACK_DELAY, function()
+		feedbackDelayTimer = hs.timer.doAfter(FEEDBACK_DELAY, function()
+			feedbackDelayTimer = nil
 			if not canvas then
 				return
 			end
 			local step = 0
-			local fadeTimer
-			fadeTimer = hs.timer.doEvery(FADE_DURATION / FADE_STEPS, function()
+			feedbackFadeTimer = hs.timer.doEvery(FADE_DURATION / FADE_STEPS, function()
 				step = step + 1
 				if not canvas then
-					if fadeTimer then
-						fadeTimer:stop()
+					if feedbackFadeTimer then
+						feedbackFadeTimer:stop()
+						feedbackFadeTimer = nil
 					end
 					return
 				end
 				local alpha = 1 - (step / FADE_STEPS)
 				if alpha <= 0 then
-					if fadeTimer then
-						fadeTimer:stop()
+					if feedbackFadeTimer then
+						feedbackFadeTimer:stop()
+						feedbackFadeTimer = nil
 					end
 					hide()
 				else
@@ -387,6 +399,19 @@ function M.new(options)
 		end
 	end
 
+	local function selectProject(projectId)
+		local state = getState()
+		local isAlreadyActive = state.activeProjectId == projectId
+		if onProjectSelect then
+			onProjectSelect(projectId)
+		end
+		if not isAlreadyActive then
+			hideWithFeedback(projectId)
+		else
+			rebuildPanel()
+		end
+	end
+
 	local function handleClick(_, _, elementId)
 		if not elementId or isClosing then
 			return
@@ -395,15 +420,8 @@ function M.new(options)
 		if type(elementId) == "string" then
 			if elementId:match("^row_") then
 				local projectId = elementId:sub(5)
-				local state = getState()
-				local isAlreadyActive = state.activeProjectId == projectId
-				if onProjectSelect then
-					onProjectSelect(projectId)
-				end
-				if not isAlreadyActive then
-					hideWithFeedback(projectId)
-					return
-				end
+				selectProject(projectId)
+				return
 			elseif elementId == "btn_break" then
 				if onBreak then
 					onBreak()
@@ -434,31 +452,24 @@ function M.new(options)
 		return hs.screen.mainScreen()
 	end
 
-	-- 既にアクティブでないプロジェクトを選択した場合は projectId を返す
 	local function executeSelectedAction()
 		if not selectedIndex then
-			return nil
+			return
 		end
 		if selectedIndex <= #nonBreakProjects then
 			local project = nonBreakProjects[selectedIndex]
-			local state = getState()
-			local isAlreadyActive = state.activeProjectId == project.id
-			if onProjectSelect then
-				onProjectSelect(project.id)
-			end
-			if not isAlreadyActive then
-				return project.id
-			end
+			selectProject(project.id)
 		elseif selectedIndex == #nonBreakProjects + 1 then
 			if onBreak then
 				onBreak()
 			end
+			rebuildPanel()
 		elseif selectedIndex == #nonBreakProjects + 2 then
 			if onReset then
 				onReset()
 			end
+			rebuildPanel()
 		end
-		return nil
 	end
 
 	local function show()
@@ -544,12 +555,7 @@ function M.new(options)
 				return true
 			elseif keyCode == 36 then -- Enter/Return
 				if selectedIndex then
-					local switchedProjectId = executeSelectedAction()
-					if switchedProjectId then
-						hideWithFeedback(switchedProjectId)
-					else
-						rebuildPanel()
-					end
+					executeSelectedAction()
 				end
 				return true
 			elseif char == "j" then
@@ -590,16 +596,7 @@ function M.new(options)
 				local idx = tonumber(char)
 				if idx <= #nonBreakProjects then
 					local project = nonBreakProjects[idx]
-					local state = getState()
-					local isAlreadyActive = state.activeProjectId == project.id
-					if onProjectSelect then
-						onProjectSelect(project.id)
-					end
-					if not isAlreadyActive then
-						hideWithFeedback(project.id)
-					else
-						rebuildPanel()
-					end
+					selectProject(project.id)
 				end
 				return true
 			end

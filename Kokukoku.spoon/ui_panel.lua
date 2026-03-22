@@ -30,8 +30,11 @@ local COLORS = {
 	background = { red = 0.15, green = 0.15, blue = 0.15, alpha = 0.95 },
 	headerBg = { red = 0.12, green = 0.12, blue = 0.12, alpha = 1 },
 	rowBg = { red = 0.18, green = 0.18, blue = 0.18, alpha = 1 },
+	rowHoverBg = { red = 0.24, green = 0.24, blue = 0.24, alpha = 1 },
 	activeRowBg = { red = 0.1, green = 0.3, blue = 0.15, alpha = 1 },
+	activeRowHoverBg = { red = 0.12, green = 0.35, blue = 0.18, alpha = 1 },
 	footerBg = { red = 0.12, green = 0.12, blue = 0.12, alpha = 1 },
+	footerHoverBg = { red = 0.2, green = 0.2, blue = 0.2, alpha = 1 },
 	text = { red = 0.9, green = 0.9, blue = 0.9, alpha = 1 },
 	subText = { red = 0.6, green = 0.6, blue = 0.6, alpha = 1 },
 	activeText = { red = 0.5, green = 1.0, blue = 0.6, alpha = 1 },
@@ -50,6 +53,7 @@ function M.new(options)
 
 	local canvas = nil
 	local escTap = nil
+	local clickTap = nil
 	local visible = false
 
 	local nonBreakProjects = {}
@@ -210,7 +214,19 @@ function M.new(options)
 			fillColor = COLORS.footerBg,
 		})
 
-		-- Break button
+		-- Break button background (for hover)
+		table.insert(elements, {
+			type = "rectangle",
+			action = "fill",
+			frame = { x = PADDING - 4, y = footerY + 4, w = 90, h = 30 },
+			fillColor = COLORS.footerBg,
+			roundedRectRadii = { xRadius = 6, yRadius = 6 },
+			trackMouseEnterExit = true,
+			trackMouseDown = true,
+			id = "btn_break",
+		})
+
+		-- Break button text
 		table.insert(elements, {
 			type = "text",
 			frame = { x = PADDING, y = footerY + 8, w = 120, h = 24 },
@@ -218,11 +234,21 @@ function M.new(options)
 			textFont = ".AppleSystemUIFont",
 			textSize = 14,
 			textColor = COLORS.text,
-			trackMouseDown = true,
-			id = "btn_break",
 		})
 
-		-- Reset button
+		-- Reset button background (for hover)
+		table.insert(elements, {
+			type = "rectangle",
+			action = "fill",
+			frame = { x = PANEL_WIDTH - PADDING - 104, y = footerY + 4, w = 108, h = 30 },
+			fillColor = COLORS.footerBg,
+			roundedRectRadii = { xRadius = 6, yRadius = 6 },
+			trackMouseEnterExit = true,
+			trackMouseDown = true,
+			id = "btn_reset",
+		})
+
+		-- Reset button text
 		table.insert(elements, {
 			type = "text",
 			frame = { x = PANEL_WIDTH - PADDING - 100, y = footerY + 8, w = 100, h = 24 },
@@ -231,8 +257,6 @@ function M.new(options)
 			textSize = 14,
 			textColor = COLORS.subText,
 			textAlignment = "right",
-			trackMouseDown = true,
-			id = "btn_reset",
 		})
 
 		return elements
@@ -273,12 +297,54 @@ function M.new(options)
 		end
 	end
 
+	local function hide()
+		if escTap then
+			escTap:stop()
+			escTap = nil
+		end
+		if clickTap then
+			clickTap:stop()
+			clickTap = nil
+		end
+		if canvas then
+			canvas:delete()
+			canvas = nil
+		end
+		visible = false
+	end
+
+	local function findElementIndexById(c, elementId)
+		for i = 1, c:elementCount() do
+			if c:elementAttribute(i, "id") == elementId then
+				return i
+			end
+		end
+		return nil
+	end
+
+	local function screenForMousePosition()
+		local mousePoint = hs.mouse.absolutePosition()
+		for _, s in ipairs(hs.screen.allScreens()) do
+			local frame = s:fullFrame()
+			if
+				mousePoint.x >= frame.x
+				and mousePoint.x < frame.x + frame.w
+				and mousePoint.y >= frame.y
+				and mousePoint.y < frame.y + frame.h
+			then
+				return s
+			end
+		end
+		return hs.screen.mainScreen()
+	end
+
 	local function show()
 		if visible and canvas then
 			return
 		end
 
-		local screen = hs.screen.mainScreen()
+		-- アクティブモニタ(マウスカーソルのあるスクリーン)の中央に表示
+		local screen = screenForMousePosition()
 		local screenFrame = screen:frame()
 		local x = screenFrame.x + (screenFrame.w - PANEL_WIDTH) / 2
 		local y = screenFrame.y + (screenFrame.h - panelHeight) / 2
@@ -292,9 +358,37 @@ function M.new(options)
 			canvas:appendElements(element)
 		end
 
-		canvas:mouseCallback(function(c, msg, id, x2, y2)
+		canvas:mouseCallback(function(_, msg, id)
 			if msg == "mouseDown" then
-				handleClick(c, msg, id)
+				handleClick(nil, msg, id)
+			elseif msg == "mouseEnter" then
+				if type(id) == "string" and canvas then
+					local idx = findElementIndexById(canvas, id)
+					if idx then
+						if id:match("^row_") then
+							local projectId = id:sub(5)
+							local state = getState()
+							local isActive = state.activeProjectId == projectId
+							canvas:elementAttribute(idx, "fillColor", isActive and COLORS.activeRowHoverBg or COLORS.rowHoverBg)
+						elseif id == "btn_break" or id == "btn_reset" then
+							canvas:elementAttribute(idx, "fillColor", COLORS.footerHoverBg)
+						end
+					end
+				end
+			elseif msg == "mouseExit" then
+				if type(id) == "string" and canvas then
+					local idx = findElementIndexById(canvas, id)
+					if idx then
+						if id:match("^row_") then
+							local projectId = id:sub(5)
+							local state = getState()
+							local isActive = state.activeProjectId == projectId
+							canvas:elementAttribute(idx, "fillColor", isActive and COLORS.activeRowBg or COLORS.rowBg)
+						elseif id == "btn_break" or id == "btn_reset" then
+							canvas:elementAttribute(idx, "fillColor", COLORS.footerBg)
+						end
+					end
+				end
 			end
 		end)
 
@@ -304,31 +398,29 @@ function M.new(options)
 		-- Escapeキーでパネルを閉じる
 		escTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
 			if event:getKeyCode() == 53 then -- Escape
-				M._hide(canvas, escTap)
-				canvas = nil
-				escTap = nil
-				visible = false
+				hide()
 				return true
 			end
 			return false
 		end)
 		escTap:start()
-	end
 
-	function M._hide(c, tap)
-		if tap then
-			tap:stop()
-		end
-		if c then
-			c:delete()
-		end
-	end
-
-	local function hide()
-		M._hide(canvas, escTap)
-		canvas = nil
-		escTap = nil
-		visible = false
+		-- パネル外クリックで閉じる
+		clickTap = hs.eventtap.new({ hs.eventtap.event.types.leftMouseDown }, function(event)
+			local pos = event:location()
+			local canvasFrame = canvas:frame()
+			if
+				pos.x < canvasFrame.x
+				or pos.x > canvasFrame.x + canvasFrame.w
+				or pos.y < canvasFrame.y
+				or pos.y > canvasFrame.y + canvasFrame.h
+			then
+				hide()
+				return false
+			end
+			return false
+		end)
+		clickTap:start()
 	end
 
 	local function toggle()
@@ -339,7 +431,7 @@ function M.new(options)
 		end
 	end
 
-	local function update(state)
+	local function update(_)
 		if not visible or not canvas then
 			return
 		end

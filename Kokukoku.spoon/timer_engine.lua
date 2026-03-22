@@ -145,6 +145,25 @@ function M.new(options)
 		notifyStateChange()
 	end
 
+	local function setAccumulated(projectId, seconds)
+		local project = findProject(config.projects, projectId)
+		if not project or project.isBreak then
+			return false
+		end
+		if type(seconds) ~= "number" or seconds < 0 then
+			return false
+		end
+		seconds = math.floor(seconds)
+
+		if state.activeProjectId == projectId and state.activeStartedAt then
+			state.activeStartedAt = os.time()
+		end
+
+		state.accumulated[projectId] = seconds
+		notifyStateChange()
+		return true
+	end
+
 	local function getState()
 		return state
 	end
@@ -196,6 +215,7 @@ function M.new(options)
 		startProject = startProject,
 		startBreak = startBreak,
 		reset = reset,
+		setAccumulated = setAccumulated,
 		getState = getState,
 		getSnapshot = getSnapshot,
 		teardown = teardown,

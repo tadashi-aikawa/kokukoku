@@ -218,6 +218,7 @@ These shortcuts are available while the panel is open:
 | `k` / `Up` | Move selection up |
 | `Enter` | Execute selected action |
 | `0` | Break |
+| `e` | Edit accumulated time of selected project |
 | `r` | Reset all timers |
 | `Escape` | Close panel |
 

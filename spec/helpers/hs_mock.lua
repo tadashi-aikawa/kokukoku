@@ -11,6 +11,10 @@ function M.new()
 			urlRequests = {},
 			urlResults = {},
 		},
+		dialog = {
+			prompts = {},
+			nextResult = { "OK", "" },
+		},
 	}
 
 	local hs = {
@@ -338,6 +342,18 @@ function M.new()
 					leftMouseDown = "leftMouseDown",
 				},
 			},
+		},
+		dialog = {
+			textPrompt = function(title, message, defaultValue, ok, cancel)
+				table.insert(state.dialog.prompts, {
+					title = title,
+					message = message,
+					defaultValue = defaultValue,
+					ok = ok,
+					cancel = cancel,
+				})
+				return state.dialog.nextResult[1], state.dialog.nextResult[2]
+			end,
 		},
 		spoons = {
 			resourcePath = function(path)

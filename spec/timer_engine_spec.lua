@@ -185,6 +185,70 @@ describe("timer_engine", function()
 		end)
 	end)
 
+	describe("setAccumulated", function()
+		it("累積時間を設定できる", function()
+			local engine = timerEngine.new({ projects = projects })
+			local result = engine.setAccumulated("proj-a", 3600)
+			assert.is_true(result)
+			assert.are.equal(3600, engine.getState().accumulated["proj-a"])
+		end)
+
+		it("存在しないプロジェクトIDではfalseを返す", function()
+			local engine = timerEngine.new({ projects = projects })
+			local result = engine.setAccumulated("nonexistent", 100)
+			assert.is_false(result)
+		end)
+
+		it("休憩プロジェクトではfalseを返す", function()
+			local engine = timerEngine.new({ projects = projects })
+			local result = engine.setAccumulated("break", 100)
+			assert.is_false(result)
+		end)
+
+		it("負の値ではfalseを返す", function()
+			local engine = timerEngine.new({ projects = projects })
+			local result = engine.setAccumulated("proj-a", -1)
+			assert.is_false(result)
+		end)
+
+		it("計測中プロジェクトに設定するとactiveStartedAtがリセットされる", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.startProject("proj-a")
+			local state = engine.getState()
+			state.activeStartedAt = os.time() - 100
+			engine.setAccumulated("proj-a", 7200)
+			state = engine.getState()
+			assert.are.equal(7200, state.accumulated["proj-a"])
+			assert.is_true(math.abs(state.activeStartedAt - os.time()) <= 1)
+		end)
+
+		it("onStateChangeコールバックが呼ばれる", function()
+			local called = false
+			local engine = timerEngine.new({
+				projects = projects,
+				onStateChange = function()
+					called = true
+				end,
+			})
+			called = false
+			engine.setAccumulated("proj-a", 1000)
+			assert.is_true(called)
+		end)
+
+		it("小数は切り捨てられる", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.setAccumulated("proj-a", 3661.7)
+			assert.are.equal(3661, engine.getState().accumulated["proj-a"])
+		end)
+
+		it("0秒に設定できる", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.setAccumulated("proj-a", 3600)
+			engine.setAccumulated("proj-a", 0)
+			assert.are.equal(0, engine.getState().accumulated["proj-a"])
+		end)
+	end)
+
 	describe("teardown", function()
 		it("タイマーを停止する", function()
 			local engine = timerEngine.new({ projects = projects })

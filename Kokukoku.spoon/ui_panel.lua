@@ -94,6 +94,31 @@ local function measureTextHeight(text, font, size)
 	return measured.h or measured.H or fallback
 end
 
+local function parseTime(str)
+	if not str or str == "" then
+		return nil
+	end
+
+	local asNumber = tonumber(str)
+	if asNumber then
+		return math.floor(asNumber)
+	end
+
+	local h, m, s = str:match("^(%d+):(%d+):(%d+)$")
+	if h then
+		return tonumber(h) * 3600 + tonumber(m) * 60 + tonumber(s)
+	end
+
+	local m2, s2 = str:match("^(%d+):(%d+)$")
+	if m2 then
+		return tonumber(m2) * 60 + tonumber(s2)
+	end
+
+	return nil
+end
+
+M.parseTime = parseTime
+
 function M.new(options)
 	options = options or {}
 
@@ -101,6 +126,7 @@ function M.new(options)
 	local onProjectSelect = options.onProjectSelect
 	local onBreak = options.onBreak
 	local onReset = options.onReset
+	local onSetAccumulated = options.onSetAccumulated
 	local getState = options.getState
 	local formatTime = loadTimerEngine().formatTime
 	local fontName = options.fontName or ".AppleSystemUIFont"
@@ -636,6 +662,46 @@ function M.new(options)
 		rebuildPanel()
 	end
 
+	local function editSelectedProjectTime()
+		if not selectedIndex or selectedIndex > #nonBreakProjects then
+			return
+		end
+
+		local project = nonBreakProjects[selectedIndex]
+		local stateData = getState()
+
+		local currentAccumulated = stateData.accumulated[project.id] or 0
+		if stateData.activeProjectId == project.id and stateData.activeStartedAt then
+			currentAccumulated = currentAccumulated + (os.time() - stateData.activeStartedAt)
+		end
+		local currentTimeStr = formatTime(currentAccumulated)
+
+		if escTap then
+			escTap:stop()
+		end
+
+		local button, input = hs.dialog.textPrompt(
+			project.name .. " の時間を編集",
+			"HH:MM:SS 形式で入力してください",
+			currentTimeStr,
+			"OK",
+			"キャンセル"
+		)
+
+		if escTap then
+			escTap:start()
+		end
+
+		if button == "OK" then
+			local seconds = parseTime(input)
+			if seconds and seconds >= 0 and onSetAccumulated then
+				onSetAccumulated(project.id, seconds)
+			end
+		end
+
+		rebuildPanel()
+	end
+
 	local function handleClick(_, _, elementId)
 		if not elementId or isClosing then
 			return
@@ -811,6 +877,9 @@ function M.new(options)
 				return true
 			elseif char == "r" then
 				handleResetAction()
+				return true
+			elseif char == "e" then
+				editSelectedProjectTime()
 				return true
 			elseif char and char:match("^[1-9]$") then
 				local idx = tonumber(char)

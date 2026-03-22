@@ -109,6 +109,9 @@ function obj:setup(config)
 		onReset = function()
 			timerEngine.reset()
 		end,
+		onSetAccumulated = function(projectId, seconds)
+			timerEngine.setAccumulated(projectId, seconds)
+		end,
 		getState = function()
 			return timerEngine.getState()
 		end,

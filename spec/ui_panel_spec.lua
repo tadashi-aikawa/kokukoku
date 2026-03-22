@@ -140,6 +140,40 @@ describe("ui_panel", function()
 		end))
 	end)
 
+	describe("parseTime", function()
+		it('"01:30:00" を 5400秒に変換', function()
+			assert.are.equal(5400, uiPanel.parseTime("01:30:00"))
+		end)
+
+		it('"00:05:30" を 330秒に変換', function()
+			assert.are.equal(330, uiPanel.parseTime("00:05:30"))
+		end)
+
+		it('"5:30" を 330秒に変換', function()
+			assert.are.equal(330, uiPanel.parseTime("5:30"))
+		end)
+
+		it('"3600" を 3600秒に変換', function()
+			assert.are.equal(3600, uiPanel.parseTime("3600"))
+		end)
+
+		it("空文字はnilを返す", function()
+			assert.is_nil(uiPanel.parseTime(""))
+		end)
+
+		it("nilはnilを返す", function()
+			assert.is_nil(uiPanel.parseTime(nil))
+		end)
+
+		it("不正な文字列はnilを返す", function()
+			assert.is_nil(uiPanel.parseTime("abc"))
+		end)
+
+		it('"00:00:00" を 0秒に変換', function()
+			assert.are.equal(0, uiPanel.parseTime("00:00:00"))
+		end)
+	end)
+
 	it("休憩ボタンは設定したiconと名前を表示する", function()
 		local panel = newPanel({
 			{ id = "proj-a", name = "Project A", icon = "🔵" },

@@ -51,6 +51,8 @@ function M.new(options)
 	local onReset = options.onReset
 	local getState = options.getState
 	local formatTime = loadTimerEngine().formatTime
+	local fontName = options.fontName or ".AppleSystemUIFont"
+	local monoFontName = options.monoFontName or "Menlo"
 
 	local canvas = nil
 	local escTap = nil
@@ -128,7 +130,7 @@ function M.new(options)
 			type = "text",
 			frame = { x = startX + logoSize + logoTextGap, y = 12, w = timeTextWidth, h = 28 },
 			text = timeText,
-			textFont = "Menlo",
+			textFont = monoFontName,
 			textSize = 16,
 			textColor = state.continuousStartedAt and COLORS.text or COLORS.subText,
 		})
@@ -175,7 +177,7 @@ function M.new(options)
 					type = "text",
 					frame = { x = PADDING, y = y + 6, w = 20, h = 24 },
 					text = tostring(i),
-					textFont = "Menlo",
+					textFont = monoFontName,
 					textSize = 12,
 					textColor = COLORS.subText,
 				})
@@ -188,7 +190,7 @@ function M.new(options)
 				type = "text",
 				frame = { x = PADDING + 22, y = y + 6, w = 198, h = 24 },
 				text = displayName,
-				textFont = ".AppleSystemUIFont",
+				textFont = fontName,
 				textSize = 14,
 				textColor = isActive and COLORS.activeText or COLORS.text,
 			})
@@ -198,7 +200,7 @@ function M.new(options)
 				type = "text",
 				frame = { x = 240, y = y + 6, w = 100, h = 24 },
 				text = formatTime(accumulated),
-				textFont = "Menlo",
+				textFont = monoFontName,
 				textSize = 14,
 				textColor = isActive and COLORS.activeText or COLORS.subText,
 				textAlignment = "right",
@@ -210,7 +212,7 @@ function M.new(options)
 					type = "text",
 					frame = { x = 350, y = y + 6, w = 60, h = 24 },
 					text = "▶ 計測中",
-					textFont = ".AppleSystemUIFont",
+					textFont = fontName,
 					textSize = 11,
 					textColor = COLORS.activeText,
 				})
@@ -271,7 +273,7 @@ function M.new(options)
 			type = "text",
 			frame = { x = PADDING, y = footerY + 8, w = 120, h = 24 },
 			text = "0: ☕ 休憩",
-			textFont = ".AppleSystemUIFont",
+			textFont = fontName,
 			textSize = 14,
 			textColor = COLORS.text,
 		})
@@ -295,7 +297,7 @@ function M.new(options)
 			type = "text",
 			frame = { x = PANEL_WIDTH - PADDING - 110, y = footerY + 8, w = 110, h = 24 },
 			text = "r: 🔄 リセット",
-			textFont = ".AppleSystemUIFont",
+			textFont = fontName,
 			textSize = 14,
 			textColor = COLORS.subText,
 			textAlignment = "right",

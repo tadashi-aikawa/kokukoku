@@ -31,14 +31,14 @@ local COLORS = {
 	headerBg = { red = 0.12, green = 0.12, blue = 0.12, alpha = 1 },
 	rowBg = { red = 0.18, green = 0.18, blue = 0.18, alpha = 1 },
 	rowHoverBg = { red = 0.24, green = 0.24, blue = 0.24, alpha = 1 },
-	activeRowBg = { red = 0.1, green = 0.3, blue = 0.15, alpha = 1 },
-	activeRowHoverBg = { red = 0.12, green = 0.35, blue = 0.18, alpha = 1 },
-	switchSuccessBg = { red = 0.1, green = 0.5, blue = 0.25, alpha = 1 },
+	activeRowBg = { red = 0.3, green = 0.24, blue = 0.08, alpha = 1 },
+	activeRowHoverBg = { red = 0.35, green = 0.28, blue = 0.1, alpha = 1 },
+	switchSuccessBg = { red = 0.5, green = 0.4, blue = 0.1, alpha = 1 },
 	footerBg = { red = 0.12, green = 0.12, blue = 0.12, alpha = 1 },
 	footerHoverBg = { red = 0.2, green = 0.2, blue = 0.2, alpha = 1 },
 	text = { red = 0.9, green = 0.9, blue = 0.9, alpha = 1 },
 	subText = { red = 0.6, green = 0.6, blue = 0.6, alpha = 1 },
-	activeText = { red = 0.5, green = 1.0, blue = 0.6, alpha = 1 },
+	activeText = { red = 1.0, green = 0.85, blue = 0.35, alpha = 1 },
 	separator = { red = 0.3, green = 0.3, blue = 0.3, alpha = 1 },
 }
 

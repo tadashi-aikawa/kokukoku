@@ -101,20 +101,29 @@ function M.new(options)
 			fillColor = COLORS.headerBg,
 		})
 
-		-- Header text
-		local headerText = "刻刻"
-		if state.continuousStartedAt then
-			headerText = headerText .. "  連続作業: " .. formatTime(continuousElapsed)
+		-- Header logo
+		local logoPath = resourcePath("kokukoku.webp")
+		local logoImage = hs.image.imageFromPath(logoPath)
+		if logoImage then
+			table.insert(elements, {
+				type = "image",
+				frame = { x = PADDING, y = 8, w = 28, h = 28 },
+				image = logoImage,
+				imageScaling = "shrinkToFit",
+			})
 		end
-		table.insert(elements, {
-			type = "text",
-			frame = { x = PADDING, y = 8, w = PANEL_WIDTH - PADDING * 2, h = 28 },
-			text = headerText,
-			textFont = ".AppleSystemUIFontBold",
-			textSize = 16,
-			textColor = COLORS.text,
-			textAlignment = "center",
-		})
+
+		-- Header text
+		if state.continuousStartedAt then
+			table.insert(elements, {
+				type = "text",
+				frame = { x = PADDING + 34, y = 12, w = PANEL_WIDTH - PADDING * 2 - 34, h = 28 },
+				text = "連続作業: " .. formatTime(continuousElapsed),
+				textFont = ".AppleSystemUIFontBold",
+				textSize = 16,
+				textColor = COLORS.text,
+			})
+		end
 
 		-- Separator after header
 		table.insert(elements, {

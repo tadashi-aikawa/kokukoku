@@ -55,6 +55,7 @@ function M.new(options)
 	local escTap = nil
 	local clickTap = nil
 	local visible = false
+	local selectedIndex = nil
 
 	local nonBreakProjects = {}
 	for _, p in ipairs(projects) do
@@ -63,6 +64,7 @@ function M.new(options)
 		end
 	end
 
+	local totalSelectableItems = #nonBreakProjects + 2 -- プロジェクト + 休憩 + リセット
 	local panelHeight = HEADER_HEIGHT + (#nonBreakProjects * ROW_HEIGHT) + FOOTER_HEIGHT
 
 	local function buildElements()
@@ -126,6 +128,7 @@ function M.new(options)
 		for i, project in ipairs(nonBreakProjects) do
 			local y = HEADER_HEIGHT + (i - 1) * ROW_HEIGHT
 			local isActive = state.activeProjectId == project.id
+			local isSelected = selectedIndex == i
 
 			local accumulated = state.accumulated[project.id] or 0
 			if isActive and state.activeStartedAt then
@@ -133,22 +136,40 @@ function M.new(options)
 			end
 
 			-- Row background
+			local rowColor
+			if isActive then
+				rowColor = isSelected and COLORS.activeRowHoverBg or COLORS.activeRowBg
+			else
+				rowColor = isSelected and COLORS.rowHoverBg or COLORS.rowBg
+			end
 			table.insert(elements, {
 				type = "rectangle",
 				action = "fill",
 				frame = { x = 0, y = y, w = PANEL_WIDTH, h = ROW_HEIGHT },
-				fillColor = isActive and COLORS.activeRowBg or COLORS.rowBg,
+				fillColor = rowColor,
 				trackMouseEnterExit = true,
 				trackMouseDown = true,
 				id = "row_" .. project.id,
 			})
+
+			-- Number indicator
+			if i <= 9 then
+				table.insert(elements, {
+					type = "text",
+					frame = { x = PADDING, y = y + 6, w = 20, h = 24 },
+					text = tostring(i),
+					textFont = "Menlo",
+					textSize = 12,
+					textColor = COLORS.subText,
+				})
+			end
 
 			-- Icon + Project name
 			local icon = project.icon or ""
 			local displayName = icon .. " " .. project.name
 			table.insert(elements, {
 				type = "text",
-				frame = { x = PADDING, y = y + 6, w = 220, h = 24 },
+				frame = { x = PADDING + 22, y = y + 6, w = 198, h = 24 },
 				text = displayName,
 				textFont = ".AppleSystemUIFont",
 				textSize = 14,
@@ -214,12 +235,14 @@ function M.new(options)
 			fillColor = COLORS.footerBg,
 		})
 
+		local isBreakSelected = selectedIndex == #nonBreakProjects + 1
+
 		-- Break button background (for hover)
 		table.insert(elements, {
 			type = "rectangle",
 			action = "fill",
-			frame = { x = PADDING - 4, y = footerY + 4, w = 90, h = 30 },
-			fillColor = COLORS.footerBg,
+			frame = { x = PADDING - 4, y = footerY + 4, w = 100, h = 30 },
+			fillColor = isBreakSelected and COLORS.footerHoverBg or COLORS.footerBg,
 			roundedRectRadii = { xRadius = 6, yRadius = 6 },
 			trackMouseEnterExit = true,
 			trackMouseDown = true,
@@ -230,18 +253,20 @@ function M.new(options)
 		table.insert(elements, {
 			type = "text",
 			frame = { x = PADDING, y = footerY + 8, w = 120, h = 24 },
-			text = "☕ 休憩",
+			text = "0: ☕ 休憩",
 			textFont = ".AppleSystemUIFont",
 			textSize = 14,
 			textColor = COLORS.text,
 		})
 
+		local isResetSelected = selectedIndex == #nonBreakProjects + 2
+
 		-- Reset button background (for hover)
 		table.insert(elements, {
 			type = "rectangle",
 			action = "fill",
-			frame = { x = PANEL_WIDTH - PADDING - 104, y = footerY + 4, w = 108, h = 30 },
-			fillColor = COLORS.footerBg,
+			frame = { x = PANEL_WIDTH - PADDING - 114, y = footerY + 4, w = 118, h = 30 },
+			fillColor = isResetSelected and COLORS.footerHoverBg or COLORS.footerBg,
 			roundedRectRadii = { xRadius = 6, yRadius = 6 },
 			trackMouseEnterExit = true,
 			trackMouseDown = true,
@@ -251,8 +276,8 @@ function M.new(options)
 		-- Reset button text
 		table.insert(elements, {
 			type = "text",
-			frame = { x = PANEL_WIDTH - PADDING - 100, y = footerY + 8, w = 100, h = 24 },
-			text = "🔄 リセット",
+			frame = { x = PANEL_WIDTH - PADDING - 110, y = footerY + 8, w = 110, h = 24 },
+			text = "r: 🔄 リセット",
 			textFont = ".AppleSystemUIFont",
 			textSize = 14,
 			textColor = COLORS.subText,
@@ -260,6 +285,18 @@ function M.new(options)
 		})
 
 		return elements
+	end
+
+	local function rebuildPanel()
+		if canvas and visible then
+			local elements = buildElements()
+			while canvas:elementCount() > 0 do
+				canvas:removeElement(1)
+			end
+			for _, element in ipairs(elements) do
+				canvas:appendElements(element)
+			end
+		end
 	end
 
 	local function handleClick(_, _, elementId)
@@ -284,17 +321,7 @@ function M.new(options)
 			end
 		end
 
-		-- Rebuild panel after action
-		if canvas and visible then
-			local elements = buildElements()
-			-- Remove all existing elements and re-add
-			while canvas:elementCount() > 0 do
-				canvas:removeElement(1)
-			end
-			for _, element in ipairs(elements) do
-				canvas:appendElements(element)
-			end
-		end
+		rebuildPanel()
 	end
 
 	local function hide()
@@ -311,6 +338,7 @@ function M.new(options)
 			canvas = nil
 		end
 		visible = false
+		selectedIndex = nil
 	end
 
 	local function findElementIndexById(c, elementId)
@@ -338,9 +366,41 @@ function M.new(options)
 		return hs.screen.mainScreen()
 	end
 
+	local function executeSelectedAction()
+		if not selectedIndex then
+			return
+		end
+		if selectedIndex <= #nonBreakProjects then
+			local project = nonBreakProjects[selectedIndex]
+			if onProjectSelect then
+				onProjectSelect(project.id)
+			end
+		elseif selectedIndex == #nonBreakProjects + 1 then
+			if onBreak then
+				onBreak()
+			end
+		elseif selectedIndex == #nonBreakProjects + 2 then
+			if onReset then
+				onReset()
+			end
+		end
+	end
+
 	local function show()
 		if visible and canvas then
 			return
+		end
+
+		-- カーソル初期位置をアクティブプロジェクトに設定
+		selectedIndex = nil
+		local state = getState()
+		if state.activeProjectId then
+			for i, p in ipairs(nonBreakProjects) do
+				if p.id == state.activeProjectId then
+					selectedIndex = i
+					break
+				end
+			end
 		end
 
 		-- アクティブモニタ(マウスカーソルのあるスクリーン)の中央に表示
@@ -395,12 +455,66 @@ function M.new(options)
 		canvas:show()
 		visible = true
 
-		-- Escapeキーでパネルを閉じる
+		-- キーボード操作 (Escape, 数字キー, j/k, Enter, 0, r)
 		escTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-			if event:getKeyCode() == 53 then -- Escape
+			local keyCode = event:getKeyCode()
+			local char = event:getCharacters()
+
+			if keyCode == 53 then -- Escape
 				hide()
 				return true
+			elseif keyCode == 36 then -- Enter/Return
+				if selectedIndex then
+					executeSelectedAction()
+					rebuildPanel()
+				end
+				return true
+			elseif char == "j" then
+				if selectedIndex == nil then
+					selectedIndex = 1
+				else
+					selectedIndex = selectedIndex + 1
+					if selectedIndex > totalSelectableItems then
+						selectedIndex = 1
+					end
+				end
+				rebuildPanel()
+				return true
+			elseif char == "k" then
+				if selectedIndex == nil then
+					selectedIndex = totalSelectableItems
+				else
+					selectedIndex = selectedIndex - 1
+					if selectedIndex < 1 then
+						selectedIndex = totalSelectableItems
+					end
+				end
+				rebuildPanel()
+				return true
+			elseif char == "0" then
+				if onBreak then
+					onBreak()
+				end
+				rebuildPanel()
+				return true
+			elseif char == "r" then
+				if onReset then
+					onReset()
+				end
+				rebuildPanel()
+				return true
+			elseif char and char:match("^[1-9]$") then
+				local idx = tonumber(char)
+				if idx <= #nonBreakProjects then
+					local project = nonBreakProjects[idx]
+					if onProjectSelect then
+						onProjectSelect(project.id)
+					end
+					rebuildPanel()
+				end
+				return true
 			end
+
 			return false
 		end)
 		escTap:start()
@@ -432,17 +546,7 @@ function M.new(options)
 	end
 
 	local function update(_)
-		if not visible or not canvas then
-			return
-		end
-
-		local elements = buildElements()
-		while canvas:elementCount() > 0 do
-			canvas:removeElement(1)
-		end
-		for _, element in ipairs(elements) do
-			canvas:appendElements(element)
-		end
+		rebuildPanel()
 	end
 
 	local function teardown()

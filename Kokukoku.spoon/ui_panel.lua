@@ -137,6 +137,7 @@ function M.new(options)
 	local clickTap = nil
 	local visible = false
 	local selectedIndex = nil
+	local hoveredId = nil
 	local isClosing = false
 	local resetConfirming = false
 	local feedbackDelayTimer = nil
@@ -288,7 +289,8 @@ function M.new(options)
 		for i, project in ipairs(nonBreakProjects) do
 			local y = HEADER_HEIGHT + (i - 1) * ROW_HEIGHT
 			local isActive = state.activeProjectId == project.id
-			local isSelected = selectedIndex == i
+			local isHovered = hoveredId == "row_" .. project.id
+			local isSelected = selectedIndex == i or isHovered
 
 			local accumulated = state.accumulated[project.id] or 0
 			if isActive and state.activeStartedAt then
@@ -440,7 +442,7 @@ function M.new(options)
 			fillColor = COLORS.footerBg,
 		})
 
-		local isBreakSelected = selectedIndex == #nonBreakProjects + 1
+		local isBreakSelected = selectedIndex == #nonBreakProjects + 1 or hoveredId == "btn_break"
 		local breakConfig = breakProject or { name = "休憩", icon = "☕" }
 		local breakName = breakConfig.name or "休憩"
 		local breakIcon = breakConfig.icon or ""
@@ -504,7 +506,7 @@ function M.new(options)
 			textColor = COLORS.text,
 		})
 
-		local isResetSelected = selectedIndex == #nonBreakProjects + 2
+		local isResetSelected = selectedIndex == #nonBreakProjects + 2 or hoveredId == "btn_reset"
 
 		-- Reset button background (for hover)
 		local resetBgColor
@@ -565,6 +567,7 @@ function M.new(options)
 		end
 		visible = false
 		selectedIndex = nil
+		hoveredId = nil
 		isClosing = false
 		resetConfirming = false
 	end
@@ -798,6 +801,7 @@ function M.new(options)
 			if msg == "mouseDown" then
 				handleClick(nil, msg, id)
 			elseif msg == "mouseEnter" then
+				hoveredId = id
 				if type(id) == "string" and canvas then
 					local idx = findElementIndexById(canvas, id)
 					if idx then
@@ -816,6 +820,7 @@ function M.new(options)
 					end
 				end
 			elseif msg == "mouseExit" then
+				hoveredId = nil
 				if type(id) == "string" and canvas then
 					local idx = findElementIndexById(canvas, id)
 					if idx then

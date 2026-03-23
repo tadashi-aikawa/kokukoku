@@ -154,7 +154,6 @@ function M.new(options)
 		end
 	end
 
-	local totalSelectableItems = #nonBreakProjects + 2 -- プロジェクト + 休憩 + リセット
 	local panelHeight = HEADER_HEIGHT + (#nonBreakProjects * ROW_HEIGHT) + FOOTER_HEIGHT
 
 	local function cacheImage(key, image)
@@ -858,7 +857,7 @@ function M.new(options)
 					selectedIndex = 1
 				else
 					selectedIndex = selectedIndex + 1
-					if selectedIndex > totalSelectableItems then
+					if selectedIndex > #nonBreakProjects then
 						selectedIndex = 1
 					end
 				end
@@ -866,11 +865,11 @@ function M.new(options)
 				return true
 			elseif char == "k" or keyCode == 126 then -- 126 = Up arrow
 				if selectedIndex == nil then
-					selectedIndex = totalSelectableItems
+					selectedIndex = #nonBreakProjects
 				else
 					selectedIndex = selectedIndex - 1
 					if selectedIndex < 1 then
-						selectedIndex = totalSelectableItems
+						selectedIndex = #nonBreakProjects
 					end
 				end
 				rebuildPanel()

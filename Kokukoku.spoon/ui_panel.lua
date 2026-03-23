@@ -669,6 +669,13 @@ function M.new(options)
 		rebuildPanel()
 	end
 
+	local function activateHammerspoon()
+		local app = hs.application.get("Hammerspoon")
+		if app then
+			app:activate()
+		end
+	end
+
 	local function editSelectedProjectTime()
 		if not selectedIndex or selectedIndex > #nonBreakProjects then
 			return
@@ -686,6 +693,8 @@ function M.new(options)
 		if escTap then
 			escTap:stop()
 		end
+
+		activateHammerspoon()
 
 		local button, input = hs.dialog.textPrompt(
 			project.name .. " の時間を編集",
@@ -721,6 +730,8 @@ function M.new(options)
 		if escTap then
 			escTap:stop()
 		end
+
+		activateHammerspoon()
 
 		local button, input = hs.dialog.textPrompt(
 			"連続稼働時間を編集",

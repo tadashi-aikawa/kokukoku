@@ -343,6 +343,13 @@ function M.new()
 				},
 			},
 		},
+		application = {
+			get = function(_)
+				return {
+					activate = function() end,
+				}
+			end,
+		},
 		dialog = {
 			textPrompt = function(title, message, defaultValue, ok, cancel)
 				table.insert(state.dialog.prompts, {

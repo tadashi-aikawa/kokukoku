@@ -4,9 +4,25 @@ local DEFAULTS = {
 	path = os.getenv("HOME") .. "/.kokukoku/state.json",
 }
 
+local function expandHomePath(path)
+	if type(path) ~= "string" then
+		return path
+	end
+	if path:sub(1, 2) ~= "~/" then
+		return path
+	end
+
+	local home = os.getenv("HOME")
+	if not home or home == "" then
+		return path
+	end
+
+	return home .. path:sub(2)
+end
+
 function M.new(options)
 	options = options or {}
-	local filePath = options.path or DEFAULTS.path
+	local filePath = expandHomePath(options.path or DEFAULTS.path)
 
 	local function ensureDir()
 		local dir = filePath:match("(.+)/[^/]+$")

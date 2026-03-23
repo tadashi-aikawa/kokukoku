@@ -112,6 +112,9 @@ function obj:setup(config)
 		onSetAccumulated = function(projectId, seconds)
 			timerEngine.setAccumulated(projectId, seconds)
 		end,
+		onSetContinuous = function(seconds)
+			timerEngine.setContinuousElapsed(seconds)
+		end,
 		getState = function()
 			return timerEngine.getState()
 		end,

@@ -127,6 +127,8 @@ function M.new(options)
 	local onBreak = options.onBreak
 	local onReset = options.onReset
 	local onSetAccumulated = options.onSetAccumulated
+	local onSetContinuous = options.onSetContinuous
+	local editContinuousKey = options.editContinuousKey or "E"
 	local getState = options.getState
 	local formatTime = loadTimerEngine().formatTime
 	local fontName = options.fontName or ".AppleSystemUIFont"
@@ -707,6 +709,41 @@ function M.new(options)
 		rebuildPanel()
 	end
 
+	local function editContinuousTime()
+		local stateData = getState()
+		if not stateData.continuousStartedAt then
+			return
+		end
+
+		local continuousElapsed = os.time() - stateData.continuousStartedAt
+		local currentTimeStr = formatTime(continuousElapsed)
+
+		if escTap then
+			escTap:stop()
+		end
+
+		local button, input = hs.dialog.textPrompt(
+			"連続稼働時間を編集",
+			"HH:MM:SS 形式で入力してください",
+			currentTimeStr,
+			"OK",
+			"キャンセル"
+		)
+
+		if escTap then
+			escTap:start()
+		end
+
+		if button == "OK" then
+			local seconds = parseTime(input)
+			if seconds and seconds >= 0 and onSetContinuous then
+				onSetContinuous(seconds)
+			end
+		end
+
+		rebuildPanel()
+	end
+
 	local function handleClick(_, _, elementId)
 		if not elementId or isClosing then
 			return
@@ -891,6 +928,9 @@ function M.new(options)
 				return true
 			elseif char == "e" then
 				editSelectedProjectTime()
+				return true
+			elseif char == editContinuousKey then
+				editContinuousTime()
 				return true
 			elseif char and char:match("^[1-9]$") then
 				local idx = tonumber(char)

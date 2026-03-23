@@ -164,6 +164,20 @@ function M.new(options)
 		return true
 	end
 
+	local function setContinuousElapsed(seconds)
+		if not state.continuousStartedAt then
+			return false
+		end
+		if type(seconds) ~= "number" or seconds < 0 then
+			return false
+		end
+		seconds = math.floor(seconds)
+
+		state.continuousStartedAt = os.time() - seconds
+		notifyStateChange()
+		return true
+	end
+
 	local function getState()
 		return state
 	end
@@ -216,6 +230,7 @@ function M.new(options)
 		startBreak = startBreak,
 		reset = reset,
 		setAccumulated = setAccumulated,
+		setContinuousElapsed = setContinuousElapsed,
 		getState = getState,
 		getSnapshot = getSnapshot,
 		teardown = teardown,

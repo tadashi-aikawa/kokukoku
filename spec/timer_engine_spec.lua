@@ -249,6 +249,69 @@ describe("timer_engine", function()
 		end)
 	end)
 
+	describe("setContinuousElapsed", function()
+		it("連続稼働中に時間を設定できる", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.startProject("proj-a")
+			local result = engine.setContinuousElapsed(3600)
+			assert.is_true(result)
+			local state = engine.getState()
+			assert.is_true(math.abs((os.time() - state.continuousStartedAt) - 3600) <= 1)
+		end)
+
+		it("稼働していない場合はfalseを返す", function()
+			local engine = timerEngine.new({ projects = projects })
+			local result = engine.setContinuousElapsed(100)
+			assert.is_false(result)
+		end)
+
+		it("負の値ではfalseを返す", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.startProject("proj-a")
+			local result = engine.setContinuousElapsed(-1)
+			assert.is_false(result)
+		end)
+
+		it("小数は切り捨てられる", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.startProject("proj-a")
+			engine.setContinuousElapsed(3661.7)
+			local state = engine.getState()
+			assert.is_true(math.abs((os.time() - state.continuousStartedAt) - 3661) <= 1)
+		end)
+
+		it("onStateChangeコールバックが呼ばれる", function()
+			local called = false
+			local engine = timerEngine.new({
+				projects = projects,
+				onStateChange = function()
+					called = true
+				end,
+			})
+			engine.startProject("proj-a")
+			called = false
+			engine.setContinuousElapsed(1000)
+			assert.is_true(called)
+		end)
+
+		it("0秒に設定できる", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.startProject("proj-a")
+			local result = engine.setContinuousElapsed(0)
+			assert.is_true(result)
+			local state = engine.getState()
+			assert.is_true(math.abs(os.time() - state.continuousStartedAt) <= 1)
+		end)
+
+		it("休憩で停止後はfalseを返す", function()
+			local engine = timerEngine.new({ projects = projects })
+			engine.startProject("proj-a")
+			engine.startBreak()
+			local result = engine.setContinuousElapsed(100)
+			assert.is_false(result)
+		end)
+	end)
+
 	describe("teardown", function()
 		it("タイマーを停止する", function()
 			local engine = timerEngine.new({ projects = projects })

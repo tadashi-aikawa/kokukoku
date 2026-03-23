@@ -24,7 +24,7 @@
 - **UI Panel**: Show a panel at the center of the screen where the mouse cursor is, to select projects and view elapsed time
 - **Alert**: Send macOS notifications when continuous work time exceeds configured thresholds
 - **Persistence**: Save timer state to JSON so it survives restarts
-- **Keyboard Shortcuts**: Select projects by number keys, navigate with j/k or arrow keys, break with 0, reset with r
+- **Keyboard Shortcuts**: Select projects by number keys, navigate with j/k or arrow keys, break with 0, confirm reset with r
 - **Customization**: Configure project icons (emoji, URL, or file path), names, and fonts
 
 ## Setup
@@ -183,7 +183,7 @@ Complete sample including all options (default values):
   alert = {
     continuousWork = {
       thresholds = {},                              -- Alert thresholds in seconds (e.g. { 1500, 3000 })
-      message = "%d minutes have passed. Let's take a break!", -- Message template (%d = minutes)
+      message = "%d分経過しました。休憩しましょう", -- Message template (%d = minutes)
     },
   },
 
@@ -219,7 +219,7 @@ These shortcuts are available while the panel is open:
 | `Enter` | Execute selected action |
 | `0` | Break |
 | `e` | Edit accumulated time of selected project |
-| `r` | Reset all timers |
+| `r` | Enter reset confirmation; press again to reset all timers |
 | `Escape` | Close panel |
 
 ## Development

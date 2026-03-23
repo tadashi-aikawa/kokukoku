@@ -378,7 +378,12 @@ function M.new(options)
 			local accumulatedHeight = measureTextHeight(accumulatedText, monoFontName, 14)
 			table.insert(elements, {
 				type = "text",
-				frame = { x = 240, y = y + centeredOffset(ROW_HEIGHT, accumulatedHeight), w = 100, h = accumulatedHeight },
+				frame = {
+					x = 240,
+					y = y + centeredOffset(ROW_HEIGHT, accumulatedHeight),
+					w = 100,
+					h = accumulatedHeight,
+				},
 				text = accumulatedText,
 				textFont = monoFontName,
 				textSize = 14,
@@ -447,7 +452,7 @@ function M.new(options)
 		table.insert(elements, {
 			type = "rectangle",
 			action = "fill",
-			frame = { x = PADDING - 4, y = footerY + 4, w = 132, h = 30 },
+			frame = { x = PADDING - 4, y = footerY + 4, w = 108, h = 30 },
 			fillColor = isBreakSelected and COLORS.footerHoverBg or COLORS.footerBg,
 			roundedRectRadii = { xRadius = 6, yRadius = 6 },
 			trackMouseEnterExit = true,
@@ -456,21 +461,13 @@ function M.new(options)
 		})
 
 		-- Break button content
-		table.insert(elements, {
-			type = "text",
-			frame = { x = PADDING, y = footerY + centeredOffset(30, breakTextHeight), w = 24, h = breakTextHeight },
-			text = "0:",
-			textFont = monoFontName,
-			textSize = 14,
-			textColor = COLORS.text,
-		})
-		local breakIconX = PADDING + 24
+		local breakIconX = PADDING
 		if breakIconImage then
 			table.insert(elements, {
 				type = "image",
 				frame = {
 					x = breakIconX + math.floor((ICON_SLOT_WIDTH - ICON_IMAGE_SIZE) / 2),
-					y = footerY + 5 + centeredOffset(24, ICON_IMAGE_SIZE),
+					y = footerY + 4 + centeredOffset(30, ICON_IMAGE_SIZE),
 					w = ICON_IMAGE_SIZE,
 					h = ICON_IMAGE_SIZE,
 				},
@@ -483,7 +480,7 @@ function M.new(options)
 				type = "text",
 				frame = {
 					x = breakIconX,
-					y = footerY + 5 + centeredOffset(24, breakIconHeight),
+					y = footerY + 4 + centeredOffset(30, breakIconHeight),
 					w = ICON_SLOT_WIDTH,
 					h = breakIconHeight,
 				},
@@ -496,7 +493,12 @@ function M.new(options)
 		end
 		table.insert(elements, {
 			type = "text",
-			frame = { x = breakIconX + ICON_SLOT_WIDTH + ICON_GAP, y = footerY + centeredOffset(30, breakTextHeight), w = 72, h = breakTextHeight },
+			frame = {
+				x = breakIconX + ICON_SLOT_WIDTH + ICON_GAP,
+				y = footerY + 4 + centeredOffset(30, breakTextHeight),
+				w = 72,
+				h = breakTextHeight,
+			},
 			text = breakName,
 			textFont = fontName,
 			textSize = 14,
@@ -526,10 +528,11 @@ function M.new(options)
 		})
 
 		-- Reset button text
-		local resetText = resetConfirming and "r: ⚠️ 本当に?" or "r: 🔄 リセット"
+		local resetText = resetConfirming and "⚠️ 本当に?" or "🔄 リセット"
+		local resetTextHeight = measureTextHeight(resetText, fontName, 14)
 		table.insert(elements, {
 			type = "text",
-			frame = { x = PANEL_WIDTH - PADDING - 110, y = footerY + 8, w = 110, h = 24 },
+			frame = { x = PANEL_WIDTH - PADDING - 110, y = footerY + 4 + centeredOffset(30, resetTextHeight), w = 110, h = resetTextHeight },
 			text = resetText,
 			textFont = fontName,
 			textSize = 14,
@@ -803,7 +806,11 @@ function M.new(options)
 							local projectId = id:sub(5)
 							local state = getState()
 							local isActive = state.activeProjectId == projectId
-							canvas:elementAttribute(idx, "fillColor", isActive and COLORS.activeRowHoverBg or COLORS.rowHoverBg)
+							canvas:elementAttribute(
+								idx,
+								"fillColor",
+								isActive and COLORS.activeRowHoverBg or COLORS.rowHoverBg
+							)
 						elseif id == "btn_break" or id == "btn_reset" then
 							canvas:elementAttribute(idx, "fillColor", COLORS.footerHoverBg)
 						end

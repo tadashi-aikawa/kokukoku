@@ -184,16 +184,13 @@ describe("ui_panel", function()
 
 		local elements = mock.state.canvases[1].elements
 		assert.is_not_nil(findElement(elements, function(element)
-			return element.type == "text" and element.text == "0:"
-		end))
-		assert.is_not_nil(findElement(elements, function(element)
 			return element.type == "text" and element.text == "🫖"
 		end))
 		assert.is_not_nil(findElement(elements, function(element)
 			return element.type == "text" and element.text == "深呼吸"
 		end))
 		assert.is_nil(findElement(elements, function(element)
-			return element.type == "text" and element.text == "0: ☕ 休憩"
+			return element.type == "text" and element.text == "☕ 休憩"
 		end))
 	end)
 end)

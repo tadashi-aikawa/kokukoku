@@ -24,6 +24,7 @@
 - **UI Panel**: Show a panel at the center of the screen where the mouse cursor is, to select projects and view elapsed time
 - **Alert**: Send macOS notifications when continuous work time exceeds configured thresholds
 - **Persistence**: Save timer state to JSON so it survives restarts
+- **Clipboard Copy**: Copy measurement results as bulleted text to clipboard
 - **Keyboard Shortcuts**: Select projects by number keys, navigate with j/k or arrow keys, break with 0, confirm reset with r
 - **Customization**: Configure project icons (emoji, URL, or file path), names, and fonts
 
@@ -219,6 +220,8 @@ These shortcuts are available while the panel is open:
 | `Enter` | Execute selected action |
 | `0` | Break |
 | `e` | Edit accumulated time of selected project |
+| `E` | Edit continuous work time |
+| `c` | Copy measurement results to clipboard as bulleted text |
 | `r` | Enter reset confirmation; press again to reset all timers |
 | `Escape` | Close panel |
 

@@ -119,6 +119,20 @@ end
 
 M.parseTime = parseTime
 
+function M.buildCopyText(nonBreakProjects, state, formatTimeFn)
+	local lines = {}
+	for _, project in ipairs(nonBreakProjects) do
+		local accumulated = state.accumulated[project.id] or 0
+		if state.activeProjectId == project.id and state.activeStartedAt then
+			accumulated = accumulated + (os.time() - state.activeStartedAt)
+		end
+		if accumulated > 0 then
+			table.insert(lines, "- " .. project.name .. ": " .. formatTimeFn(accumulated))
+		end
+	end
+	return table.concat(lines, "\n")
+end
+
 function M.new(options)
 	options = options or {}
 
@@ -755,6 +769,15 @@ function M.new(options)
 		rebuildPanel()
 	end
 
+	local function copyToClipboard()
+		local text = M.buildCopyText(nonBreakProjects, getState(), formatTime)
+		if text == "" then
+			return
+		end
+		hs.pasteboard.setContents(text)
+		hide()
+	end
+
 	local function handleClick(_, _, elementId)
 		if not elementId or isClosing then
 			return
@@ -939,6 +962,9 @@ function M.new(options)
 				return true
 			elseif char == "e" then
 				editSelectedProjectTime()
+				return true
+			elseif char == "c" then
+				copyToClipboard()
 				return true
 			elseif char == editContinuousKey then
 				editContinuousTime()

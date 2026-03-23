@@ -15,6 +15,9 @@ function M.new()
 			prompts = {},
 			nextResult = { "OK", "" },
 		},
+		pasteboard = {
+			contents = nil,
+		},
 	}
 
 	local hs = {
@@ -360,6 +363,11 @@ function M.new()
 					cancel = cancel,
 				})
 				return state.dialog.nextResult[1], state.dialog.nextResult[2]
+			end,
+		},
+		pasteboard = {
+			setContents = function(text)
+				state.pasteboard.contents = text
 			end,
 		},
 		spoons = {

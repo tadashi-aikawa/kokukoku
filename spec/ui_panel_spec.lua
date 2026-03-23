@@ -174,6 +174,59 @@ describe("ui_panel", function()
 		end)
 	end)
 
+	describe("buildCopyText", function()
+		local formatTime
+
+		before_each(function()
+			formatTime = dofile("./Kokukoku.spoon/timer_engine.lua").formatTime
+		end)
+
+		it("累積時間のあるプロジェクトのみ箇条書きにする", function()
+			local projects = {
+				{ id = "a", name = "ProjectA" },
+				{ id = "b", name = "ProjectB" },
+				{ id = "c", name = "ProjectC" },
+			}
+			local s = {
+				accumulated = { a = 3600, b = 0, c = 1830 },
+				activeProjectId = nil,
+				activeStartedAt = nil,
+			}
+
+			local result = uiPanel.buildCopyText(projects, s, formatTime)
+			assert.are.equal("- ProjectA: 01:00:00\n- ProjectC: 00:30:30", result)
+		end)
+
+		it("全プロジェクトの累積が0なら空文字を返す", function()
+			local projects = {
+				{ id = "a", name = "ProjectA" },
+			}
+			local s = {
+				accumulated = {},
+				activeProjectId = nil,
+				activeStartedAt = nil,
+			}
+
+			local result = uiPanel.buildCopyText(projects, s, formatTime)
+			assert.are.equal("", result)
+		end)
+
+		it("アクティブなプロジェクトの経過時間を含める", function()
+			local now = os.time()
+			local projects = {
+				{ id = "a", name = "ProjectA" },
+			}
+			local s = {
+				accumulated = { a = 3600 },
+				activeProjectId = "a",
+				activeStartedAt = now - 60,
+			}
+
+			local result = uiPanel.buildCopyText(projects, s, formatTime)
+			assert.are.equal("- ProjectA: 01:01:00", result)
+		end)
+	end)
+
 	it("休憩ボタンは設定したiconと名前を表示する", function()
 		local panel = newPanel({
 			{ id = "proj-a", name = "Project A", icon = "🔵" },

@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Kokukoku",
+    "desc": "A Hammerspoon Spoon for tracking time spent on each project.",
+    "author": "tadashi-aikawa",
+    "homepage": "https://github.com/tadashi-aikawa/kokukoku",
+    "license": "MIT - https://github.com/tadashi-aikawa/kokukoku/blob/main/LICENSE",
+    "version": "0.6.0"
+  }
+]

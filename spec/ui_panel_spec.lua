@@ -286,12 +286,6 @@ describe("ui_panel", function()
 	end)
 
 	describe("buildCopyText", function()
-		local formatTime
-
-		before_each(function()
-			formatTime = dofile("./Kokukoku.spoon/timer_engine.lua").formatTime
-		end)
-
 		it("累積時間のあるプロジェクトのみ箇条書きにする", function()
 			local projects = {
 				{ id = "a", name = "ProjectA" },
@@ -304,7 +298,7 @@ describe("ui_panel", function()
 				activeStartedAt = nil,
 			}
 
-			local result = uiPanel.buildCopyText(projects, s, formatTime)
+			local result = uiPanel.buildCopyText(projects, s)
 			assert.are.equal("- ProjectA: 01:00:00\n- ProjectC: 00:30:30", result)
 		end)
 
@@ -318,7 +312,7 @@ describe("ui_panel", function()
 				activeStartedAt = nil,
 			}
 
-			local result = uiPanel.buildCopyText(projects, s, formatTime)
+			local result = uiPanel.buildCopyText(projects, s)
 			assert.are.equal("", result)
 		end)
 
@@ -333,8 +327,52 @@ describe("ui_panel", function()
 				activeStartedAt = now - 60,
 			}
 
-			local result = uiPanel.buildCopyText(projects, s, formatTime)
+			local result = uiPanel.buildCopyText(projects, s)
 			assert.are.equal("- ProjectA: 01:01:00", result)
+		end)
+
+		it("カスタムフォーマットで行が生成される", function()
+			local projects = {
+				{ id = "a", name = "ProjectA" },
+				{ id = "b", name = "ProjectB" },
+			}
+			local s = {
+				accumulated = { a = 3600, b = 1830 },
+				activeProjectId = nil,
+				activeStartedAt = nil,
+			}
+
+			local result = uiPanel.buildCopyText(projects, s, "{name} ({hh}:{mm})")
+			assert.are.equal("ProjectA (01:00)\nProjectB (00:30)", result)
+		end)
+
+		it("カスタム区切り文字で結合される", function()
+			local projects = {
+				{ id = "a", name = "ProjectA" },
+				{ id = "b", name = "ProjectB" },
+			}
+			local s = {
+				accumulated = { a = 3600, b = 1830 },
+				activeProjectId = nil,
+				activeStartedAt = nil,
+			}
+
+			local result = uiPanel.buildCopyText(projects, s, "{name}: {hh}:{mm}", " / ")
+			assert.are.equal("ProjectA: 01:00 / ProjectB: 00:30", result)
+		end)
+
+		it("ゼロ埋めなしプレースホルダーが正しく動作する", function()
+			local projects = {
+				{ id = "a", name = "ProjectA" },
+			}
+			local s = {
+				accumulated = { a = 3665 },
+				activeProjectId = nil,
+				activeStartedAt = nil,
+			}
+
+			local result = uiPanel.buildCopyText(projects, s, "{name}: {h}h{m}m{s}s")
+			assert.are.equal("ProjectA: 1h1m5s", result)
 		end)
 	end)
 

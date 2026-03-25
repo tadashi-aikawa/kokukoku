@@ -140,6 +140,8 @@ spoon.Kokukoku:setup({
     fontName = "HackGen Console NF",
     monoFontName = "HackGen Console NF",
     showVersionByDefault = false,
+    copyTextFormat = "- {name}: {hh}:{mm}",
+    copyTextSeparator = "\n",
   },
   alert = {
     continuousWork = {
@@ -178,9 +180,11 @@ Complete sample including all options (default values):
 
   -- UI settings (optional)
   ui = {
-    fontName = ".AppleSystemUIFont",  -- Font for text (default: system font)
-    monoFontName = "Menlo",           -- Monospace font for time display (default: Menlo)
-    showVersionByDefault = false,     -- Show the version in the header by default
+    fontName = ".AppleSystemUIFont",              -- Font for text (default: system font)
+    monoFontName = "Menlo",                       -- Monospace font for time display (default: Menlo)
+    showVersionByDefault = false,                 -- Show the version in the header by default
+    copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- Line format for clipboard copy (default: "- {name}: {hh}:{mm}:{ss}")
+    copyTextSeparator = "\n",                     -- Line separator for clipboard copy (default: "\n")
   },
 
   -- Alert settings (optional)
@@ -200,6 +204,20 @@ Complete sample including all options (default values):
   tickInterval = 1,
 }
 ```
+
+### Copy Format Placeholders
+
+Placeholders available in `copyTextFormat`:
+
+| Placeholder | Description | Example (for 3665 seconds) |
+|-------------|-------------|---------------------------|
+| `{name}` | Project name | `Work` |
+| `{hh}` | Hours (zero-padded) | `01` |
+| `{mm}` | Minutes (zero-padded) | `01` |
+| `{ss}` | Seconds (zero-padded) | `05` |
+| `{h}` | Hours | `1` |
+| `{m}` | Minutes | `1` |
+| `{s}` | Seconds | `5` |
 
 ### Icon Types
 

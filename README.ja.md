@@ -140,6 +140,8 @@ spoon.Kokukoku:setup({
     fontName = "HackGen Console NF",
     monoFontName = "HackGen Console NF",
     showVersionByDefault = false,
+    copyTextFormat = "- {name}: {hh}:{mm}",
+    copyTextSeparator = "\n",
   },
   alert = {
     continuousWork = {
@@ -178,9 +180,11 @@ spoon.Kokukoku:setup({
 
   -- UI設定（省略可）
   ui = {
-    fontName = ".AppleSystemUIFont",  -- テキスト用フォント（デフォルト: システムフォント）
-    monoFontName = "Menlo",           -- 時間表示用等幅フォント（デフォルト: Menlo）
-    showVersionByDefault = false,     -- ヘッダーのバージョン表示を初期状態で出すか（デフォルト: false）
+    fontName = ".AppleSystemUIFont",              -- テキスト用フォント（デフォルト: システムフォント）
+    monoFontName = "Menlo",                       -- 時間表示用等幅フォント（デフォルト: Menlo）
+    showVersionByDefault = false,                 -- ヘッダーのバージョン表示を初期状態で出すか（デフォルト: false）
+    copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- コピー時の行フォーマット（デフォルト: "- {name}: {hh}:{mm}:{ss}"）
+    copyTextSeparator = "\n",                     -- コピー時の行区切り文字（デフォルト: "\n"）
   },
 
   -- アラート設定（省略可）
@@ -200,6 +204,20 @@ spoon.Kokukoku:setup({
   tickInterval = 1,
 }
 ```
+
+### コピーフォーマットのプレースホルダー
+
+`copyTextFormat` で使用できるプレースホルダー:
+
+| プレースホルダー | 説明 | 例（3665秒の場合） |
+|-----------------|------|-------------------|
+| `{name}` | プロジェクト名 | `Work` |
+| `{hh}` | 時間（ゼロ埋め） | `01` |
+| `{mm}` | 分（ゼロ埋め） | `01` |
+| `{ss}` | 秒（ゼロ埋め） | `05` |
+| `{h}` | 時間 | `1` |
+| `{m}` | 分 | `1` |
+| `{s}` | 秒 | `5` |
 
 ### アイコンの種類
 

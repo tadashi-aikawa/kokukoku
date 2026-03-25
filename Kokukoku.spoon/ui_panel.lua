@@ -127,7 +127,9 @@ local function currentContinuousElapsed(state)
 	return elapsed
 end
 
-function M.buildCopyText(nonBreakProjects, state, formatTimeFn)
+function M.buildCopyText(nonBreakProjects, state, lineFormat, separator)
+	lineFormat = lineFormat or "- {name}: {hh}:{mm}:{ss}"
+	separator = separator or "\n"
 	local lines = {}
 	for _, project in ipairs(nonBreakProjects) do
 		local accumulated = state.accumulated[project.id] or 0
@@ -135,10 +137,22 @@ function M.buildCopyText(nonBreakProjects, state, formatTimeFn)
 			accumulated = accumulated + (os.time() - state.activeStartedAt)
 		end
 		if accumulated > 0 then
-			table.insert(lines, "- " .. project.name .. ": " .. formatTimeFn(accumulated))
+			local h = math.floor(accumulated / 3600)
+			local m = math.floor((accumulated % 3600) / 60)
+			local s = accumulated % 60
+			local replacements = {
+				["{name}"] = project.name,
+				["{hh}"] = string.format("%02d", h),
+				["{mm}"] = string.format("%02d", m),
+				["{ss}"] = string.format("%02d", s),
+				["{h}"] = tostring(h),
+				["{m}"] = tostring(m),
+				["{s}"] = tostring(s),
+			}
+			table.insert(lines, (lineFormat:gsub("{%w+}", replacements)))
 		end
 	end
-	return table.concat(lines, "\n")
+	return table.concat(lines, separator)
 end
 
 function M.new(options)
@@ -157,6 +171,8 @@ function M.new(options)
 	local formatTime = loadTimerEngine().formatTime
 	local fontName = options.fontName or ".AppleSystemUIFont"
 	local monoFontName = options.monoFontName or "Menlo"
+	local copyTextFormat = options.copyTextFormat or "- {name}: {hh}:{mm}:{ss}"
+	local copyTextSeparator = options.copyTextSeparator or "\n"
 
 	local canvas = nil
 	local escTap = nil
@@ -787,7 +803,7 @@ function M.new(options)
 	end
 
 	local function copyToClipboard()
-		local text = M.buildCopyText(nonBreakProjects, getState(), formatTime)
+		local text = M.buildCopyText(nonBreakProjects, getState(), copyTextFormat, copyTextSeparator)
 		if text == "" then
 			return
 		end

@@ -17,12 +17,12 @@ function M.new(options)
 	local notifiedThresholds = {}
 
 	local function check(state)
-		if not state.continuousStartedAt then
+		if not state.activeProjectId or not state.continuousStartedAt then
 			notifiedThresholds = {}
 			return
 		end
 
-		local elapsed = os.time() - state.continuousStartedAt
+		local elapsed = (state.continuousElapsedBase or 0) + (os.time() - state.continuousStartedAt)
 
 		for _, threshold in ipairs(thresholds) do
 			if elapsed >= threshold and not notifiedThresholds[threshold] then

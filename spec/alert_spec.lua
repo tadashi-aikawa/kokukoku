@@ -24,6 +24,8 @@ describe("alert", function()
 			})
 
 			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
 				continuousStartedAt = os.time() - 15,
 			})
 
@@ -39,6 +41,8 @@ describe("alert", function()
 			})
 
 			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
 				continuousStartedAt = os.time() - 10,
 			})
 
@@ -53,7 +57,11 @@ describe("alert", function()
 				},
 			})
 
-			local state = { continuousStartedAt = os.time() - 15 }
+			local state = {
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
+				continuousStartedAt = os.time() - 15,
+			}
 			alert.check(state)
 			alert.check(state)
 
@@ -68,14 +76,26 @@ describe("alert", function()
 				},
 			})
 
-			alert.check({ continuousStartedAt = os.time() - 15 })
+			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
+				continuousStartedAt = os.time() - 15,
+			})
 			assert.are.equal(1, #mock.state.notifications)
 
-			-- 休憩（continuousStartedAt = nil）
-			alert.check({ continuousStartedAt = nil })
+			-- 休憩（activeProjectId = nil）
+			alert.check({
+				activeProjectId = nil,
+				continuousElapsedBase = 0,
+				continuousStartedAt = nil,
+			})
 
 			-- 再開後に再度通知される
-			alert.check({ continuousStartedAt = os.time() - 15 })
+			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
+				continuousStartedAt = os.time() - 15,
+			})
 			assert.are.equal(2, #mock.state.notifications)
 		end)
 
@@ -87,8 +107,29 @@ describe("alert", function()
 				},
 			})
 
-			alert.check({ continuousStartedAt = os.time() - 25 })
+			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
+				continuousStartedAt = os.time() - 25,
+			})
 			assert.are.equal(2, #mock.state.notifications)
+		end)
+
+		it("継続時間の基準秒数を加味して通知する", function()
+			local alert = alertModule.new({
+				continuousWork = {
+					thresholds = { 600 },
+					message = "%d分経過",
+				},
+			})
+
+			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 590,
+				continuousStartedAt = os.time() - 15,
+			})
+
+			assert.are.equal(1, #mock.state.notifications)
 		end)
 	end)
 
@@ -101,9 +142,17 @@ describe("alert", function()
 				},
 			})
 
-			alert.check({ continuousStartedAt = os.time() - 15 })
+			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
+				continuousStartedAt = os.time() - 15,
+			})
 			alert.resetNotifications()
-			alert.check({ continuousStartedAt = os.time() - 15 })
+			alert.check({
+				activeProjectId = "proj-a",
+				continuousElapsedBase = 0,
+				continuousStartedAt = os.time() - 15,
+			})
 
 			assert.are.equal(2, #mock.state.notifications)
 		end)

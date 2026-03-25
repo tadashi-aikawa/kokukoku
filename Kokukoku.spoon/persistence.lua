@@ -38,6 +38,7 @@ function M.new(options)
 			accumulated = state.accumulated,
 			activeProjectId = state.activeProjectId,
 			activeStartedAt = state.activeStartedAt,
+			continuousElapsedBase = state.continuousElapsedBase,
 			continuousStartedAt = state.continuousStartedAt,
 			lastResetAt = state.lastResetAt,
 		}

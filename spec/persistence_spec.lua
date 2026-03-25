@@ -27,6 +27,7 @@ describe("persistence", function()
 				accumulated = { ["proj-a"] = 3600 },
 				activeProjectId = "proj-a",
 				activeStartedAt = 1000000,
+				continuousElapsedBase = 120,
 				continuousStartedAt = 999000,
 				lastResetAt = 990000,
 			}
@@ -38,6 +39,7 @@ describe("persistence", function()
 			assert.are.equal(3600, loaded.accumulated["proj-a"])
 			assert.are.equal("proj-a", loaded.activeProjectId)
 			assert.are.equal(1000000, loaded.activeStartedAt)
+			assert.are.equal(120, loaded.continuousElapsedBase)
 			assert.are.equal(999000, loaded.continuousStartedAt)
 			assert.are.equal(990000, loaded.lastResetAt)
 		end)
@@ -54,6 +56,7 @@ describe("persistence", function()
 				accumulated = {},
 				activeProjectId = nil,
 				activeStartedAt = nil,
+				continuousElapsedBase = 0,
 				continuousStartedAt = nil,
 				lastResetAt = 990000,
 			}
@@ -72,6 +75,7 @@ describe("persistence", function()
 				accumulated = { ["proj-a"] = 1800 },
 				activeProjectId = nil,
 				activeStartedAt = nil,
+				continuousElapsedBase = 0,
 				continuousStartedAt = nil,
 				lastResetAt = 990000,
 			}

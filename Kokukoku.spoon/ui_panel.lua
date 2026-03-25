@@ -119,6 +119,14 @@ end
 
 M.parseTime = parseTime
 
+local function currentContinuousElapsed(state)
+	local elapsed = state.continuousElapsedBase or 0
+	if state.continuousStartedAt then
+		elapsed = elapsed + (os.time() - state.continuousStartedAt)
+	end
+	return elapsed
+end
+
 function M.buildCopyText(nonBreakProjects, state, formatTimeFn)
 	local lines = {}
 	for _, project in ipairs(nonBreakProjects) do
@@ -234,11 +242,7 @@ function M.new(options)
 	local function buildElements()
 		local state = getState()
 		local elements = {}
-
-		local continuousElapsed = 0
-		if state.continuousStartedAt then
-			continuousElapsed = os.time() - state.continuousStartedAt
-		end
+		local continuousElapsed = currentContinuousElapsed(state)
 
 		-- Background
 		table.insert(elements, {
@@ -283,7 +287,7 @@ function M.new(options)
 			})
 		end
 
-		local timeText = state.continuousStartedAt and formatTime(continuousElapsed) or "--:--:--"
+		local timeText = formatTime(continuousElapsed)
 		table.insert(elements, {
 			type = "text",
 			frame = { x = startX + logoSize + logoTextGap, y = 12, w = timeTextWidth, h = 28 },
@@ -734,11 +738,7 @@ function M.new(options)
 
 	local function editContinuousTime()
 		local stateData = getState()
-		if not stateData.continuousStartedAt then
-			return
-		end
-
-		local continuousElapsed = os.time() - stateData.continuousStartedAt
+		local continuousElapsed = currentContinuousElapsed(stateData)
 		local currentTimeStr = formatTime(continuousElapsed)
 
 		if escTap then

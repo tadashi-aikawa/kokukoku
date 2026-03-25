@@ -46,6 +46,7 @@ function M.new(options)
 		accumulated = {},
 		activeProjectId = nil,
 		activeStartedAt = nil,
+		continuousElapsedBase = 0,
 		continuousStartedAt = nil,
 		lastResetAt = os.time(),
 	}
@@ -62,6 +63,9 @@ function M.new(options)
 		end
 		if init.activeStartedAt then
 			state.activeStartedAt = init.activeStartedAt
+		end
+		if type(init.continuousElapsedBase) == "number" and init.continuousElapsedBase >= 0 then
+			state.continuousElapsedBase = math.floor(init.continuousElapsedBase)
 		end
 		if init.continuousStartedAt then
 			state.continuousStartedAt = init.continuousStartedAt
@@ -81,10 +85,11 @@ function M.new(options)
 	end
 
 	local function currentContinuousElapsed()
+		local base = state.continuousElapsedBase or 0
 		if state.continuousStartedAt then
-			return os.time() - state.continuousStartedAt
+			return base + (os.time() - state.continuousStartedAt)
 		end
-		return 0
+		return base
 	end
 
 	local function accumulatedFor(projectId)
@@ -119,6 +124,7 @@ function M.new(options)
 		finalizeActive()
 
 		if project.isBreak then
+			state.continuousElapsedBase = 0
 			state.continuousStartedAt = nil
 		else
 			state.activeProjectId = projectId
@@ -133,6 +139,7 @@ function M.new(options)
 
 	local function startBreak()
 		finalizeActive()
+		state.continuousElapsedBase = 0
 		state.continuousStartedAt = nil
 		notifyStateChange()
 	end
@@ -140,6 +147,7 @@ function M.new(options)
 	local function reset()
 		finalizeActive()
 		state.accumulated = {}
+		state.continuousElapsedBase = 0
 		state.continuousStartedAt = nil
 		state.lastResetAt = os.time()
 		notifyStateChange()
@@ -165,15 +173,17 @@ function M.new(options)
 	end
 
 	local function setContinuousElapsed(seconds)
-		if not state.continuousStartedAt then
-			return false
-		end
 		if type(seconds) ~= "number" or seconds < 0 then
 			return false
 		end
 		seconds = math.floor(seconds)
 
-		state.continuousStartedAt = os.time() - seconds
+		state.continuousElapsedBase = seconds
+		if state.activeProjectId and state.activeStartedAt then
+			state.continuousStartedAt = os.time()
+		else
+			state.continuousStartedAt = nil
+		end
 		notifyStateChange()
 		return true
 	end

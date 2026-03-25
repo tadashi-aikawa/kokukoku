@@ -21,6 +21,7 @@ describe("ui_panel", function()
 			accumulated = {},
 			activeProjectId = nil,
 			activeStartedAt = nil,
+			continuousElapsedBase = 0,
 			continuousStartedAt = nil,
 		}
 		uiPanel = dofile("./Kokukoku.spoon/ui_panel.lua")
@@ -137,6 +138,33 @@ describe("ui_panel", function()
 		end))
 		assert.is_nil(findElement(elements, function(element)
 			return element.type == "text" and element.text == "https://example.com/missing.png"
+		end))
+	end)
+
+	it("初期待機状態でもヘッダーに00:00:00を表示する", function()
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = "🔵" },
+		})
+
+		panel.show()
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "00:00:00"
+		end))
+	end)
+
+	it("停止中は基準継続時間をヘッダーに表示する", function()
+		state.continuousElapsedBase = 600
+		local panel = newPanel({
+			{ id = "proj-a", name = "Project A", icon = "🔵" },
+		})
+
+		panel.show()
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "00:10:00"
 		end))
 	end)
 

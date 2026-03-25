@@ -22,6 +22,7 @@
 
 - **Timer**: Track time spent on each project individually
 - **UI Panel**: Show a panel at the center of the screen where the mouse cursor is, to select projects and view elapsed time
+- **Continuous Timer**: Always display continuous work time as `HH:MM:SS`; idle, break, and reset states show `00:00:00`
 - **Alert**: Send macOS notifications when continuous work time exceeds configured thresholds
 - **Persistence**: Save timer state to JSON so it survives restarts
 - **Clipboard Copy**: Copy measurement results as bulleted text to clipboard
@@ -220,10 +221,12 @@ These shortcuts are available while the panel is open:
 | `Enter` | Execute selected action |
 | `0` | Break |
 | `e` | Edit accumulated time of selected project |
-| `E` | Edit continuous work time |
+| `E` | Edit continuous work time, even while idle or on break |
 | `c` | Copy measurement results to clipboard as bulleted text |
 | `r` | Enter reset confirmation; press again to reset all timers |
 | `Escape` | Close panel |
+
+Breaking resets the continuous work timer to `00:00:00`. If you edit that value while idle or on break, the edited value is used when you start the next project.
 
 ## Development
 

@@ -5,6 +5,7 @@ function M.new()
 		timers = {},
 		notifications = {},
 		canvases = {},
+		eventtaps = {},
 		image = {
 			pathRequests = {},
 			pathResults = {},
@@ -326,6 +327,7 @@ function M.new()
 		eventtap = {
 			new = function(types, fn)
 				local tap = {
+					types = types,
 					callback = fn,
 					running = false,
 				}
@@ -337,6 +339,7 @@ function M.new()
 					self.running = false
 					return self
 				end
+				table.insert(state.eventtaps, tap)
 				return tap
 			end,
 			event = {

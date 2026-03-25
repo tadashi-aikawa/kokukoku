@@ -40,6 +40,89 @@ describe("ui_panel", function()
 		})
 	end
 
+	local function keyEvent(char, keyCode)
+		return {
+			getCharacters = function()
+				return char
+			end,
+			getKeyCode = function()
+				return keyCode or 0
+			end,
+		}
+	end
+
+	it("showVersionByDefault=trueならヘッダー右上に控えめなバージョンを表示する", function()
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+			},
+			versionText = "v0.5.0",
+			showVersionByDefault = true,
+			getState = function()
+				return state
+			end,
+		})
+
+		panel.show()
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_not_nil(findElement(elements, function(element)
+			return element.type == "text"
+				and element.text == "v0.5.0"
+				and element.frame.y < 12
+				and element.textAlignment == "right"
+		end))
+	end)
+
+	it("showVersionByDefault未指定ならデフォルトでバージョンを表示しない", function()
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+			},
+			versionText = "v0.5.0",
+			getState = function()
+				return state
+			end,
+		})
+
+		panel.show()
+
+		local elements = mock.state.canvases[1].elements
+		assert.is_nil(findElement(elements, function(element)
+			return element.type == "text" and element.text == "v0.5.0"
+		end))
+	end)
+
+	it("vキーでバージョン表示を切り替える", function()
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+			},
+			versionText = "v0.5.0",
+			getState = function()
+				return state
+			end,
+		})
+
+		panel.show()
+
+		local keyTap = mock.state.eventtaps[1]
+		assert.is_not_nil(keyTap)
+		assert.is_false(findElement(mock.state.canvases[1].elements, function(element)
+			return element.type == "text" and element.text == "v0.5.0"
+		end) ~= nil)
+
+		assert.is_true(keyTap.callback(keyEvent("v")))
+		assert.is_not_nil(findElement(mock.state.canvases[1].elements, function(element)
+			return element.type == "text" and element.text == "v0.5.0"
+		end))
+
+		assert.is_true(keyTap.callback(keyEvent("v")))
+		assert.is_nil(findElement(mock.state.canvases[1].elements, function(element)
+			return element.type == "text" and element.text == "v0.5.0"
+		end))
+	end)
+
 	it("絵文字iconはテキストとして表示する", function()
 		local panel = newPanel({
 			{ id = "proj-a", name = "Project A", icon = "🔵" },

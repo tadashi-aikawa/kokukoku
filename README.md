@@ -139,6 +139,7 @@ spoon.Kokukoku:setup({
   ui = {
     fontName = "HackGen Console NF",
     monoFontName = "HackGen Console NF",
+    showVersionByDefault = false,
   },
   alert = {
     continuousWork = {
@@ -179,6 +180,7 @@ Complete sample including all options (default values):
   ui = {
     fontName = ".AppleSystemUIFont",  -- Font for text (default: system font)
     monoFontName = "Menlo",           -- Monospace font for time display (default: Menlo)
+    showVersionByDefault = false,     -- Show the version in the header by default
   },
 
   -- Alert settings (optional)
@@ -224,6 +226,7 @@ These shortcuts are available while the panel is open:
 | `E` | Edit continuous work time, even while idle or on break |
 | `c` | Copy measurement results to clipboard as bulleted text |
 | `r` | Enter reset confirmation; press again to reset all timers |
+| `v` | Toggle version display in the header |
 | `Escape` | Close panel |
 
 Breaking resets the continuous work timer to `00:00:00`. If you edit that value while idle or on break, the edited value is used when you start the next project.

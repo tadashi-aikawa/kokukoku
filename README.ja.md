@@ -139,6 +139,7 @@ spoon.Kokukoku:setup({
   ui = {
     fontName = "HackGen Console NF",
     monoFontName = "HackGen Console NF",
+    showVersionByDefault = false,
   },
   alert = {
     continuousWork = {
@@ -179,6 +180,7 @@ spoon.Kokukoku:setup({
   ui = {
     fontName = ".AppleSystemUIFont",  -- テキスト用フォント（デフォルト: システムフォント）
     monoFontName = "Menlo",           -- 時間表示用等幅フォント（デフォルト: Menlo）
+    showVersionByDefault = false,     -- ヘッダーのバージョン表示を初期状態で出すか（デフォルト: false）
   },
 
   -- アラート設定（省略可）
@@ -224,6 +226,7 @@ spoon.Kokukoku:setup({
 | `E` | 初期待機中や休憩中も含めて連続稼働時間を編集 |
 | `c` | 測定結果を箇条書きテキストとしてクリップボードにコピー |
 | `r` | リセット確認に入る。もう一度押すと全タイマーをリセット |
+| `v` | ヘッダーのバージョン表示を切り替え |
 | `Escape` | パネルを閉じる |
 
 休憩に入ると連続稼働時間は `00:00:00` にリセットされます。初期待機中や休憩中に編集した値は、次にプロジェクトを開始したときの連続稼働時間として引き継がれます。

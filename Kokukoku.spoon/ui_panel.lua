@@ -152,6 +152,8 @@ function M.new(options)
 	local onSetContinuous = options.onSetContinuous
 	local editContinuousKey = options.editContinuousKey or "E"
 	local getState = options.getState
+	local versionText = options.versionText
+	local showVersionByDefault = options.showVersionByDefault == true
 	local formatTime = loadTimerEngine().formatTime
 	local fontName = options.fontName or ".AppleSystemUIFont"
 	local monoFontName = options.monoFontName or "Menlo"
@@ -160,6 +162,7 @@ function M.new(options)
 	local escTap = nil
 	local clickTap = nil
 	local visible = false
+	local isVersionVisible = showVersionByDefault
 	local selectedIndex = nil
 	local hoveredId = nil
 	local isClosing = false
@@ -296,6 +299,19 @@ function M.new(options)
 			textSize = 16,
 			textColor = state.continuousStartedAt and COLORS.text or COLORS.subText,
 		})
+
+		if isVersionVisible and versionText and versionText ~= "" then
+			local versionHeight = measureTextHeight(versionText, monoFontName, 10)
+			table.insert(elements, {
+				type = "text",
+				frame = { x = PANEL_WIDTH - PADDING - 72, y = 6, w = 72, h = versionHeight },
+				text = versionText,
+				textFont = monoFontName,
+				textSize = 10,
+				textColor = COLORS.subText,
+				textAlignment = "right",
+			})
+		end
 
 		-- Separator after header
 		table.insert(elements, {
@@ -586,6 +602,7 @@ function M.new(options)
 			canvas = nil
 		end
 		visible = false
+		isVersionVisible = showVersionByDefault
 		selectedIndex = nil
 		hoveredId = nil
 		isClosing = false
@@ -841,6 +858,8 @@ function M.new(options)
 			return
 		end
 
+		isVersionVisible = showVersionByDefault
+
 		-- カーソル初期位置をアクティブプロジェクトに設定
 		selectedIndex = nil
 		local state = getState()
@@ -911,7 +930,7 @@ function M.new(options)
 		canvas:show()
 		visible = true
 
-		-- キーボード操作 (Escape, 数字キー, j/k/↑/↓, Enter, 0, r)
+		-- キーボード操作 (Escape, 数字キー, j/k/↑/↓, Enter, 0, r, v)
 		escTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
 			if isClosing then
 				return true
@@ -959,6 +978,10 @@ function M.new(options)
 				return true
 			elseif char == "r" then
 				handleResetAction()
+				return true
+			elseif char == "v" then
+				isVersionVisible = not isVersionVisible
+				rebuildPanel()
 				return true
 			elseif char == "e" then
 				editSelectedProjectTime()

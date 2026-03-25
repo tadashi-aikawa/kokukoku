@@ -100,6 +100,7 @@ function obj:setup(config)
 
 	uiPanel = uiPanelModule.new(mergeTable(config.ui or {}, {
 		projects = config.projects,
+		versionText = "v" .. obj.version,
 		onProjectSelect = function(projectId)
 			timerEngine.startProject(projectId)
 		end,

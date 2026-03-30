@@ -123,6 +123,56 @@ describe("ui_panel", function()
 		end))
 	end)
 
+	it("カスタムキーマップでバージョン表示キーを変更できる", function()
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+			},
+			versionText = "v0.5.0",
+			keymap = { toggleVersion = "V" },
+			getState = function()
+				return state
+			end,
+		})
+
+		panel.show()
+
+		local keyTap = mock.state.eventtaps[1]
+
+		-- デフォルトの "v" では切り替わらない
+		assert.is_false(keyTap.callback(keyEvent("v")))
+
+		-- カスタムの "V" で切り替わる
+		assert.is_true(keyTap.callback(keyEvent("V")))
+		assert.is_not_nil(findElement(mock.state.canvases[1].elements, function(element)
+			return element.type == "text" and element.text == "v0.5.0"
+		end))
+	end)
+
+	it("keymap未指定時はデフォルトキーで動作する", function()
+		local breakCalled = false
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+				{ id = "break", name = "Break", icon = "☕", isBreak = true },
+			},
+			onBreak = function()
+				breakCalled = true
+			end,
+			getState = function()
+				return state
+			end,
+		})
+
+		panel.show()
+
+		local keyTap = mock.state.eventtaps[1]
+
+		-- デフォルトの "0" で休憩が呼ばれる
+		assert.is_true(keyTap.callback(keyEvent("0")))
+		assert.is_true(breakCalled)
+	end)
+
 	it("絵文字iconはテキストとして表示する", function()
 		local panel = newPanel({
 			{ id = "proj-a", name = "Project A", icon = "🔵" },

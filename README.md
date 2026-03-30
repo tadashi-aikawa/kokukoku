@@ -143,6 +143,14 @@ spoon.Kokukoku:setup({
     copyTextFormat = "- {name}: {hh}:{mm}",
     copyTextSeparator = "\n",
   },
+  keymap = {
+    startBreak = "0",
+    reset = "r",
+    toggleVersion = "v",
+    editTime = "e",
+    editContinuousTime = "E",
+    copyToClipboard = "c",
+  },
   alert = {
     continuousWork = {
       thresholds = { 1500, 3000, 4500 },
@@ -185,6 +193,16 @@ Complete sample including all options (default values):
     showVersionByDefault = false,                 -- Show the version in the header by default
     copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- Line format for clipboard copy (default: "- {name}: {hh}:{mm}:{ss}")
     copyTextSeparator = "\n",                     -- Line separator for clipboard copy (default: "\n")
+  },
+
+  -- Panel keymap settings (optional; each key is individually optional)
+  keymap = {
+    startBreak = "0",       -- Start break (default: "0")
+    reset = "r",            -- Reset confirmation (default: "r")
+    toggleVersion = "v",    -- Toggle version display (default: "v")
+    editTime = "e",         -- Edit accumulated time (default: "e")
+    editContinuousTime = "E", -- Edit continuous work time (default: "E")
+    copyToClipboard = "c",  -- Copy to clipboard (default: "c")
   },
 
   -- Alert settings (optional)
@@ -233,19 +251,26 @@ The `icon` field in project definitions supports three formats:
 
 These shortcuts are available while the panel is open:
 
+#### Fixed Keys
+
 | Key | Action |
 |-----|--------|
 | `1`-`9` | Select the corresponding project |
 | `j` / `Down` | Move selection down |
 | `k` / `Up` | Move selection up |
 | `Enter` | Execute selected action |
-| `0` | Break |
-| `e` | Edit accumulated time of selected project |
-| `E` | Edit continuous work time, even while idle or on break |
-| `c` | Copy measurement results to clipboard as bulleted text |
-| `r` | Enter reset confirmation; press again to reset all timers |
-| `v` | Toggle version display in the header |
 | `Escape` | Close panel |
+
+#### Configurable Keys (customizable via `keymap`)
+
+| Key (default) | Config key | Action |
+|---------------|-----------|--------|
+| `0` | `startBreak` | Break |
+| `e` | `editTime` | Edit accumulated time of selected project |
+| `E` | `editContinuousTime` | Edit continuous work time, even while idle or on break |
+| `c` | `copyToClipboard` | Copy measurement results to clipboard as bulleted text |
+| `r` | `reset` | Enter reset confirmation; press again to reset all timers |
+| `v` | `toggleVersion` | Toggle version display in the header |
 
 Breaking resets the continuous work timer to `00:00:00`. If you edit that value while idle or on break, the edited value is used when you start the next project.
 

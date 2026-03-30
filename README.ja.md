@@ -143,6 +143,14 @@ spoon.Kokukoku:setup({
     copyTextFormat = "- {name}: {hh}:{mm}",
     copyTextSeparator = "\n",
   },
+  keymap = {
+    startBreak = "0",
+    reset = "r",
+    toggleVersion = "v",
+    editTime = "e",
+    editContinuousTime = "E",
+    copyToClipboard = "c",
+  },
   alert = {
     continuousWork = {
       thresholds = { 1500, 3000, 4500 },
@@ -185,6 +193,16 @@ spoon.Kokukoku:setup({
     showVersionByDefault = false,                 -- ヘッダーのバージョン表示を初期状態で出すか（デフォルト: false）
     copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- コピー時の行フォーマット（デフォルト: "- {name}: {hh}:{mm}:{ss}"）
     copyTextSeparator = "\n",                     -- コピー時の行区切り文字（デフォルト: "\n"）
+  },
+
+  -- パネル内キーマップ設定（省略可。各キー個別に省略可）
+  keymap = {
+    startBreak = "0",       -- 休憩開始（デフォルト: "0"）
+    reset = "r",            -- リセット確認（デフォルト: "r"）
+    toggleVersion = "v",    -- バージョン表示切替（デフォルト: "v"）
+    editTime = "e",         -- 累積時間編集（デフォルト: "e"）
+    editContinuousTime = "E", -- 連続稼働時間編集（デフォルト: "E"）
+    copyToClipboard = "c",  -- クリップボードにコピー（デフォルト: "c"）
   },
 
   -- アラート設定（省略可）
@@ -233,19 +251,26 @@ spoon.Kokukoku:setup({
 
 パネル表示中に使用できるショートカット:
 
+#### 固定キー
+
 | キー | 動作 |
 |------|------|
 | `1`-`9` | 対応するプロジェクトを選択 |
 | `j` / `Down` | 選択を下に移動 |
 | `k` / `Up` | 選択を上に移動 |
 | `Enter` | 選択中のアクションを実行 |
-| `0` | 休憩 |
-| `e` | 選択中プロジェクトの累積時間を編集 |
-| `E` | 初期待機中や休憩中も含めて連続稼働時間を編集 |
-| `c` | 測定結果を箇条書きテキストとしてクリップボードにコピー |
-| `r` | リセット確認に入る。もう一度押すと全タイマーをリセット |
-| `v` | ヘッダーのバージョン表示を切り替え |
 | `Escape` | パネルを閉じる |
+
+#### 設定可能キー（`keymap` で変更可能）
+
+| キー（デフォルト） | 設定キー | 動作 |
+|-------------------|---------|------|
+| `0` | `startBreak` | 休憩 |
+| `e` | `editTime` | 選択中プロジェクトの累積時間を編集 |
+| `E` | `editContinuousTime` | 初期待機中や休憩中も含めて連続稼働時間を編集 |
+| `c` | `copyToClipboard` | 測定結果を箇条書きテキストとしてクリップボードにコピー |
+| `r` | `reset` | リセット確認に入る。もう一度押すと全タイマーをリセット |
+| `v` | `toggleVersion` | ヘッダーのバージョン表示を切り替え |
 
 休憩に入ると連続稼働時間は `00:00:00` にリセットされます。初期待機中や休憩中に編集した値は、次にプロジェクトを開始したときの連続稼働時間として引き継がれます。
 

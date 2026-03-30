@@ -49,6 +49,15 @@ local COLORS = {
 	resetConfirmBg = { red = 0.5, green = 0.15, blue = 0.15, alpha = 1 },
 }
 
+local DEFAULT_KEYMAP = {
+	startBreak = "0",
+	reset = "r",
+	toggleVersion = "v",
+	editTime = "e",
+	editContinuousTime = "E",
+	copyToClipboard = "c",
+}
+
 local function isIconUrl(icon)
 	return type(icon) == "string" and icon:match("^https?://") ~= nil
 end
@@ -164,7 +173,11 @@ function M.new(options)
 	local onReset = options.onReset
 	local onSetAccumulated = options.onSetAccumulated
 	local onSetContinuous = options.onSetContinuous
-	local editContinuousKey = options.editContinuousKey or "E"
+	local keymap = {}
+	local userKeymap = options.keymap or {}
+	for k, v in pairs(DEFAULT_KEYMAP) do
+		keymap[k] = userKeymap[k] or v
+	end
 	local getState = options.getState
 	local versionText = options.versionText
 	local showVersionByDefault = options.showVersionByDefault == true
@@ -985,27 +998,27 @@ function M.new(options)
 				end
 				rebuildPanel()
 				return true
-			elseif char == "0" then
+			elseif char == keymap.startBreak then
 				resetConfirming = false
 				if onBreak then
 					onBreak()
 				end
 				rebuildPanel()
 				return true
-			elseif char == "r" then
+			elseif char == keymap.reset then
 				handleResetAction()
 				return true
-			elseif char == "v" then
+			elseif char == keymap.toggleVersion then
 				isVersionVisible = not isVersionVisible
 				rebuildPanel()
 				return true
-			elseif char == "e" then
+			elseif char == keymap.editTime then
 				editSelectedProjectTime()
 				return true
-			elseif char == "c" then
+			elseif char == keymap.copyToClipboard then
 				copyToClipboard()
 				return true
-			elseif char == editContinuousKey then
+			elseif char == keymap.editContinuousTime then
 				editContinuousTime()
 				return true
 			elseif char and char:match("^[1-9]$") then

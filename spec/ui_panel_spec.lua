@@ -154,7 +154,6 @@ describe("ui_panel", function()
 		local panel = uiPanel.new({
 			projects = {
 				{ id = "proj-a", name = "Project A", icon = "🔵" },
-				{ id = "break", name = "Break", icon = "☕", isBreak = true },
 			},
 			onBreak = function()
 				breakCalled = true
@@ -480,9 +479,14 @@ describe("ui_panel", function()
 	end)
 
 	it("休憩ボタンは設定したiconと名前を表示する", function()
-		local panel = newPanel({
-			{ id = "proj-a", name = "Project A", icon = "🔵" },
-			{ id = "break", name = "深呼吸", icon = "🫖", isBreak = true },
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+			},
+			breakItem = { name = "深呼吸", icon = "🫖" },
+			getState = function()
+				return state
+			end,
 		})
 
 		panel.show()

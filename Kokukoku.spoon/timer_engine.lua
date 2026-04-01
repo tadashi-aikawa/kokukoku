@@ -123,15 +123,10 @@ function M.new(options)
 
 		finalizeActive()
 
-		if project.isBreak then
-			state.continuousElapsedBase = 0
-			state.continuousStartedAt = nil
-		else
-			state.activeProjectId = projectId
-			state.activeStartedAt = os.time()
-			if not state.continuousStartedAt then
-				state.continuousStartedAt = os.time()
-			end
+		state.activeProjectId = projectId
+		state.activeStartedAt = os.time()
+		if not state.continuousStartedAt then
+			state.continuousStartedAt = os.time()
 		end
 
 		notifyStateChange()
@@ -155,7 +150,7 @@ function M.new(options)
 
 	local function setAccumulated(projectId, seconds)
 		local project = findProject(config.projects, projectId)
-		if not project or project.isBreak then
+		if not project then
 			return false
 		end
 		if type(seconds) ~= "number" or seconds < 0 then
@@ -195,15 +190,13 @@ function M.new(options)
 	local function getSnapshot()
 		local projectSnapshots = {}
 		for _, project in ipairs(config.projects) do
-			if not project.isBreak then
-				table.insert(projectSnapshots, {
-					id = project.id,
-					name = project.name,
-					icon = project.icon,
-					accumulated = accumulatedFor(project.id),
-					isActive = state.activeProjectId == project.id,
-				})
-			end
+			table.insert(projectSnapshots, {
+				id = project.id,
+				name = project.name,
+				icon = project.icon,
+				accumulated = accumulatedFor(project.id),
+				isActive = state.activeProjectId == project.id,
+			})
 		end
 
 		return {

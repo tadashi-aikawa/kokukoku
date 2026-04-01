@@ -68,8 +68,8 @@ spoon.SpoonInstall:andUse("Kokukoku", {
       projects = {
         { id = "work", name = "Work", icon = "💼" },
         { id = "meeting", name = "Meeting", icon = "🗓" },
-        { id = "break", name = "Break", icon = "☕", isBreak = true },
       },
+      breakItem = { name = "Break", icon = "☕" },
       hotkey = { modifiers = { "alt" }, key = "t" },
     })
   end,
@@ -107,8 +107,8 @@ spoon.Kokukoku:setup({
   projects = {
     { id = "work", name = "Work", icon = "💼" },
     { id = "meeting", name = "Meeting", icon = "🗓" },
-    { id = "break", name = "Break", icon = "☕", isBreak = true },
   },
+  breakItem = { name = "Break", icon = "☕" },
   hotkey = { modifiers = { "alt" }, key = "t" },
 })
 ```
@@ -130,7 +130,10 @@ spoon.Kokukoku:setup({
     { id = "review", name = "Code Review", icon = "👀" },
     { id = "meeting", name = "Meeting", icon = "🗓" },
     { id = "docs", name = "Documentation", icon = "📝" },
-    { id = "break", name = "Break", icon = "☕", isBreak = true },
+  },
+  breakItem = {
+    name = "Break",
+    icon = "☕",
   },
   hotkey = {
     modifiers = { "alt" },
@@ -177,8 +180,13 @@ Complete sample including all options (default values):
       id = "work",       -- Unique string identifier (required)
       name = "Work",     -- Display name (required)
       icon = "💼",       -- Emoji text, image URL (http/https), or file path (/ or ~/) (optional)
-      isBreak = false,   -- true to mark as break project (optional)
     },
+  },
+
+  -- Break button settings (optional; defaults: name="休憩", icon="☕")
+  breakItem = {
+    name = "休憩",  -- Display name (optional, default: "休憩")
+    icon = "☕",    -- Icon (optional, default: "☕")
   },
 
   -- Hotkey to toggle the panel (optional; omit to disable)

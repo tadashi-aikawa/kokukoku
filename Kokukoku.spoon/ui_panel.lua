@@ -136,11 +136,11 @@ local function currentContinuousElapsed(state)
 	return elapsed
 end
 
-function M.buildCopyText(nonBreakProjects, state, lineFormat, separator)
+function M.buildCopyText(projects, state, lineFormat, separator)
 	lineFormat = lineFormat or "- {name}: {hh}:{mm}:{ss}"
 	separator = separator or "\n"
 	local lines = {}
-	for _, project in ipairs(nonBreakProjects) do
+	for _, project in ipairs(projects) do
 		local accumulated = state.accumulated[project.id] or 0
 		if state.activeProjectId == project.id and state.activeStartedAt then
 			accumulated = accumulated + (os.time() - state.activeStartedAt)
@@ -168,6 +168,7 @@ function M.new(options)
 	options = options or {}
 
 	local projects = options.projects or {}
+	local breakItem = options.breakItem
 	local onProjectSelect = options.onProjectSelect
 	local onBreak = options.onBreak
 	local onReset = options.onReset
@@ -202,17 +203,7 @@ function M.new(options)
 	local iconCache = {}
 	local rebuildPanel
 
-	local nonBreakProjects = {}
-	local breakProject = nil
-	for _, p in ipairs(projects) do
-		if p.isBreak and breakProject == nil then
-			breakProject = p
-		elseif not p.isBreak then
-			table.insert(nonBreakProjects, p)
-		end
-	end
-
-	local panelHeight = HEADER_HEIGHT + (#nonBreakProjects * ROW_HEIGHT) + FOOTER_HEIGHT
+	local panelHeight = HEADER_HEIGHT + (#projects * ROW_HEIGHT) + FOOTER_HEIGHT
 
 	local function cacheImage(key, image)
 		if image then
@@ -352,7 +343,7 @@ function M.new(options)
 		})
 
 		-- Project rows
-		for i, project in ipairs(nonBreakProjects) do
+		for i, project in ipairs(projects) do
 			local y = HEADER_HEIGHT + (i - 1) * ROW_HEIGHT
 			local isActive = state.activeProjectId == project.id
 			local isHovered = hoveredId == "row_" .. project.id
@@ -473,7 +464,7 @@ function M.new(options)
 			end
 
 			-- Row separator
-			if i < #nonBreakProjects then
+			if i < #projects then
 				table.insert(elements, {
 					type = "rectangle",
 					action = "fill",
@@ -484,7 +475,7 @@ function M.new(options)
 		end
 
 		-- Separator before footer
-		local footerY = HEADER_HEIGHT + #nonBreakProjects * ROW_HEIGHT
+		local footerY = HEADER_HEIGHT + #projects * ROW_HEIGHT
 		table.insert(elements, {
 			type = "rectangle",
 			action = "fill",
@@ -508,10 +499,9 @@ function M.new(options)
 			fillColor = COLORS.footerBg,
 		})
 
-		local isBreakSelected = selectedIndex == #nonBreakProjects + 1 or hoveredId == "btn_break"
-		local breakConfig = breakProject or { name = "休憩", icon = "☕" }
-		local breakName = breakConfig.name or "休憩"
-		local breakIcon = breakConfig.icon or ""
+		local isBreakSelected = selectedIndex == #projects + 1 or hoveredId == "btn_break"
+		local breakName = (breakItem and breakItem.name) or "休憩"
+		local breakIcon = (breakItem and breakItem.icon) or "☕"
 		local breakIconImage = resolveIconImage(breakIcon)
 		local breakTextHeight = measureTextHeight(breakName, fontName, 14)
 
@@ -572,7 +562,7 @@ function M.new(options)
 			textColor = COLORS.text,
 		})
 
-		local isResetSelected = selectedIndex == #nonBreakProjects + 2 or hoveredId == "btn_reset"
+		local isResetSelected = selectedIndex == #projects + 2 or hoveredId == "btn_reset"
 
 		-- Reset button background (for hover)
 		local resetBgColor
@@ -742,11 +732,11 @@ function M.new(options)
 	end
 
 	local function editSelectedProjectTime()
-		if not selectedIndex or selectedIndex > #nonBreakProjects then
+		if not selectedIndex or selectedIndex > #projects then
 			return
 		end
 
-		local project = nonBreakProjects[selectedIndex]
+		local project = projects[selectedIndex]
 		local stateData = getState()
 
 		local currentAccumulated = stateData.accumulated[project.id] or 0
@@ -817,7 +807,7 @@ function M.new(options)
 	end
 
 	local function copyToClipboard()
-		local text = M.buildCopyText(nonBreakProjects, getState(), copyTextFormat, copyTextSeparator)
+		local text = M.buildCopyText(projects, getState(), copyTextFormat, copyTextSeparator)
 		if text == "" then
 			return
 		end
@@ -869,16 +859,16 @@ function M.new(options)
 		if not selectedIndex then
 			return
 		end
-		if selectedIndex <= #nonBreakProjects then
-			local project = nonBreakProjects[selectedIndex]
+		if selectedIndex <= #projects then
+			local project = projects[selectedIndex]
 			selectProject(project.id)
-		elseif selectedIndex == #nonBreakProjects + 1 then
+		elseif selectedIndex == #projects + 1 then
 			resetConfirming = false
 			if onBreak then
 				onBreak()
 			end
 			rebuildPanel()
-		elseif selectedIndex == #nonBreakProjects + 2 then
+		elseif selectedIndex == #projects + 2 then
 			handleResetAction()
 		end
 	end
@@ -894,7 +884,7 @@ function M.new(options)
 		selectedIndex = nil
 		local state = getState()
 		if state.activeProjectId then
-			for i, p in ipairs(nonBreakProjects) do
+			for i, p in ipairs(projects) do
 				if p.id == state.activeProjectId then
 					selectedIndex = i
 					break
@@ -982,7 +972,7 @@ function M.new(options)
 					selectedIndex = 1
 				else
 					selectedIndex = selectedIndex + 1
-					if selectedIndex > #nonBreakProjects then
+					if selectedIndex > #projects then
 						selectedIndex = 1
 					end
 				end
@@ -990,11 +980,11 @@ function M.new(options)
 				return true
 			elseif char == "k" or keyCode == 126 then -- 126 = Up arrow
 				if selectedIndex == nil then
-					selectedIndex = #nonBreakProjects
+					selectedIndex = #projects
 				else
 					selectedIndex = selectedIndex - 1
 					if selectedIndex < 1 then
-						selectedIndex = #nonBreakProjects
+						selectedIndex = #projects
 					end
 				end
 				rebuildPanel()
@@ -1024,8 +1014,8 @@ function M.new(options)
 				return true
 			elseif char and char:match("^[1-9]$") then
 				local idx = tonumber(char)
-				if idx <= #nonBreakProjects then
-					local project = nonBreakProjects[idx]
+				if idx <= #projects then
+					local project = projects[idx]
 					selectProject(project.id)
 				end
 				return true

@@ -130,7 +130,10 @@ spoon.Kokukoku:setup({
     { id = "review", name = "Code Review", icon = "👀" },
     { id = "meeting", name = "Meeting", icon = "🗓" },
     { id = "docs", name = "Documentation", icon = "📝" },
-    { id = "break", name = "Break", icon = "☕", isBreak = true },
+  },
+  breakItem = {
+    name = "Break",
+    icon = "☕",
   },
   hotkey = {
     modifiers = { "alt" },
@@ -177,8 +180,13 @@ spoon.Kokukoku:setup({
       id = "work",       -- 一意の文字列識別子（必須）
       name = "Work",     -- 表示名（必須）
       icon = "💼",       -- 絵文字テキスト、画像URL (http/https)、ファイルパス (/ or ~/)（省略可）
-      isBreak = false,   -- trueで休憩プロジェクト扱い（省略可）
     },
+  },
+
+  -- 休憩ボタン設定（省略可。省略時は name="休憩", icon="☕"）
+  breakItem = {
+    name = "休憩",  -- 表示名（省略可、デフォルト: "休憩"）
+    icon = "☕",    -- アイコン（省略可、デフォルト: "☕"）
   },
 
   -- パネル表示/非表示のトグルホットキー（省略可。省略するとホットキー無効）

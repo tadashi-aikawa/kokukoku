@@ -7,7 +7,6 @@ describe("timer_engine", function()
 	local projects = {
 		{ id = "proj-a", name = "Project A", icon = "🔵" },
 		{ id = "proj-b", name = "Project B", icon = "🟢" },
-		{ id = "break", name = "休憩", icon = "☕", isBreak = true },
 	}
 
 	before_each(function()
@@ -96,16 +95,6 @@ describe("timer_engine", function()
 			assert.is_nil(state.activeProjectId)
 		end)
 
-		it("休憩プロジェクトを選ぶと計測停止", function()
-			local engine = timerEngine.new({ projects = projects })
-			engine.startProject("proj-a")
-			engine.startProject("break")
-			local state = engine.getState()
-			assert.is_nil(state.activeProjectId)
-			assert.are.equal(0, state.continuousElapsedBase)
-			assert.is_nil(state.continuousStartedAt)
-		end)
-
 		it("onStateChangeコールバックが呼ばれる", function()
 			local called = false
 			local engine = timerEngine.new({
@@ -162,18 +151,11 @@ describe("timer_engine", function()
 			local engine = timerEngine.new({ projects = projects })
 			engine.startProject("proj-a")
 			local snapshot = engine.getSnapshot()
-			assert.are.equal(2, #snapshot.projects) -- 休憩を除く
+			assert.are.equal(2, #snapshot.projects)
 			assert.is_true(snapshot.isRunning)
 			assert.are.equal("proj-a", snapshot.activeProjectId)
 		end)
 
-		it("休憩プロジェクトはスナップショットに含まれない", function()
-			local engine = timerEngine.new({ projects = projects })
-			local snapshot = engine.getSnapshot()
-			for _, p in ipairs(snapshot.projects) do
-				assert.are_not.equal("break", p.id)
-			end
-		end)
 	end)
 
 	describe("initialState", function()
@@ -206,12 +188,6 @@ describe("timer_engine", function()
 		it("存在しないプロジェクトIDではfalseを返す", function()
 			local engine = timerEngine.new({ projects = projects })
 			local result = engine.setAccumulated("nonexistent", 100)
-			assert.is_false(result)
-		end)
-
-		it("休憩プロジェクトではfalseを返す", function()
-			local engine = timerEngine.new({ projects = projects })
-			local result = engine.setAccumulated("break", 100)
 			assert.is_false(result)
 		end)
 

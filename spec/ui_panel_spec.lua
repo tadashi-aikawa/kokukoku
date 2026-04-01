@@ -426,6 +426,59 @@ describe("ui_panel", function()
 		end)
 	end)
 
+	it("closeOnSwitch=falseならプロジェクト切り替え時にパネルが閉じない", function()
+		local selectCalled = false
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+				{ id = "proj-b", name = "Project B", icon = "🟢" },
+			},
+			closeOnSwitch = false,
+			onProjectSelect = function()
+				selectCalled = true
+			end,
+			getState = function()
+				return state
+			end,
+		})
+
+		panel.show()
+
+		local timerCountBefore = #mock.state.timers
+		local keyTap = mock.state.eventtaps[1]
+		assert.is_true(keyTap.callback(keyEvent("2")))
+		assert.is_true(selectCalled)
+		-- hideWithFeedbackが呼ばれていない(タイマー増加なし)
+		assert.are.equal(timerCountBefore, #mock.state.timers)
+		-- キャンバスが削除されていない
+		assert.is_false(mock.state.canvases[1].deleted)
+	end)
+
+	it("closeOnSwitch未指定ならプロジェクト切り替え時にパネルが閉じる", function()
+		local selectCalled = false
+		local panel = uiPanel.new({
+			projects = {
+				{ id = "proj-a", name = "Project A", icon = "🔵" },
+				{ id = "proj-b", name = "Project B", icon = "🟢" },
+			},
+			onProjectSelect = function()
+				selectCalled = true
+			end,
+			getState = function()
+				return state
+			end,
+		})
+
+		panel.show()
+
+		local timerCountBefore = #mock.state.timers
+		local keyTap = mock.state.eventtaps[1]
+		assert.is_true(keyTap.callback(keyEvent("2")))
+		assert.is_true(selectCalled)
+		-- hideWithFeedbackが呼ばれている(タイマー増加あり)
+		assert.is_true(#mock.state.timers > timerCountBefore)
+	end)
+
 	it("休憩ボタンは設定したiconと名前を表示する", function()
 		local panel = newPanel({
 			{ id = "proj-a", name = "Project A", icon = "🔵" },

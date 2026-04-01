@@ -142,6 +142,7 @@ spoon.Kokukoku:setup({
     showVersionByDefault = false,
     copyTextFormat = "- {name}: {hh}:{mm}",
     copyTextSeparator = "\n",
+    closeOnSwitch = true,
   },
   keymap = {
     startBreak = "0",
@@ -193,6 +194,7 @@ spoon.Kokukoku:setup({
     showVersionByDefault = false,                 -- ヘッダーのバージョン表示を初期状態で出すか（デフォルト: false）
     copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- コピー時の行フォーマット（デフォルト: "- {name}: {hh}:{mm}:{ss}"）
     copyTextSeparator = "\n",                     -- コピー時の行区切り文字（デフォルト: "\n"）
+    closeOnSwitch = true,                         -- プロジェクト切替時にパネルを自動で閉じるか（デフォルト: true）
   },
 
   -- パネル内キーマップ設定（省略可。各キー個別に省略可）

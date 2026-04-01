@@ -142,6 +142,7 @@ spoon.Kokukoku:setup({
     showVersionByDefault = false,
     copyTextFormat = "- {name}: {hh}:{mm}",
     copyTextSeparator = "\n",
+    closeOnSwitch = true,
   },
   keymap = {
     startBreak = "0",
@@ -193,6 +194,7 @@ Complete sample including all options (default values):
     showVersionByDefault = false,                 -- Show the version in the header by default
     copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- Line format for clipboard copy (default: "- {name}: {hh}:{mm}:{ss}")
     copyTextSeparator = "\n",                     -- Line separator for clipboard copy (default: "\n")
+    closeOnSwitch = true,                         -- Auto-close panel when switching projects (default: true)
   },
 
   -- Panel keymap settings (optional; each key is individually optional)

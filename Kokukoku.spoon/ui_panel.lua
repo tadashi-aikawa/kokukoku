@@ -181,6 +181,7 @@ function M.new(options)
 	local getState = options.getState
 	local versionText = options.versionText
 	local showVersionByDefault = options.showVersionByDefault == true
+	local closeOnSwitch = options.closeOnSwitch ~= false
 	local formatTime = loadTimerEngine().formatTime
 	local fontName = options.fontName or ".AppleSystemUIFont"
 	local monoFontName = options.monoFontName or "Menlo"
@@ -714,7 +715,7 @@ function M.new(options)
 		if onProjectSelect then
 			onProjectSelect(projectId)
 		end
-		if not isAlreadyActive then
+		if not isAlreadyActive and closeOnSwitch then
 			hideWithFeedback(projectId)
 		else
 			rebuildPanel()

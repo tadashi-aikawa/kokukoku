@@ -50,46 +50,43 @@ unzip -o /tmp/SpoonInstall.spoon.zip -d ~/.hammerspoon/Spoons
 
 ### SpoonInstall でインストール（推奨）
 
-`~/.hammerspoon/init.lua` に以下を追加:
+Hammerspoon Console で以下を1回だけ実行:
 
 ```lua
 hs.loadSpoon("SpoonInstall")
-
-spoon.SpoonInstall.repos.kokukoku = {
-  url = "https://github.com/tadashi-aikawa/kokukoku",
-  desc = "KOKUKOKU Spoon repository",
-  branch = "spoons",
-}
-
-spoon.SpoonInstall:andUse("Kokukoku", {
-  repo = "kokukoku",
-  fn = function(s)
-    s:setup({
-      projects = {
-        { id = "work", name = "Work", icon = "💼" },
-        { id = "meeting", name = "Meeting", icon = "🗓" },
-        { id = "break", name = "Break", icon = "☕", isBreak = true },
-      },
-      hotkey = { modifiers = { "alt" }, key = "t" },
-    })
-  end,
-})
+spoon.SpoonInstall:installSpoonFromZipURL(
+  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
+)
+hs.reload()
 ```
 
-> [!TIP]
-> 特定のバージョンをインストールするには、`branch` の値を `spoons-v{バージョン}` に変更してください（例: `"spoons-v0.3.0"`）。
-> Spoonは初回インストール時のみダウンロードされ、以降の起動ではローカルからロードされます。
+続いて `~/.hammerspoon/init.lua` に以下を追加:
+
+```lua
+hs.loadSpoon("Kokukoku")
+
+spoon.Kokukoku:setup({
+  projects = {
+    { id = "work", name = "Work", icon = "💼" },
+    { id = "meeting", name = "Meeting", icon = "🗓" },
+  },
+  breakItem = { name = "Break", icon = "☕" },
+  hotkey = { modifiers = { "alt" }, key = "t" },
+})
+```
 
 インストール済みの Spoon を更新する場合（Hammerspoon Console で1回だけ実行）:
 
 ```lua
-spoon.SpoonInstall:updateRepo("kokukoku")
-spoon.SpoonInstall:installSpoonFromRepo("Kokukoku", "kokukoku")
+hs.loadSpoon("SpoonInstall")
+spoon.SpoonInstall:installSpoonFromZipURL(
+  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
+)
 hs.reload()
 ```
 
 > [!WARNING]
-> この3行を `~/.hammerspoon/init.lua` に置くと、`hs.reload()` によって再読込のたびに再実行されてループします。`init.lua` には常駐設定のみを書き、更新時だけ Console から手動実行してください。
+> インストール・更新コマンドを `~/.hammerspoon/init.lua` に置くと、`hs.reload()` によって再読込のたびに再実行されてループします。`init.lua` には常駐設定のみを書き、インストール・更新時だけ Console から手動実行してください。
 
 ### ソースからインストール（開発向け）
 

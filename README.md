@@ -50,46 +50,43 @@ unzip -o /tmp/SpoonInstall.spoon.zip -d ~/.hammerspoon/Spoons
 
 ### Install via SpoonInstall (Recommended)
 
-Add this to `~/.hammerspoon/init.lua`:
+Run this once in the Hammerspoon Console:
 
 ```lua
 hs.loadSpoon("SpoonInstall")
-
-spoon.SpoonInstall.repos.kokukoku = {
-  url = "https://github.com/tadashi-aikawa/kokukoku",
-  desc = "KOKUKOKU Spoon repository",
-  branch = "spoons",
-}
-
-spoon.SpoonInstall:andUse("Kokukoku", {
-  repo = "kokukoku",
-  fn = function(s)
-    s:setup({
-      projects = {
-        { id = "work", name = "Work", icon = "💼" },
-        { id = "meeting", name = "Meeting", icon = "🗓" },
-      },
-      breakItem = { name = "Break", icon = "☕" },
-      hotkey = { modifiers = { "alt" }, key = "t" },
-    })
-  end,
-})
+spoon.SpoonInstall:installSpoonFromZipURL(
+  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
+)
+hs.reload()
 ```
 
-> [!TIP]
-> To install a specific version, change the `branch` value to `spoons-v{VERSION}` (e.g., `"spoons-v0.3.0"`).
-> The Spoon is downloaded only on the first install; subsequent launches load it locally without network access.
+Then add this to `~/.hammerspoon/init.lua`:
+
+```lua
+hs.loadSpoon("Kokukoku")
+
+spoon.Kokukoku:setup({
+  projects = {
+    { id = "work", name = "Work", icon = "💼" },
+    { id = "meeting", name = "Meeting", icon = "🗓" },
+  },
+  breakItem = { name = "Break", icon = "☕" },
+  hotkey = { modifiers = { "alt" }, key = "t" },
+})
+```
 
 To update an already installed Spoon (run once in Hammerspoon Console):
 
 ```lua
-spoon.SpoonInstall:updateRepo("kokukoku")
-spoon.SpoonInstall:installSpoonFromRepo("Kokukoku", "kokukoku")
+hs.loadSpoon("SpoonInstall")
+spoon.SpoonInstall:installSpoonFromZipURL(
+  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
+)
 hs.reload()
 ```
 
 > [!WARNING]
-> Do not put these three lines in `~/.hammerspoon/init.lua`. `hs.reload()` will rerun the same update block on each reload and cause a loop. Keep only persistent setup in `init.lua`, and run this block manually only when updating.
+> Do not put the install or update commands in `~/.hammerspoon/init.lua`. `hs.reload()` will rerun them on each reload and cause a loop. Keep only persistent setup in `init.lua`, and run installation or updates manually from the Console.
 
 ### Install from source (for development)
 

@@ -38,7 +38,8 @@ busted spec/persistence_spec.lua
 
 ## リリース方法
 
-1. `Kokukoku.spoon/init.lua` の `obj.version` のバージョンを上げる (ex: 0.1.0)
-2. `chore: v<バージョン>` としてコミット
-3. `v<バージョン>` としてタグ付け
-4. 2と3をそれぞれpush
+GitHub Actions の `Release` workflow を `main` ブランチから手動実行します。
+
+semantic-release が前回のタグ以降の Conventional Commits から次のバージョンを決定し、`v<バージョン>` タグ、リリースノート、`Kokukoku.spoon.zip` を含む GitHub Release を作成します。リリース対象となるコミットがなければ何も公開しません。
+
+`Kokukoku.spoon/init.lua` の追跡中のバージョンは `0.0.0-development` のまま維持し、リリースバージョンは配布 ZIP 内にだけ埋め込みます。

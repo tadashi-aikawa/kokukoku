@@ -45,6 +45,7 @@ swift test
 ```
 
 動作確認は `swift run Kokukoku` (即パネル表示は `--show-panel` 付き) で行います。
+通知まわり (アイコン表示・クリックでパネル起動) はバンドル実行が前提のため、`./scripts/make-app.sh` で組んだ `.build/KOKUKOKU.app` で確認します (テスト通知は `--test-notification` 付きで起動)。日常利用も `.app` 起動を標準とします。
 
 ## リリース方法
 

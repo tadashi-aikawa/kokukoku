@@ -183,6 +183,8 @@ swift run Kokukoku --show-panel  # 起動と同時にパネルを表示
 ./scripts/make-app.sh            # KOKUKOKU.app を .build/ に組み立て
 ```
 
+通知のアイコン表示・クリックでのパネル起動はバンドル実行 (`KOKUKOKU.app`) でのみ有効です。直接実行では簡易通知 (osascript) になります。テスト通知は `--test-notification` 付きの起動で送れます。
+
 ## テスト
 
 ```bash

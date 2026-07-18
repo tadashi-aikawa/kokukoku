@@ -27,7 +27,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onReloadConfig = { [weak self] in self?.reloadConfig() }
         self.statusItem = statusItem
 
+        // 通知クリックでパネルを開く(バンドル実行時のみ有効)
+        Notifier.setUp(onClick: { [weak self] in self?.panel?.show() })
+
         setUp(config: config)
+
+        // --test-notification: 通知の表示とクリック挙動の動作確認用
+        if CommandLine.arguments.contains("--test-notification") {
+            Notifier.send("テスト通知です。クリックするとパネルが開きます")
+        }
 
         // --show-panel: 起動直後にパネルを表示する(動作確認用)
         if CommandLine.arguments.contains("--show-panel") {
@@ -54,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = ContinuousWorkAlert(
             thresholds: continuousWork?.thresholds ?? [],
             messageTemplate: continuousWork?.message ?? "%d分経過しました。休憩しましょう",
-            notify: { message in Notifier.send(title: "刻刻", message: message) })
+            notify: { message in Notifier.send(message) })
 
         let panel = PanelController(
             projects: config.projects,
@@ -94,7 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             FileHandle.standardError.write(
                 Data("Kokukoku: failed to reload config: \(error)\n".utf8))
-            Notifier.send(title: "刻刻", message: "設定の再読込に失敗しました。現在の設定のまま動作します")
+            Notifier.send("設定の再読込に失敗しました。現在の設定のまま動作します")
             return
         }
 
@@ -106,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let engine {
             alert?.prime(engine.state)
         }
-        Notifier.send(title: "刻刻", message: "設定を再読込しました")
+        Notifier.send("設定を再読込しました")
     }
 
     private func startTick() {

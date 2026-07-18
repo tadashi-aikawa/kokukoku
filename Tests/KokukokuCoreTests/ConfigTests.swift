@@ -256,6 +256,13 @@ struct ConfigLoaderTests {
         }
     }
 
+    @Test("calendarの参加者表示上限が1未満ならinvalidエラーになる")
+    func parseCalendarInvalidMaxAttendees() {
+        #expect(throws: ConfigError.invalid(description: "calendar.maxAttendees must be >= 1")) {
+            try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\nmaxAttendees = 0")
+        }
+    }
+
     @Test("ui・keymapは部分指定できる")
     func parsePartialUIAndKeymap() throws {
         let config = try ConfigLoader.parse(toml: """
@@ -304,6 +311,7 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.name == "一般")
         #expect(resolved.refreshIntervalMinutes == 5)
         #expect(resolved.notificationLeadMinutes == 5)
+        #expect(resolved.maxAttendees == 5)
     }
 
     @Test("calendar設定の指定値が既定値より優先される")

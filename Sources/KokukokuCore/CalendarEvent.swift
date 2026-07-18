@@ -43,6 +43,9 @@ public struct CalendarEvent: Equatable, Sendable {
     /// notes から抽出した会議URL
     public var meetURL: URL?
     public var attendees: [Attendee]
+    /// 主催者のメールアドレス。自分で作った予定ではカレンダー自身
+    /// (`...@group.calendar.google.com`)が入る。詳細ページURLの組み立てと主催者強調に使う
+    public var organizerEmail: String?
     /// 説明文(Meet定型文含む生テキスト)
     public var notes: String?
     /// 自分の参加ステータス。自分を特定できない場合は .unknown(表示対象に含める)
@@ -57,6 +60,7 @@ public struct CalendarEvent: Equatable, Sendable {
         location: String? = nil,
         meetURL: URL? = nil,
         attendees: [Attendee] = [],
+        organizerEmail: String? = nil,
         notes: String? = nil,
         myStatus: ParticipationStatus = .unknown
     ) {
@@ -68,6 +72,7 @@ public struct CalendarEvent: Equatable, Sendable {
         self.location = location
         self.meetURL = meetURL
         self.attendees = attendees
+        self.organizerEmail = organizerEmail
         self.notes = notes
         self.myStatus = myStatus
     }
@@ -84,6 +89,8 @@ public protocol CalendarEventSource {
     var sourceLocation: String? { get }
     var sourceNotes: String? { get }
     var sourceAttendees: [any CalendarAttendeeSource] { get }
+    /// 主催者の mailto: URL
+    var sourceOrganizerURL: URL? { get }
 }
 
 /// EKParticipant への依存を薄く切るための参加者プロトコル。
@@ -124,12 +131,13 @@ extension CalendarEvent {
             location: (location?.isEmpty ?? true) ? nil : location,
             meetURL: MeetURLExtractor.extract(from: source.sourceNotes),
             attendees: attendees,
+            organizerEmail: Self.email(fromMailto: source.sourceOrganizerURL),
             notes: source.sourceNotes,
             myStatus: source.sourceAttendees.first(where: { $0.attendeeIsCurrentUser })?
                 .attendeeStatus ?? .unknown)
     }
 
-    private static func email(fromMailto url: URL?) -> String? {
+    static func email(fromMailto url: URL?) -> String? {
         guard let url, url.scheme?.lowercased() == "mailto" else { return nil }
         let address = url.absoluteString.dropFirst("mailto:".count)
         return address.isEmpty ? nil : String(address)

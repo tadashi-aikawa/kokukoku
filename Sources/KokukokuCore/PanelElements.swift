@@ -159,8 +159,11 @@ public struct PanelMetrics: Equatable, Sendable {
     }
 
     /// フッター中央の連続稼働時間テキストの枠(インライン編集フィールドもここへ重ねる)
-    public func continuousTimeFrame(projectCount: Int) -> PanelFrame {
+    public func continuousTimeFrame(projectCount: Int, calendarSectionHeight: Double = 0)
+        -> PanelFrame
+    {
         let footerY = PanelLayout.clockSectionHeight + Double(projectCount) * PanelLayout.rowHeight
+            + calendarSectionHeight
         return .init(
             x: (panelWidth - PanelLayout.headerLogoSize - PanelLayout.headerLogoTextGap
                 - PanelLayout.headerTimeWidth) / 2
@@ -168,11 +171,15 @@ public struct PanelMetrics: Equatable, Sendable {
             y: footerY + 10, w: PanelLayout.headerTimeWidth, h: 28)
     }
 
-    /// プロジェクト行の累積時間テキストの枠(同上)
-    public func accumulatedTimeFrame(rowOffset: Int) -> PanelFrame {
+    /// プロジェクト行の累積時間テキストの枠(同上)。
+    /// 行エリアは予定セクション(ヘッダー直下)の分だけ下へずれる
+    public func accumulatedTimeFrame(rowOffset: Int, calendarSectionHeight: Double = 0)
+        -> PanelFrame
+    {
         .init(
             x: timeColumnX,
-            y: PanelLayout.clockSectionHeight + Double(rowOffset) * PanelLayout.rowHeight,
+            y: PanelLayout.clockSectionHeight + calendarSectionHeight
+                + Double(rowOffset) * PanelLayout.rowHeight,
             w: PanelLayout.timeColumnWidth, h: PanelLayout.rowHeight)
     }
 }
@@ -216,8 +223,39 @@ public enum PanelLayout {
     public static let clockDigitalWidth = 150.0
     public static let clockDigitalGap = 12.0
 
-    public static func panelHeight(projectCount: Int) -> Double {
-        clockSectionHeight + Double(projectCount) * rowHeight + footerHeight
+    public static func panelHeight(projectCount: Int, calendarSectionHeight: Double = 0) -> Double {
+        clockSectionHeight + Double(projectCount) * rowHeight + calendarSectionHeight + footerHeight
+    }
+
+    // 予定セクション(ヘッダーの時計直下=「時間の世界」ゾーン)。パネル高は行数に応じて動的に変わる
+    public static let calendarEventRowHeight = 26.0
+    /// 予定行の2行目(参加者一覧)の高さ
+    public static let calendarAttendeeRowHeight = 16.0
+    public static let calendarOverflowRowHeight = 18.0
+    public static let calendarErrorRowHeight = 26.0
+    public static let calendarSectionPaddingTop = 6.0
+    public static let calendarSectionPaddingBottom = 8.0
+    /// タイムラインのレール(縦線+予定ごとの点)のx座標
+    public static let calendarRailX = 20.0
+    /// 予定行の内容(開始時刻)の左端
+    public static let calendarContentX = 32.0
+    /// 時刻ブロック("01:00" + "-02:00")の幅
+    public static let calendarTimeWidth = 96.0
+
+    public static func calendarRowHeight(_ row: CalendarSectionRow) -> Double {
+        switch row {
+        case .event: return calendarEventRowHeight
+        case .attendees: return calendarAttendeeRowHeight
+        case .overflow: return calendarOverflowRowHeight
+        case .error: return calendarErrorRowHeight
+        }
+    }
+
+    /// 予定セクションの高さ。行が無ければ0(セクションごと非表示)
+    public static func calendarSectionHeight(rows: [CalendarSectionRow]) -> Double {
+        guard !rows.isEmpty else { return 0 }
+        return rows.map(calendarRowHeight).reduce(0, +)
+            + calendarSectionPaddingTop + calendarSectionPaddingBottom
     }
 
     /// アイコン(墨絵の時計)由来のパレット:

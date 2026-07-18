@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import KokukokuCore
@@ -340,6 +341,88 @@ struct PanelElementsBuilderTests {
         #expect(secondColor == PanelLayout.Colors.clockSecondHand)
     }
 
+    @Test("予定セクションはヘッダー直下に入り、行エリアとフッターが下へずれる")
+    func calendarSectionShiftsRowsAndFooter() {
+        let rows: [CalendarSectionRow] = [
+            .event(.init(
+                startText: "13:00", endText: "-14:00", title: "定例",
+                locationText: "会議室A",
+                detailURL: URL(string: "https://calendar.google.com/calendar/event?eid=x"),
+                countdownText: "あと30分")),
+            .attendees(.init(organizerName: "boss", othersText: "a, b 他3人")),
+        ]
+        let sectionHeight = PanelLayout.calendarSectionHeight(rows: rows)
+        let elements = builder().build(inputs(calendarRows: rows))
+
+        // 背景(全高)が伸びる
+        guard case .rectangle(let bgFrame, _, _, _, _, _, _) = elements[0] else {
+            Issue.record("背景がない")
+            return
+        }
+        #expect(bgFrame.h == 164 + sectionHeight)
+        // セクションの中身(時刻分離・カウントダウン・主催者強調)と行クリックのホバー追跡
+        #expect(containsText("13:00", in: elements))
+        #expect(containsText("-14:00", in: elements))
+        #expect(containsText("定例", in: elements))
+        #expect(containsText("会議室A", in: elements))
+        #expect(containsText("あと30分", in: elements))
+        #expect(containsText("boss", in: elements))
+        #expect(containsText(", a, b 他3人", in: elements))
+        #expect(elements.contains { element in
+            guard case .rectangle(_, _, _, _, _, let id, let tracksMouse) = element else {
+                return false
+            }
+            return id == "cal_event_0" && tracksMouse
+        })
+        // プロジェクト行(ホバー追跡の行背景)がセクション分だけ下がる
+        #expect(elements.contains { element in
+            guard case .rectangle(let frame, _, _, _, _, let id, _) = element else { return false }
+            return id == "row_work" && frame.y == 84 + sectionHeight
+        })
+        // リセットボタン(フッター)も同様に下がる
+        #expect(elements.contains { element in
+            guard case .rectangle(let frame, _, _, _, _, let id, _) = element else { return false }
+            return id == "btn_reset" && frame.y == 131 + sectionHeight
+        })
+    }
+
+    @Test("タイムラインのレールは点と線で描かれ、警告間隔は朱になる")
+    func calendarRail() {
+        let rows: [CalendarSectionRow] = [
+            .event(.init(startText: "13:00", endText: "-14:00", title: "a", countdownText: "あと60分")),
+            .event(.init(
+                startText: "14:00", endText: "-15:00", title: "b",
+                gapText: "0分", gapIsWarning: true)),
+        ]
+        let elements = builder().build(inputs(calendarRows: rows))
+
+        // 予定2件分の点(先頭は金茶、以降はsubText)
+        let dotColors = elements.compactMap { element -> PanelColor? in
+            guard case .circle(_, let radius, let fill, _, _) = element, radius == 3 else {
+                return nil
+            }
+            return fill
+        }
+        #expect(dotColors == [PanelLayout.Colors.activeText, PanelLayout.Colors.subText])
+        // 警告間隔のレール線と数字は朱
+        #expect(elements.contains { element in
+            guard case .line(_, _, let color, _) = element else { return false }
+            return color == PanelLayout.Colors.clockSecondHand
+        })
+        #expect(elements.contains { element in
+            guard case .text(_, "0分", _, _, let color, _) = element else { return false }
+            return color == PanelLayout.Colors.clockSecondHand
+        })
+    }
+
+    @Test("エラー行は朱のメッセージだけを描く")
+    func calendarErrorRow() {
+        let rows: [CalendarSectionRow] = [.error(message: "カレンダー『一般』が見つかりません")]
+        let elements = builder().build(inputs(calendarRows: rows))
+
+        #expect(containsText("カレンダー『一般』が見つかりません", in: elements))
+    }
+
     private func expectNear(
         _ actual: PanelPoint, _ expected: PanelPoint,
         sourceLocation: SourceLocation = #_sourceLocation
@@ -370,14 +453,16 @@ struct PanelElementsBuilderTests {
         hoveredId: String? = nil,
         resetConfirming: Bool = false,
         editingTarget: PanelEditingTarget? = nil,
-        alertThresholds: [Int] = []
+        alertThresholds: [Int] = [],
+        calendarRows: [CalendarSectionRow] = []
     ) -> PanelElementsBuilder.Inputs {
         .init(
             projects: [project], state: state,
             selectedIndex: selectedIndex, hoveredId: hoveredId,
             resetConfirming: resetConfirming,
             editingTarget: editingTarget,
-            alertThresholds: alertThresholds, ui: ui)
+            alertThresholds: alertThresholds,
+            calendarRows: calendarRows, ui: ui)
     }
 
     private func containsText(_ text: String, in elements: [PanelElement]) -> Bool {

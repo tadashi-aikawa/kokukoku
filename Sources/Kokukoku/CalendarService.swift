@@ -18,6 +18,8 @@ final class CalendarService {
     /// --calendar-debug: 取得スモーク用にスナップショット全件をstderrへ出力する
     private let debugDump = CommandLine.arguments.contains("--calendar-debug")
 
+    var maxAttendees: Int { config.maxAttendees }
+
     init(config: ResolvedCalendarConfig) {
         self.config = config
     }
@@ -114,7 +116,7 @@ final class CalendarService {
         switch resolveCalendar() {
         case .failure(let error):
             snapshot.markFailure(error)
-            log("取得エラー(\(reason)): \(describe(error))")
+            log("取得エラー(\(reason)): \(error.userMessage)")
         case .success(let calendar):
             let dayCalendar = Foundation.Calendar.autoupdatingCurrent
             let dayStart = dayCalendar.startOfDay(for: now)
@@ -188,17 +190,6 @@ final class CalendarService {
         }
     }
 
-    private func describe(_ error: CalendarFetchError) -> String {
-        switch error {
-        case .accessDenied:
-            return "カレンダーへのアクセスが許可されていません"
-        case .calendarNotFound(let name):
-            return "カレンダー『\(name)』が見つかりません"
-        case .multipleCalendars(let name, let candidates):
-            return "カレンダー『\(name)』が複数あります: \(candidates.joined(separator: ", "))"
-        }
-    }
-
     private func log(_ message: String) {
         FileHandle.standardError.write(Data("Kokukoku[calendar]: \(message)\n".utf8))
     }
@@ -214,6 +205,7 @@ extension EKEvent: CalendarEventSource {
     public var sourceLocation: String? { location }
     public var sourceNotes: String? { notes }
     public var sourceAttendees: [any CalendarAttendeeSource] { attendees ?? [] }
+    public var sourceOrganizerURL: URL? { organizer?.url }
 }
 
 extension EKParticipant: CalendarAttendeeSource {

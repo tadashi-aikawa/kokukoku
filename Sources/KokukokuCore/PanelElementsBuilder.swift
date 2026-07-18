@@ -15,6 +15,8 @@ public struct PanelElementsBuilder {
         public var editingTarget: PanelEditingTarget?
         /// 連続稼働アラートの閾値(秒)。ゲージの「次の閾値まで」の基準。空ならゲージ非表示
         public var alertThresholds: [Int]
+        /// 本日の残予定セクションの行データ列(CalendarSectionModel.rows)。空ならセクション非表示
+        public var calendarRows: [CalendarSectionRow]
         public var ui: ResolvedUIConfig
 
         public init(
@@ -25,6 +27,7 @@ public struct PanelElementsBuilder {
             resetConfirming: Bool = false,
             editingTarget: PanelEditingTarget? = nil,
             alertThresholds: [Int] = [],
+            calendarRows: [CalendarSectionRow] = [],
             ui: ResolvedUIConfig
         ) {
             self.projects = projects
@@ -34,6 +37,7 @@ public struct PanelElementsBuilder {
             self.resetConfirming = resetConfirming
             self.editingTarget = editingTarget
             self.alertThresholds = alertThresholds
+            self.calendarRows = calendarRows
             self.ui = ui
         }
     }
@@ -41,6 +45,8 @@ public struct PanelElementsBuilder {
     private let now: () -> Int
     private let localTime: () -> ClockTime
     private let measureTextHeight: (_ text: String, _ fontName: String, _ size: Double) -> Double
+    /// 参加者一覧の主催者強調(色分け連結)に使う実測幅。未指定時は文字数からの概算
+    private let measureTextWidth: (_ text: String, _ fontName: String, _ size: Double) -> Double
     private let resolveIcon: (String) -> IconResolution
     private let hasLogoImage: Bool
     private let metrics: PanelMetrics
@@ -49,6 +55,8 @@ public struct PanelElementsBuilder {
         now: @escaping () -> Int,
         localTime: @escaping () -> ClockTime = { ClockTime(hour: 0, minute: 0, second: 0) },
         measureTextHeight: @escaping (_ text: String, _ fontName: String, _ size: Double) -> Double,
+        measureTextWidth: @escaping (_ text: String, _ fontName: String, _ size: Double) -> Double =
+            { text, _, size in Double(text.count) * size * 0.62 },
         resolveIcon: @escaping (String) -> IconResolution,
         hasLogoImage: Bool,
         metrics: PanelMetrics
@@ -56,6 +64,7 @@ public struct PanelElementsBuilder {
         self.now = now
         self.localTime = localTime
         self.measureTextHeight = measureTextHeight
+        self.measureTextWidth = measureTextWidth
         self.resolveIcon = resolveIcon
         self.hasLogoImage = hasLogoImage
         self.metrics = metrics
@@ -64,7 +73,9 @@ public struct PanelElementsBuilder {
     public func build(_ inputs: Inputs) -> [PanelElement] {
         let layout = PanelLayout.self
         let colors = PanelLayout.Colors.self
-        let panelHeight = layout.panelHeight(projectCount: inputs.projects.count)
+        let calendarHeight = layout.calendarSectionHeight(rows: inputs.calendarRows)
+        let panelHeight = layout.panelHeight(
+            projectCount: inputs.projects.count, calendarSectionHeight: calendarHeight)
         var elements: [PanelElement] = []
 
         elements.append(.rectangle(
@@ -81,13 +92,33 @@ public struct PanelElementsBuilder {
 
         appendClock(inputs, to: &elements)
 
+        // 先頭予定のカウントダウンは「いま」の情報として時計セクションの右端に置く
+        // (予定行に置くと先頭行だけタイトル幅が縮んで折り返し位置が揃わないため)
+        if let countdown = Self.firstCountdown(in: inputs.calendarRows) {
+            let height = measureTextHeight(countdown, inputs.ui.fontName, 12)
+            elements.append(.text(
+                frame: .init(
+                    x: metrics.panelWidth - layout.padding - 110,
+                    y: layout.clockSectionHeight / 2 - height / 2,
+                    w: 110, h: height),
+                text: countdown,
+                fontName: inputs.ui.fontName,
+                fontSize: 12,
+                color: colors.activeText,
+                alignment: .right))
+        }
+
+        // 予定セクションは時計と同じ「時間の世界」ゾーンとしてヘッダー直下に置く
+        appendCalendarSection(inputs, startY: layout.clockSectionHeight, to: &elements)
+        let rowsStartY = layout.clockSectionHeight + calendarHeight
+
         elements.append(.rectangle(
-            frame: .init(x: 0, y: layout.clockSectionHeight, w: metrics.panelWidth, h: 1),
+            frame: .init(x: 0, y: rowsStartY, w: metrics.panelWidth, h: 1),
             fillColor: colors.separator))
 
         for (offset, project) in inputs.projects.enumerated() {
             let index = offset + 1
-            let y = layout.clockSectionHeight + Double(offset) * layout.rowHeight
+            let y = rowsStartY + Double(offset) * layout.rowHeight
             let isActive = inputs.state.activeProjectId == project.id
             // マウスホバーは背景の明度変化のみ。キーボード選択はカプセル輪郭で示す(末尾で構築)
             let isHovered = inputs.hoveredId == "row_\(project.id)"
@@ -162,7 +193,7 @@ public struct PanelElementsBuilder {
             }
         }
 
-        let footerY = layout.clockSectionHeight + Double(inputs.projects.count) * layout.rowHeight
+        let footerY = rowsStartY + Double(inputs.projects.count) * layout.rowHeight
         elements.append(.rectangle(
             frame: .init(x: 0, y: footerY, w: metrics.panelWidth, h: 1),
             fillColor: colors.separator))
@@ -175,7 +206,8 @@ public struct PanelElementsBuilder {
             fillColor: colors.footerBg))
 
         // ロゴ+連続稼働時間(フッター中央)
-        let timeFrame = metrics.continuousTimeFrame(projectCount: inputs.projects.count)
+        let timeFrame = metrics.continuousTimeFrame(
+            projectCount: inputs.projects.count, calendarSectionHeight: calendarHeight)
         if hasLogoImage {
             elements.append(.image(
                 frame: .init(
@@ -257,7 +289,7 @@ public struct PanelElementsBuilder {
         if let activeOffset = inputs.projects.firstIndex(where: {
             inputs.state.activeProjectId == $0.id
         }) {
-            let y = layout.clockSectionHeight + Double(activeOffset) * layout.rowHeight
+            let y = rowsStartY + Double(activeOffset) * layout.rowHeight
             let height = layout.rowHeight - layout.capsuleInsetY * 2
             elements.append(.neonRectangle(
                 frame: .init(
@@ -277,7 +309,7 @@ public struct PanelElementsBuilder {
             selected >= 1, selected <= inputs.projects.count
         {
             let project = inputs.projects[selected - 1]
-            let y = layout.clockSectionHeight + Double(selected - 1) * layout.rowHeight
+            let y = rowsStartY + Double(selected - 1) * layout.rowHeight
             let isActiveRow = inputs.state.activeProjectId == project.id
             let insetX = layout.capsuleInsetX + (isActiveRow ? 4 : 0)
             let insetY = layout.capsuleInsetY + (isActiveRow ? 4 : 0)
@@ -292,6 +324,209 @@ public struct PanelElementsBuilder {
         }
 
         return elements
+    }
+
+    /// 本日の残予定セクション(ヘッダーの時計直下)を構築する。行データ列が空なら何も描かない。
+    /// 左端のタイムライン(縦レール+予定ごとの点)で間隔を表現し、ラベル行は置かない
+    private func appendCalendarSection(
+        _ inputs: Inputs, startY: Double, to elements: inout [PanelElement]
+    ) {
+        guard !inputs.calendarRows.isEmpty else { return }
+        let layout = PanelLayout.self
+        let colors = PanelLayout.Colors.self
+        let sectionHeight = layout.calendarSectionHeight(rows: inputs.calendarRows)
+
+        // 時計と同じヘッダー色で「時間の世界」ゾーンとしてまとめ、時計との間に控えめな区切りを入れる
+        elements.append(.rectangle(
+            frame: .init(x: 0, y: startY, w: metrics.panelWidth, h: sectionHeight),
+            fillColor: colors.headerBg))
+        elements.append(.rectangle(
+            frame: .init(
+                x: layout.padding, y: startY, w: metrics.panelWidth - layout.padding * 2, h: 1),
+            fillColor: colors.separator))
+
+        var y = startY + layout.calendarSectionPaddingTop
+        var eventIndex = 0
+        let locationColumnWidth: Double = inputs.calendarRows.contains(where: { row in
+            if case .event(let event) = row { return event.locationText != nil }
+            return false
+        }) ? 110 : 0
+        // タイムラインの点の中心Yと、その予定の間隔情報(レール描画は行の後にまとめて行う)
+        var dots: [(centerY: Double, gapText: String?, gapIsWarning: Bool)] = []
+
+        for row in inputs.calendarRows {
+            let rowHeight = layout.calendarRowHeight(row)
+            switch row {
+            case .event(let event):
+                let lineCenterY = y + rowHeight / 2
+                dots.append((lineCenterY, event.gapText, event.gapIsWarning))
+
+                // 行クリックでカレンダー詳細ページを開けるようホバー追跡させる
+                if event.detailURL != nil {
+                    let id = "cal_event_\(eventIndex)"
+                    elements.append(.rectangle(
+                        frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
+                        fillColor: inputs.hoveredId == id
+                            ? colors.rowHoverBg
+                            : PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
+                        id: id,
+                        tracksMouse: true))
+                }
+
+                // 開始は明色・終了は沈み色で一目で区別する
+                let startHeight = measureTextHeight(event.startText, inputs.ui.monoFontName, 13)
+                elements.append(.text(
+                    frame: .init(
+                        x: layout.calendarContentX,
+                        y: y + centeredOffset(rowHeight, startHeight),
+                        w: 42, h: startHeight),
+                    text: event.startText,
+                    fontName: inputs.ui.monoFontName,
+                    fontSize: 13,
+                    color: colors.text))
+                let endHeight = measureTextHeight(event.endText, inputs.ui.monoFontName, 12)
+                elements.append(.text(
+                    frame: .init(
+                        x: layout.calendarContentX + 42,
+                        y: y + centeredOffset(rowHeight, endHeight),
+                        w: layout.calendarTimeWidth - 42, h: endHeight),
+                    text: event.endText,
+                    fontName: inputs.ui.monoFontName,
+                    fontSize: 12,
+                    color: colors.subText))
+
+                // グリッドは全行共通にし、タイトルの折り返し位置を揃える
+                // (場所列はセクション内に場所を持つ予定が1件でもあれば全行分を確保する)
+                if let locationText = event.locationText {
+                    let height = measureTextHeight(locationText, inputs.ui.fontName, 12)
+                    elements.append(.text(
+                        frame: .init(
+                            x: metrics.panelWidth - layout.padding - locationColumnWidth,
+                            y: y + centeredOffset(rowHeight, height),
+                            w: locationColumnWidth, h: height),
+                        text: locationText,
+                        fontName: inputs.ui.fontName,
+                        fontSize: 12,
+                        color: colors.subText,
+                        alignment: .right))
+                }
+
+                let titleX = layout.calendarContentX + layout.calendarTimeWidth + 8
+                let titleRight = metrics.panelWidth - layout.padding
+                    - (locationColumnWidth > 0 ? locationColumnWidth + 8 : 0)
+                let titleHeight = measureTextHeight(event.title, inputs.ui.fontName, 13)
+                elements.append(.text(
+                    frame: .init(
+                        x: titleX, y: y + centeredOffset(rowHeight, titleHeight),
+                        w: titleRight - titleX, h: titleHeight),
+                    text: event.title,
+                    fontName: inputs.ui.fontName,
+                    fontSize: 13,
+                    color: colors.text))
+                eventIndex += 1
+
+            case .attendees(let attendees):
+                // 予定名の列に揃えたインデントで参加者一覧を小さく添える。主催者は明色で強調
+                var x = layout.calendarContentX + layout.calendarTimeWidth + 8
+                let height = measureTextHeight("参加者", inputs.ui.fontName, 11)
+                let textY = y + centeredOffset(rowHeight, height)
+                if let organizer = attendees.organizerName {
+                    let width = measureTextWidth(organizer, inputs.ui.fontName, 11).rounded(.up)
+                    elements.append(.text(
+                        frame: .init(x: x, y: textY, w: width + 2, h: height),
+                        text: organizer,
+                        fontName: inputs.ui.fontName,
+                        fontSize: 11,
+                        color: colors.activeText))
+                    x += width + 2
+                }
+                if let others = attendees.othersText {
+                    let text = attendees.organizerName == nil ? others : ", \(others)"
+                    elements.append(.text(
+                        frame: .init(
+                            x: x, y: textY,
+                            w: metrics.panelWidth - layout.padding - x, h: height),
+                        text: text,
+                        fontName: inputs.ui.fontName,
+                        fontSize: 11,
+                        color: colors.subText))
+                }
+
+            case .overflow(let hiddenCount):
+                let text = "他\(hiddenCount)件"
+                let height = measureTextHeight(text, inputs.ui.fontName, 11)
+                elements.append(.text(
+                    frame: .init(
+                        x: layout.calendarContentX, y: y + centeredOffset(rowHeight, height),
+                        w: metrics.panelWidth - layout.calendarContentX * 2, h: height),
+                    text: text,
+                    fontName: inputs.ui.fontName,
+                    fontSize: 11,
+                    color: colors.subText))
+
+            case .error(let message):
+                let height = measureTextHeight(message, inputs.ui.fontName, 12)
+                elements.append(.text(
+                    frame: .init(
+                        x: layout.calendarContentX, y: y + centeredOffset(rowHeight, height),
+                        w: metrics.panelWidth - layout.calendarContentX * 2, h: height),
+                    text: message,
+                    fontName: inputs.ui.fontName,
+                    fontSize: 12,
+                    color: colors.clockSecondHand))
+            }
+            y += rowHeight
+        }
+
+        appendCalendarRail(dots, ui: inputs.ui, to: &elements)
+    }
+
+    /// 先頭予定のカウントダウン(行データ列に1つだけ入っている)
+    static func firstCountdown(in rows: [CalendarSectionRow]) -> String? {
+        for row in rows {
+            if case .event(let event) = row, let countdown = event.countdownText {
+                return countdown
+            }
+        }
+        return nil
+    }
+
+    /// タイムラインのレール: 予定ごとの点を縦線でつなぎ、間隔の分数を線の中点に添える。
+    /// 警告間隔(10分未満・重複)は線も数字も朱にする
+    private func appendCalendarRail(
+        _ dots: [(centerY: Double, gapText: String?, gapIsWarning: Bool)],
+        ui: ResolvedUIConfig,
+        to elements: inout [PanelElement]
+    ) {
+        guard !dots.isEmpty else { return }
+        let layout = PanelLayout.self
+        let colors = PanelLayout.Colors.self
+        let railX = layout.calendarRailX
+        let dotRadius = 3.0
+
+        for (previous, current) in zip(dots, dots.dropFirst()) {
+            let lineColor = current.gapIsWarning ? colors.clockSecondHand : colors.separator
+            elements.append(.line(
+                from: PanelPoint(x: railX, y: previous.centerY + dotRadius + 2),
+                to: PanelPoint(x: railX, y: current.centerY - dotRadius - 2),
+                color: lineColor,
+                width: 1))
+            if let gapText = current.gapText {
+                let midY = (previous.centerY + current.centerY) / 2
+                elements.append(.text(
+                    frame: .init(x: railX + 7, y: midY - 7, w: 64, h: 14),
+                    text: gapText,
+                    fontName: ui.fontName,
+                    fontSize: 10,
+                    color: current.gapIsWarning ? colors.clockSecondHand : colors.subText))
+            }
+        }
+        for (index, dot) in dots.enumerated() {
+            elements.append(.circle(
+                center: PanelPoint(x: railX, y: dot.centerY),
+                radius: dotRadius,
+                fillColor: index == 0 ? colors.activeText : colors.subText))
+        }
     }
 
     /// 現在時刻段(アナログ時計+デジタル秒表示)を構築する

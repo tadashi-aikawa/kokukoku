@@ -114,6 +114,7 @@ message = "%d分経過しました。休憩しましょう" # メッセージテ
 name = "一般"               # 対象カレンダー名 (必須。Googleカレンダー上の表示名と一致させる)
 refreshIntervalMinutes = 5  # 定期更新の間隔 (分)
 notificationLeadMinutes = 5 # 予定開始の何分前に通知するか
+maxAttendees = 5            # 予定行に表示する参加者数の上限 (超過分は「他◯人」)
 ```
 
 カレンダー連携は macOS のカレンダー (EventKit) を経由します。システム設定 > インターネットアカウントに Google アカウントを追加しておいてください。Google カレンダー側の変更が反映されるまで数分 (実測 3〜4 分) かかるため、`notificationLeadMinutes` を 5 分より短くすると直前の予定変更を拾えない可能性があります。

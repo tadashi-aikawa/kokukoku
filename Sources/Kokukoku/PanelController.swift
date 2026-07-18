@@ -13,6 +13,8 @@ final class PanelController {
         var onSetAccumulated: (String, Int) -> Void
         var onSetContinuous: (Int) -> Void
         var getState: () -> TimerState
+        /// カレンダー連携の現在状態。nil = 連携無効(セクション非表示)
+        var getCalendarState: () -> CalendarPanelState?
     }
 
     private let projects: [KokukokuConfig.Project]
@@ -34,6 +36,8 @@ final class PanelController {
     private var resetConfirming = false
     private var inlineEditor: InlineTimeEditor?
     private var editingTarget: PanelEditingTarget?
+    /// 現在表示中の予定セクション行(クリック時のMeet URL解決とパネル高計算に使う)
+    private var calendarRows: [CalendarSectionRow] = []
 
     init(
         projects: [KokukokuConfig.Project],
@@ -70,9 +74,12 @@ final class PanelController {
             projects.firstIndex { $0.id == activeId }.map { $0 + 1 }
         }
 
+        calendarRows = currentCalendarRows()
         let panelSize = NSSize(
             width: metrics.panelWidth,
-            height: PanelLayout.panelHeight(projectCount: projects.count))
+            height: PanelLayout.panelHeight(
+                projectCount: projects.count,
+                calendarSectionHeight: PanelLayout.calendarSectionHeight(rows: calendarRows)))
 
         // アクティブモニタ(マウスカーソルのあるスクリーン)の中央に表示
         let screen = screenForMousePosition()
@@ -155,8 +162,31 @@ final class PanelController {
 
     // MARK: - 描画
 
+    /// 予定セクションの行データ列を最新のカレンダー状態から組み立てる
+    private func currentCalendarRows() -> [CalendarSectionRow] {
+        guard let state = callbacks.getCalendarState() else { return [] }
+        return CalendarSectionModel.rows(state: state, now: Date())
+    }
+
+    /// 表示中に予定の行数が変わった場合、画面中央位置を維持したままウィンドウ高を追従させる
+    private func resizeWindowIfNeeded() {
+        guard let window else { return }
+        let height = PanelLayout.panelHeight(
+            projectCount: projects.count,
+            calendarSectionHeight: PanelLayout.calendarSectionHeight(rows: calendarRows))
+        guard abs(window.frame.height - height) > 0.5 else { return }
+        var frame = window.frame
+        let centerY = frame.midY
+        frame.size.height = height
+        frame.origin.y = centerY - height / 2
+        window.setFrame(frame, display: true)
+    }
+
     private func rebuildPanel() {
         guard visible, let panelView else { return }
+
+        calendarRows = currentCalendarRows()
+        resizeWindowIfNeeded()
 
         let builder = PanelElementsBuilder(
             now: now,
@@ -173,6 +203,10 @@ final class PanelController {
                 let height = Double(measured.height.rounded(.up))
                 return height > 0 ? height : max(size + 8, size)
             },
+            measureTextWidth: { text, fontName, size in
+                let font = NSFont(name: fontName, size: size) ?? NSFont.systemFont(ofSize: size)
+                return Double((text as NSString).size(withAttributes: [.font: font]).width)
+            },
             resolveIcon: { [iconStore] icon in iconStore.resolve(icon) },
             hasLogoImage: iconStore.logoImage != nil,
             metrics: metrics
@@ -186,6 +220,7 @@ final class PanelController {
                 resetConfirming: resetConfirming,
                 editingTarget: editingTarget,
                 alertThresholds: alertThresholds,
+                calendarRows: calendarRows,
                 ui: ui))
     }
 
@@ -253,7 +288,9 @@ final class PanelController {
         let centerY: Double
         switch target {
         case .continuous:
-            frame = metrics.continuousTimeFrame(projectCount: projects.count)
+            let calendarHeight = PanelLayout.calendarSectionHeight(rows: calendarRows)
+            frame = metrics.continuousTimeFrame(
+                projectCount: projects.count, calendarSectionHeight: calendarHeight)
             fontSize = 16
             alignment = .left
             // フッターの時刻テキストは枠の上寄りに描かれるため、
@@ -261,10 +298,13 @@ final class PanelController {
             let footerY =
                 PanelLayout.clockSectionHeight
                 + Double(projects.count) * PanelLayout.rowHeight
+                + calendarHeight
             centerY = footerY + PanelLayout.footerHeight / 2
         case .project(let id):
             guard let offset = projects.firstIndex(where: { $0.id == id }) else { return }
-            frame = metrics.accumulatedTimeFrame(rowOffset: offset)
+            frame = metrics.accumulatedTimeFrame(
+                rowOffset: offset,
+                calendarSectionHeight: PanelLayout.calendarSectionHeight(rows: calendarRows))
             fontSize = 16
             alignment = .right
             centerY = frame.y + frame.h / 2
@@ -344,6 +384,9 @@ final class PanelController {
         } else if elementId == "btn_reset" {
             handleResetAction()
             return
+        } else if elementId.hasPrefix("cal_event_") {
+            openCalendarDetail(eventIndex: Int(elementId.dropFirst("cal_event_".count)) ?? -1)
+            return
         }
         rebuildPanel()
     }
@@ -393,6 +436,17 @@ final class PanelController {
             return false
         }
         return true
+    }
+
+    /// 予定行クリックでカレンダーの詳細ページをブラウザで開く(初期仕様の操作はマウスのみ)
+    private func openCalendarDetail(eventIndex: Int) {
+        let eventRows: [CalendarEventRow] = calendarRows.compactMap {
+            if case .event(let row) = $0 { return row } else { return nil }
+        }
+        guard eventIndex >= 0, eventIndex < eventRows.count,
+            let url = eventRows[eventIndex].detailURL
+        else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func screenForMousePosition() -> NSScreen {

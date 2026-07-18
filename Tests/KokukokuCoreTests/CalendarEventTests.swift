@@ -32,6 +32,7 @@ private struct FakeEventSource: CalendarEventSource {
     var sourceLocation: String?
     var sourceNotes: String?
     var sourceAttendees: [any CalendarAttendeeSource]
+    var sourceOrganizerURL: URL?
 
     init(
         externalIdentifier: String? = "ext-1",
@@ -42,7 +43,8 @@ private struct FakeEventSource: CalendarEventSource {
         isAllDay: Bool = false,
         location: String? = nil,
         notes: String? = nil,
-        attendees: [any CalendarAttendeeSource] = []
+        attendees: [any CalendarAttendeeSource] = [],
+        organizerURL: URL? = nil
     ) {
         self.sourceExternalIdentifier = externalIdentifier
         self.sourceOccurrenceDate = occurrenceDate
@@ -53,6 +55,7 @@ private struct FakeEventSource: CalendarEventSource {
         self.sourceLocation = location
         self.sourceNotes = notes
         self.sourceAttendees = attendees
+        self.sourceOrganizerURL = organizerURL
     }
 }
 
@@ -122,6 +125,16 @@ struct CalendarEventConversionTests {
 
         #expect(event.myStatus == .unknown)
         #expect(event.attendees.isEmpty)
+    }
+
+    @Test("主催者のmailto URLからorganizerEmailを取り出す")
+    func organizerEmail() throws {
+        let source = FakeEventSource(
+            organizerURL: URL(string: "mailto:boss@example.com"))
+
+        let event = try #require(CalendarEvent(source: source))
+
+        #expect(event.organizerEmail == "boss@example.com")
     }
 
     @Test("空白だけの場所はnilになる")

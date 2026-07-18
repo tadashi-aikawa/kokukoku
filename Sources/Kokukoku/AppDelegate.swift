@@ -81,7 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 onReset: { engine.reset() },
                 onSetAccumulated: { engine.setAccumulated(projectId: $0, seconds: $1) },
                 onSetContinuous: { engine.setContinuousElapsed($0) },
-                getState: { engine.state }))
+                getState: { engine.state },
+                getCalendarState: { [weak self] in
+                    guard let service = self?.calendarService else { return nil }
+                    return CalendarPanelState(
+                        events: service.snapshot.visibleEvents(now: Date()),
+                        error: service.snapshot.lastError,
+                        maxAttendees: service.maxAttendees)
+                }))
 
         self.engine = engine
         self.alert = alert

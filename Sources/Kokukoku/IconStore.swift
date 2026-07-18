@@ -14,9 +14,25 @@ final class IconStore {
     private var cache: [String: Entry] = [:]
     var onLoad: (() -> Void)?
 
-    /// ロゴ画像(SwiftPMリソースのkokukoku.webp)
-    let logoImage: NSImage? = Bundle.module.url(forResource: "kokukoku", withExtension: "webp")
-        .flatMap { NSImage(contentsOf: $0) }
+    /// ロゴ画像(SwiftPMリソースのkokukoku.webp)。
+    /// Bundle.moduleは「実行体と同じディレクトリ」か「ビルドマシンのbuildパス」しか
+    /// 探さず、.appのContents/Resourcesを見つけられずfatalErrorするため自前で解決する
+    /// (アプリ: Contents/Resources直下 / swift run: 実行体と同じ.buildディレクトリ)
+    let logoImage: NSImage? = IconStore.loadLogoImage()
+
+    private static func loadLogoImage() -> NSImage? {
+        let candidates = [Bundle.main.resourceURL, Bundle.main.bundleURL]
+        for base in candidates {
+            guard let base else { continue }
+            let url = base
+                .appendingPathComponent("Kokukoku_Kokukoku.bundle")
+                .appendingPathComponent("kokukoku.webp")
+            if let image = NSImage(contentsOf: url) { return image }
+        }
+        FileHandle.standardError.write(
+            Data("Kokukoku: logo image not found in resource bundle\n".utf8))
+        return nil
+    }
 
     func image(forKey key: String) -> NSImage? {
         if key == "logo" { return logoImage }

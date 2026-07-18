@@ -20,7 +20,7 @@ final class IconStore {
     /// (アプリ: Contents/Resources直下 / swift run: 実行体と同じ.buildディレクトリ)
     let logoImage: NSImage? = IconStore.loadLogoImage()
 
-    private static func loadLogoImage() -> NSImage? {
+    static func loadLogoImage() -> NSImage? {
         let candidates = [Bundle.main.resourceURL, Bundle.main.bundleURL]
         for base in candidates {
             guard let base else { continue }

@@ -116,6 +116,46 @@ struct ContinuousWorkAlertTests {
         #expect(messages == ["60分経過しました。休憩しましょう"])
     }
 
+    @Test("primeで超過済みの閾値を通知済み扱いにする")
+    func primeMarksExceededThresholds() {
+        var messages: [String] = []
+        let alert = ContinuousWorkAlert(
+            thresholds: [10, 100], now: { 100 }, notify: { messages.append($0) })
+        let state = runningState(continuousStartedAt: 85)
+
+        alert.prime(state)
+        alert.check(state)
+
+        #expect(messages.isEmpty)
+    }
+
+    @Test("prime後も未超過の閾値は超過時に通知する")
+    func primeKeepsFutureThresholds() {
+        var messages: [String] = []
+        var currentTime = 100
+        let alert = ContinuousWorkAlert(
+            thresholds: [10, 100], now: { currentTime }, notify: { messages.append($0) })
+        let state = runningState(continuousStartedAt: 85)
+        alert.prime(state)
+
+        currentTime = 200
+        alert.check(state)
+
+        #expect(messages.count == 1)
+    }
+
+    @Test("停止中のstateではprimeは何もしない")
+    func primeIgnoresStoppedState() {
+        var messages: [String] = []
+        let alert = ContinuousWorkAlert(
+            thresholds: [10], now: { 100 }, notify: { messages.append($0) })
+
+        alert.prime(TimerState())
+        alert.check(runningState(continuousStartedAt: 85))
+
+        #expect(messages.count == 1)
+    }
+
     private func runningState(base: Int = 0, continuousStartedAt: Int) -> TimerState {
         TimerState(
             activeProjectId: "proj-a",

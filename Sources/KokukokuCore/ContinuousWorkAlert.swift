@@ -38,4 +38,15 @@ public final class ContinuousWorkAlert {
     public func resetNotifications() {
         notifiedThresholds.removeAll()
     }
+
+    /// 既に超過している閾値を通知済み扱いにする(設定再読込直後に過去分を再通知しないため)
+    public func prime(_ state: TimerState) {
+        guard state.activeProjectId != nil, let continuousStartedAt = state.continuousStartedAt
+        else { return }
+
+        let elapsed = state.continuousElapsedBase + now() - continuousStartedAt
+        for threshold in thresholds where elapsed >= threshold {
+            notifiedThresholds.insert(threshold)
+        }
+    }
 }

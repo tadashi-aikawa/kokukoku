@@ -84,7 +84,8 @@ struct PanelElementsBuilderTests {
 
         #expect(elements[16] == .image(
             frame: .init(x: 42, y: 92, w: 24, h: 24),
-            iconKey: "cached:/tmp/work.png", scaling: .scaleProportionally))
+            iconKey: "cached:/tmp/work.png", scaling: .scaleProportionally,
+            cornerRadius: 12))
     }
 
     @Test("画像アイコンの解決失敗時はパス文字列を描画しない")

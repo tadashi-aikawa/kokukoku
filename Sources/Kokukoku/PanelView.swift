@@ -94,12 +94,23 @@ final class PanelView: NSView {
                 ]
                 NSAttributedString(string: text, attributes: attributes)
                     .draw(in: nsRect(frame))
-            case .image(let frame, let iconKey, let scaling):
+            case .image(let frame, let iconKey, let scaling, let cornerRadius):
                 guard let image = imageProvider?(iconKey) else { continue }
                 let rect = fitRect(for: image, in: nsRect(frame), scaling: scaling)
+                if cornerRadius > 0 {
+                    NSGraphicsContext.current?.saveGraphicsState()
+                    NSBezierPath(
+                        roundedRect: rect,
+                        xRadius: min(cornerRadius, rect.width / 2),
+                        yRadius: min(cornerRadius, rect.height / 2)
+                    ).addClip()
+                }
                 image.draw(
                     in: rect, from: .zero, operation: .sourceOver, fraction: 1,
                     respectFlipped: true, hints: nil)
+                if cornerRadius > 0 {
+                    NSGraphicsContext.current?.restoreGraphicsState()
+                }
             }
         }
     }

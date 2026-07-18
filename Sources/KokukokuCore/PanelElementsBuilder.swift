@@ -366,7 +366,8 @@ public struct PanelElementsBuilder {
                     y: containerY + centeredOffset(containerHeight, layout.iconImageSize),
                     w: layout.iconImageSize, h: layout.iconImageSize),
                 iconKey: key,
-                scaling: .scaleProportionally))
+                scaling: .scaleProportionally,
+                cornerRadius: layout.iconImageCornerRadius))
         case .text:
             let height = measureTextHeight(icon, fontName, fontSize)
             elements.append(.text(

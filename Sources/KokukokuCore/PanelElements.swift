@@ -95,7 +95,11 @@ public enum PanelElement: Equatable, Sendable {
         fontSize: Double,
         color: PanelColor,
         alignment: PanelTextAlignment = .left)
-    case image(frame: PanelFrame, iconKey: String, scaling: PanelImageScaling)
+    case image(
+        frame: PanelFrame,
+        iconKey: String,
+        scaling: PanelImageScaling,
+        cornerRadius: Double = 0)
 }
 
 /// パネル上でインライン編集中の時間。編集中は該当の時刻テキストを描画せず、
@@ -192,6 +196,8 @@ public enum PanelLayout {
     public static let iconImageSize = 24.0
     public static let iconGap = 8.0
     public static let iconSlotWidth = 24.0
+    /// 画像アイコンの角丸半径。行カプセルの文法に合わせて円形に切り抜く
+    public static let iconImageCornerRadius = iconImageSize / 2
     public static let headerLogoSize = 28.0
     public static let headerLogoTextGap = 6.0
     public static let headerTimeWidth = 90.0

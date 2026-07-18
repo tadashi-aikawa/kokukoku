@@ -8,31 +8,32 @@ public enum IconResolution: Equatable, Sendable {
 public struct PanelElementsBuilder {
     public struct Inputs: Sendable {
         public var projects: [KokukokuConfig.Project]
-        public var breakItem: KokukokuConfig.BreakItem?
         public var state: TimerState
         public var selectedIndex: Int?
         public var hoveredId: String?
         public var resetConfirming: Bool
         public var editingTarget: PanelEditingTarget?
+        /// 連続稼働アラートの閾値(秒)。ゲージの「次の閾値まで」の基準。空ならゲージ非表示
+        public var alertThresholds: [Int]
         public var ui: ResolvedUIConfig
 
         public init(
             projects: [KokukokuConfig.Project],
-            breakItem: KokukokuConfig.BreakItem? = nil,
             state: TimerState,
             selectedIndex: Int? = nil,
             hoveredId: String? = nil,
             resetConfirming: Bool = false,
             editingTarget: PanelEditingTarget? = nil,
+            alertThresholds: [Int] = [],
             ui: ResolvedUIConfig
         ) {
             self.projects = projects
-            self.breakItem = breakItem
             self.state = state
             self.selectedIndex = selectedIndex
             self.hoveredId = hoveredId
             self.resetConfirming = resetConfirming
             self.editingTarget = editingTarget
+            self.alertThresholds = alertThresholds
             self.ui = ui
         }
     }
@@ -196,50 +197,52 @@ public struct PanelElementsBuilder {
                 color: inputs.state.continuousStartedAt == nil ? colors.subText : colors.text))
         }
 
-        let breakSelected = inputs.selectedIndex == inputs.projects.count + 1
-            || inputs.hoveredId == "btn_break"
-        let breakName = inputs.breakItem?.name ?? "休憩"
-        let breakIcon = inputs.breakItem?.icon ?? "☕"
-        elements.append(.rectangle(
-            frame: .init(x: layout.padding - 4, y: footerY + 4, w: 108, h: 30),
-            fillColor: breakSelected ? colors.footerHoverBg : colors.footerBg,
-            cornerRadius: 6,
-            id: "btn_break",
-            tracksMouse: true))
-        appendIcon(
-            breakIcon, x: layout.padding, containerY: footerY + 4, containerHeight: 30,
-            color: colors.text, fontName: inputs.ui.fontName, fontSize: 14, to: &elements)
-        let breakHeight = measureTextHeight(breakName, inputs.ui.fontName, 14)
-        elements.append(.text(
-            frame: .init(
-                x: layout.padding + layout.iconSlotWidth + layout.iconGap,
-                y: footerY + 4 + centeredOffset(30, breakHeight), w: 72, h: breakHeight),
-            text: breakName,
-            fontName: inputs.ui.fontName,
-            fontSize: 14,
-            color: colors.text))
+        // 連続稼働ゲージ(時刻テキスト直下のコンパクトなエンバーライン)。
+        // 次のアラート閾値へどれだけ近いかを示し、近づくほど金茶から朱へ燃える
+        if let fraction = Self.gaugeFraction(
+            continuousElapsed: continuousElapsed, thresholds: inputs.alertThresholds)
+        {
+            // ロゴ左端から時刻テキスト右端までの中央ブロック全体に敷く
+            let track = PanelFrame(
+                x: timeFrame.x - layout.headerLogoTextGap - layout.headerLogoSize,
+                y: footerY + layout.footerHeight - 5,
+                w: layout.headerLogoSize + layout.headerLogoTextGap + layout.headerTimeWidth,
+                h: 3)
+            elements.append(.rectangle(
+                frame: track, fillColor: colors.gaugeTrack, cornerRadius: 1.5))
+            if fraction > 0 {
+                elements.append(.rectangle(
+                    frame: .init(x: track.x, y: track.y, w: track.w * fraction, h: track.h),
+                    fillColor: Self.gaugeColor(fraction: fraction),
+                    cornerRadius: 1.5))
+            }
+        }
 
-        let resetSelected = inputs.selectedIndex == inputs.projects.count + 2
-            || inputs.hoveredId == "btn_reset"
+        // リセットは小さな文字ボタン(枠線なし・ホバーとリセット確認時だけ背景が浮かぶ)。
+        // 休憩ボタンは廃止(計測中プロジェクトの再選択トグルで休憩に入れるため)。
+        // 絵文字(青い🔄・⚠️)は墨絵パレットから浮くため、生成りの「↺」に統一する
+        let resetHovered = inputs.hoveredId == "btn_reset"
         let resetColor = inputs.resetConfirming
-            ? colors.resetConfirmBg : (resetSelected ? colors.footerHoverBg : colors.footerBg)
+            ? colors.resetConfirmBg : (resetHovered ? colors.footerHoverBg : colors.footerBg)
+        let resetFrame = PanelFrame(
+            x: metrics.panelWidth - layout.padding - 96, y: footerY + 7, w: 96, h: 26)
         elements.append(.rectangle(
-            frame: .init(x: metrics.panelWidth - layout.padding - 114, y: footerY + 4, w: 118, h: 30),
+            frame: resetFrame,
             fillColor: resetColor,
-            cornerRadius: 6,
+            cornerRadius: 13,
             id: "btn_reset",
             tracksMouse: true))
-        let resetText = inputs.resetConfirming ? "⚠️ 本当に?" : "🔄 リセット"
-        let resetHeight = measureTextHeight(resetText, inputs.ui.fontName, 14)
+        let resetText = inputs.resetConfirming ? "↺ 本当に?" : "↺ リセット"
+        let resetHeight = measureTextHeight(resetText, inputs.ui.fontName, 13)
         elements.append(.text(
             frame: .init(
-                x: metrics.panelWidth - layout.padding - 110,
-                y: footerY + 4 + centeredOffset(30, resetHeight), w: 110, h: resetHeight),
+                x: resetFrame.x, y: resetFrame.y + centeredOffset(resetFrame.h, resetHeight),
+                w: resetFrame.w, h: resetHeight),
             text: resetText,
             fontName: inputs.ui.fontName,
-            fontSize: 14,
-            color: colors.subText,
-            alignment: .right))
+            fontSize: 13,
+            color: inputs.resetConfirming ? colors.text : colors.subText,
+            alignment: .center))
 
         // 外周の縁取り(暗い背景でもパネルの輪郭が分かるように最前面へ)
         elements.append(.rectangle(
@@ -334,6 +337,29 @@ public struct PanelElementsBuilder {
             fontName: inputs.ui.monoFontName,
             fontSize: layout.clockDigitalFontSize,
             color: colors.text))
+    }
+
+    /// 連続稼働ゲージの進行率(0.0〜1.0)。「次の閾値まで」を基準にし、
+    /// 閾値を1つ超えるたびに次の閾値基準へ切り替わる。全閾値超過後は満タン。
+    /// 閾値が無い場合はnil(ゲージ非表示)
+    static func gaugeFraction(continuousElapsed: Int, thresholds: [Int]) -> Double? {
+        let sorted = thresholds.filter { $0 > 0 }.sorted()
+        guard !sorted.isEmpty else { return nil }
+        guard let next = sorted.first(where: { continuousElapsed < $0 }) else { return 1 }
+        let previous = sorted.last(where: { $0 <= continuousElapsed }) ?? 0
+        return Double(continuousElapsed - previous) / Double(next - previous)
+    }
+
+    /// ゲージの火の色。進行に応じて金茶から朱へ線形補間する
+    static func gaugeColor(fraction: Double) -> PanelColor {
+        let t = min(max(fraction, 0), 1)
+        let from = PanelLayout.Colors.gaugeStart
+        let to = PanelLayout.Colors.gaugeEnd
+        return PanelColor(
+            red: from.red + (to.red - from.red) * t,
+            green: from.green + (to.green - from.green) * t,
+            blue: from.blue + (to.blue - from.blue) * t,
+            alpha: 1)
     }
 
     /// 文字盤中心から針の先端座標を求める。fractionは12時起点で時計回りの一周比(0.0〜1.0)

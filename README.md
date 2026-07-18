@@ -60,7 +60,7 @@ xattr -dr com.apple.quarantine /Applications/KOKUKOKU.app
 
 ## 設定
 
-KOKUKOKU は起動時に `~/.config/kokukoku/config.toml` を読み込みます。編集後はアプリを再起動してください。
+KOKUKOKU は起動時に `~/.config/kokukoku/config.toml` を読み込みます。編集後はステータスバーメニューの「設定を再読込」で反映できます。
 
 ```toml
 [[projects]]
@@ -72,10 +72,6 @@ icon = "💻"
 id = "meeting"
 name = "ミーティング"
 icon = "🗓"
-
-[breakItem]
-name = "休憩"
-icon = "☕"
 
 [hotkey]
 modifiers = ["alt"]
@@ -92,11 +88,6 @@ key = "t"
 id = "work"    # 一意な文字列ID (必須)
 name = "Work"  # 表示名 (必須)
 icon = "💼"    # 絵文字、画像URL (http/https)、ファイルパス (/ か ~/) (任意)
-
-# 休憩ボタン設定 (任意。デフォルト: name="休憩", icon="☕")
-[breakItem]
-name = "休憩"
-icon = "☕"
 
 # パネル表示のホットキー (任意。省略時は無効)
 [hotkey]

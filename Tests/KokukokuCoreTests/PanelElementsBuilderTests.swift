@@ -11,7 +11,7 @@ struct PanelElementsBuilderTests {
     func representativeLayout() {
         let elements = builder().build(inputs())
 
-        #expect(elements.count == 29)
+        #expect(elements.count == 26)
         #expect(elements[0] == .rectangle(
             frame: .init(x: 0, y: 0, w: 480, h: 164),
             fillColor: PanelLayout.Colors.background, cornerRadius: 10))
@@ -38,14 +38,10 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 212, y: 134, w: 90, h: 28), text: "00:00:00",
             fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
         #expect(elements[23] == .rectangle(
-            frame: .init(x: 8, y: 128, w: 108, h: 30),
-            fillColor: PanelLayout.Colors.footerBg, cornerRadius: 6,
-            id: "btn_break", tracksMouse: true))
-        #expect(elements[26] == .rectangle(
-            frame: .init(x: 354, y: 128, w: 118, h: 30),
-            fillColor: PanelLayout.Colors.footerBg, cornerRadius: 6,
+            frame: .init(x: 372, y: 131, w: 96, h: 26),
+            fillColor: PanelLayout.Colors.footerBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
-        #expect(elements[28] == .rectangle(
+        #expect(elements[25] == .rectangle(
             frame: .init(x: 0.5, y: 0.5, w: 479, h: 163),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 10,
             strokeColor: PanelLayout.Colors.panelBorder, strokeWidth: 1))
@@ -112,33 +108,24 @@ struct PanelElementsBuilderTests {
             fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.text))
     }
 
-    @Test("休憩ボタンにカスタムアイコンと名前を表示する")
-    func customBreakItem() {
-        let elements = builder().build(inputs(breakItem: .init(name: "深呼吸", icon: "🫖")))
-
-        #expect(containsText("🫖", in: elements))
-        #expect(containsText("深呼吸", in: elements))
-        #expect(!containsText("☕", in: elements))
-    }
-
     @Test("選択・ホバー・リセット確認の色を反映する")
     func interactionColors() {
         let hovered = builder().build(inputs(hoveredId: "row_work"))
-        let hoveredBreak = builder().build(inputs(hoveredId: "btn_break"))
+        let hoveredReset = builder().build(inputs(hoveredId: "btn_reset"))
         let confirming = builder().build(inputs(resetConfirming: true))
 
         #expect(hovered[14] == .rectangle(
             frame: .init(x: 0, y: 84, w: 480, h: 40),
             fillColor: PanelLayout.Colors.rowHoverBg, id: "row_work", tracksMouse: true))
-        #expect(hoveredBreak[23] == .rectangle(
-            frame: .init(x: 8, y: 128, w: 108, h: 30),
-            fillColor: PanelLayout.Colors.footerHoverBg, cornerRadius: 6,
-            id: "btn_break", tracksMouse: true))
-        #expect(confirming[26] == .rectangle(
-            frame: .init(x: 354, y: 128, w: 118, h: 30),
-            fillColor: PanelLayout.Colors.resetConfirmBg, cornerRadius: 6,
+        #expect(hoveredReset[23] == .rectangle(
+            frame: .init(x: 372, y: 131, w: 96, h: 26),
+            fillColor: PanelLayout.Colors.footerHoverBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
-        #expect(containsText("⚠️ 本当に?", in: confirming))
+        #expect(confirming[23] == .rectangle(
+            frame: .init(x: 372, y: 131, w: 96, h: 26),
+            fillColor: PanelLayout.Colors.resetConfirmBg, cornerRadius: 13,
+            id: "btn_reset", tracksMouse: true))
+        #expect(containsText("↺ 本当に?", in: confirming))
     }
 
     @Test("キーボード選択はカプセル輪郭で示し行背景は変えない")
@@ -244,6 +231,37 @@ struct PanelElementsBuilderTests {
             == .init(x: 356, y: 164, w: 100, h: 40))
     }
 
+    @Test("連続稼働ゲージの進行率は次の閾値まで基準で閾値なしなら非表示")
+    func gaugeFraction() {
+        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 1800, thresholds: [3600]) == 0.5)
+        // 閾値を1つ超えたら次の閾値基準に切り替わる
+        #expect(
+            PanelElementsBuilder.gaugeFraction(continuousElapsed: 2700, thresholds: [1800, 3600])
+                == 0.5)
+        // 全閾値超過後は満タン
+        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 4000, thresholds: [3600]) == 1)
+        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 100, thresholds: []) == nil)
+        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 100, thresholds: [0]) == nil)
+    }
+
+    @Test("閾値があればフッター下端に連続稼働ゲージの溝と火を描く")
+    func gaugeElements() {
+        let none = builder().build(inputs())
+        let elements = builder(now: 2_800).build(inputs(
+            state: .init(continuousElapsedBase: 0, continuousStartedAt: 1_000),
+            alertThresholds: [3_600]))
+
+        // 溝はロゴ+連続稼働時間の中央ブロック全体の直下・同じ幅
+        let track = PanelFrame(x: 178, y: 159, w: 124, h: 3)
+        #expect(!none.contains(.rectangle(
+            frame: track, fillColor: PanelLayout.Colors.gaugeTrack, cornerRadius: 1.5)))
+        #expect(elements.contains(.rectangle(
+            frame: track, fillColor: PanelLayout.Colors.gaugeTrack, cornerRadius: 1.5)))
+        #expect(elements.contains(.rectangle(
+            frame: .init(x: 178, y: 159, w: 62, h: 3),
+            fillColor: PanelElementsBuilder.gaugeColor(fraction: 0.5), cornerRadius: 1.5)))
+    }
+
     @Test("パネル幅は最長プロジェクト名の幅に連動し下限420・上限480で頭打ちする")
     func metricsCompute() {
         func width(nameWidths: [String: Double]) -> Double {
@@ -347,18 +365,19 @@ struct PanelElementsBuilderTests {
 
     private func inputs(
         project: KokukokuConfig.Project = .init(id: "work", name: "Work", icon: "🔵"),
-        breakItem: KokukokuConfig.BreakItem? = nil,
         state: TimerState = .init(),
         selectedIndex: Int? = nil,
         hoveredId: String? = nil,
         resetConfirming: Bool = false,
-        editingTarget: PanelEditingTarget? = nil
+        editingTarget: PanelEditingTarget? = nil,
+        alertThresholds: [Int] = []
     ) -> PanelElementsBuilder.Inputs {
         .init(
-            projects: [project], breakItem: breakItem, state: state,
+            projects: [project], state: state,
             selectedIndex: selectedIndex, hoveredId: hoveredId,
             resetConfirming: resetConfirming,
-            editingTarget: editingTarget, ui: ui)
+            editingTarget: editingTarget,
+            alertThresholds: alertThresholds, ui: ui)
     }
 
     private func containsText(_ text: String, in elements: [PanelElement]) -> Bool {

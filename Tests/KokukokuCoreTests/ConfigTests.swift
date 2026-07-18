@@ -17,10 +17,6 @@ struct ConfigLoaderTests {
             id = "meeting"
             name = "Meeting"
 
-            [breakItem]
-            name = "Break"
-            icon = "☕"
-
             [hotkey]
             modifiers = ["alt"]
             key = "t"
@@ -33,7 +29,6 @@ struct ConfigLoaderTests {
                 .init(id: "dev", name: "Development", icon: "💻"),
                 .init(id: "meeting", name: "Meeting"),
             ])
-        #expect(config.breakItem == .init(name: "Break", icon: "☕"))
         #expect(config.hotkey == .init(modifiers: ["alt"], key: "t"))
     }
 

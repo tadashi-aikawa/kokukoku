@@ -66,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let panel = PanelController(
             projects: config.projects,
-            breakItem: config.breakItem,
+            alertThresholds: continuousWork?.thresholds ?? [],
             ui: ResolvedUIConfig(ui: config.ui),
             keymap: ResolvedKeymap(keymap: config.keymap),
             callbacks: .init(

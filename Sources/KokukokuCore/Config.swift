@@ -15,16 +15,6 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         }
     }
 
-    public struct BreakItem: Codable, Equatable, Sendable {
-        public var name: String
-        public var icon: String?
-
-        public init(name: String, icon: String? = nil) {
-            self.name = name
-            self.icon = icon
-        }
-    }
-
     public struct Hotkey: Codable, Equatable, Sendable {
         public var modifiers: [String]
         public var key: String
@@ -80,7 +70,6 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
     }
 
     public var projects: [Project]
-    public var breakItem: BreakItem?
     public var hotkey: Hotkey?
     public var alert: Alert?
     public var ui: UI?
@@ -88,14 +77,12 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
 
     public init(
         projects: [Project] = [],
-        breakItem: BreakItem? = nil,
         hotkey: Hotkey? = nil,
         alert: Alert? = nil,
         ui: UI? = nil,
         keymap: Keymap? = nil
     ) {
         self.projects = projects
-        self.breakItem = breakItem
         self.hotkey = hotkey
         self.alert = alert
         self.ui = ui
@@ -105,7 +92,6 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.projects = try container.decodeIfPresent([Project].self, forKey: .projects) ?? []
-        self.breakItem = try container.decodeIfPresent(BreakItem.self, forKey: .breakItem)
         self.hotkey = try container.decodeIfPresent(Hotkey.self, forKey: .hotkey)
         self.alert = try container.decodeIfPresent(Alert.self, forKey: .alert)
         self.ui = try container.decodeIfPresent(UI.self, forKey: .ui)

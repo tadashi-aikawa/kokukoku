@@ -16,7 +16,7 @@ final class PanelController {
     }
 
     private let projects: [KokukokuConfig.Project]
-    private let breakItem: KokukokuConfig.BreakItem?
+    private let alertThresholds: [Int]
     private let ui: ResolvedUIConfig
     private let keymap: ResolvedKeymap
     private let callbacks: Callbacks
@@ -37,13 +37,13 @@ final class PanelController {
 
     init(
         projects: [KokukokuConfig.Project],
-        breakItem: KokukokuConfig.BreakItem?,
+        alertThresholds: [Int],
         ui: ResolvedUIConfig,
         keymap: ResolvedKeymap,
         callbacks: Callbacks
     ) {
         self.projects = projects
-        self.breakItem = breakItem
+        self.alertThresholds = alertThresholds
         self.ui = ui
         self.keymap = keymap
         self.callbacks = callbacks
@@ -180,12 +180,12 @@ final class PanelController {
         panelView.elements = builder.build(
             .init(
                 projects: projects,
-                breakItem: breakItem,
                 state: callbacks.getState(),
                 selectedIndex: selectedIndex,
                 hoveredId: hoveredId,
                 resetConfirming: resetConfirming,
                 editingTarget: editingTarget,
+                alertThresholds: alertThresholds,
                 ui: ui))
     }
 
@@ -213,17 +213,10 @@ final class PanelController {
         rebuildPanel()
     }
 
+    /// キーボード選択はプロジェクト行のみ(休憩は再選択トグル、リセットはキー・クリックで行う)
     private func executeSelectedAction() {
-        guard let selectedIndex else { return }
-        if selectedIndex <= projects.count {
-            selectProject(projects[selectedIndex - 1].id)
-        } else if selectedIndex == projects.count + 1 {
-            resetConfirming = false
-            callbacks.onBreak()
-            rebuildPanel()
-        } else if selectedIndex == projects.count + 2 {
-            handleResetAction()
-        }
+        guard let selectedIndex, selectedIndex <= projects.count else { return }
+        selectProject(projects[selectedIndex - 1].id)
     }
 
     private func editSelectedProjectTime() {
@@ -343,9 +336,6 @@ final class PanelController {
         if elementId.hasPrefix("row_") {
             selectProject(String(elementId.dropFirst(4)))
             return
-        } else if elementId == "btn_break" {
-            resetConfirming = false
-            callbacks.onBreak()
         } else if elementId == "btn_reset" {
             handleResetAction()
             return

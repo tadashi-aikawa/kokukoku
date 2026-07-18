@@ -182,10 +182,15 @@ final class PanelController {
 
     // MARK: - 操作の実行
 
-    /// 切替後もパネルは開いたまま(閉じるのはESC)。計測中行のネオンが切替成功の合図になる
+    /// 切替後もパネルは開いたまま(閉じるのはESC)。計測中行のネオンが切替成功の合図になる。
+    /// 計測中のプロジェクトを再選択した場合はトグルとして休憩に入る
     private func selectProject(_ projectId: String) {
         resetConfirming = false
-        callbacks.onProjectSelect(projectId)
+        if callbacks.getState().activeProjectId == projectId {
+            callbacks.onBreak()
+        } else {
+            callbacks.onProjectSelect(projectId)
+        }
         rebuildPanel()
     }
 

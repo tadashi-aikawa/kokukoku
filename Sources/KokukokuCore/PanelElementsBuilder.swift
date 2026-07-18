@@ -104,8 +104,8 @@ public struct PanelElementsBuilder {
                 let height = measureTextHeight(numberText, inputs.ui.monoFontName, 13)
                 elements.append(.text(
                     frame: .init(
-                        x: layout.padding, y: y + centeredOffset(layout.rowHeight, height),
-                        w: 20, h: height),
+                        x: layout.numberColumnX, y: y + centeredOffset(layout.rowHeight, height),
+                        w: 14, h: height),
                     text: numberText,
                     fontName: inputs.ui.monoFontName,
                     fontSize: 13,
@@ -252,9 +252,11 @@ public struct PanelElementsBuilder {
             inputs.state.activeProjectId == $0.id
         }) {
             let y = layout.clockSectionHeight + Double(activeOffset) * layout.rowHeight
-            let height = layout.rowHeight - 4
+            let height = layout.rowHeight - layout.capsuleInsetY * 2
             elements.append(.neonRectangle(
-                frame: .init(x: 3, y: y + 2, w: layout.panelWidth - 6, h: height),
+                frame: .init(
+                    x: layout.capsuleInsetX, y: y + layout.capsuleInsetY,
+                    w: layout.panelWidth - layout.capsuleInsetX * 2, h: height),
                 cornerRadius: height / 2,
                 strokeWidth: 1,
                 topColor: colors.neonCoreTop,
@@ -270,11 +272,13 @@ public struct PanelElementsBuilder {
         {
             let project = inputs.projects[selected - 1]
             let y = layout.clockSectionHeight + Double(selected - 1) * layout.rowHeight
-            let inset = inputs.state.activeProjectId == project.id ? 7.0 : 3.0
-            let height = layout.rowHeight - inset * 2
+            let isActiveRow = inputs.state.activeProjectId == project.id
+            let insetX = layout.capsuleInsetX + (isActiveRow ? 4 : 0)
+            let insetY = layout.capsuleInsetY + (isActiveRow ? 4 : 0)
+            let height = layout.rowHeight - insetY * 2
             elements.append(.rectangle(
                 frame: .init(
-                    x: inset, y: y + inset, w: layout.panelWidth - inset * 2, h: height),
+                    x: insetX, y: y + insetY, w: layout.panelWidth - insetX * 2, h: height),
                 fillColor: PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
                 cornerRadius: height / 2,
                 strokeColor: colors.selectionOutline,

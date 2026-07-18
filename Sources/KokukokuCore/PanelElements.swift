@@ -113,7 +113,7 @@ public enum PanelLayout {
     public static let rowHeight = 40.0
     public static let footerHeight = 40.0
     public static let padding = 12.0
-    public static let projectContentX = padding + 22
+    public static let projectContentX = numberColumnX + 18
     public static let projectNameRight = 232.0
     public static let iconTextWidth = 24.0
     public static let iconImageSize = 24.0
@@ -122,8 +122,16 @@ public enum PanelLayout {
     public static let headerLogoSize = 28.0
     public static let headerLogoTextGap = 6.0
     public static let headerTimeWidth = 90.0
-    public static let timeColumnX = 240.0
+    /// 行カプセル(ネオン・選択輪郭)のパネル端・行境界からのマージン。
+    /// 端に密着させると窮屈に見えるため左右に余白を取る
+    public static let capsuleInsetX = 8.0
+    public static let capsuleInsetY = 3.0
+    /// 行番号列の位置(カプセル輪郭の内側に収まるよう端から離す)
+    public static let numberColumnX = 24.0
+    /// 累積時間列は右端を行番号列と対称の位置(パネル右端-18px)に揃え、
+    /// 行全体の左右バランスを保つ
     public static let timeColumnWidth = 100.0
+    public static let timeColumnX = panelWidth - numberColumnX - timeColumnWidth
     public static let colors = Colors.self
 
     /// アナログ時計の文字盤半径と中心(ヘッダーの中でデジタルと合わせて中央寄せ)

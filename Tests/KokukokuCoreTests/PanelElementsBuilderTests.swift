@@ -25,10 +25,10 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 0, y: 84, w: 420, h: 40),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
         #expect(elements[15] == .text(
-            frame: .init(x: 12, y: 93, w: 20, h: 21), text: "1",
+            frame: .init(x: 24, y: 93, w: 14, h: 21), text: "1",
             fontName: "Menlo", fontSize: 13, color: PanelLayout.Colors.subText))
         #expect(elements[17] == .text(
-            frame: .init(x: 66, y: 92, w: 166, h: 24), text: "Work",
+            frame: .init(x: 74, y: 92, w: 158, h: 24), text: "Work",
             fontName: ".AppleSystemUIFont", fontSize: 16, color: PanelLayout.Colors.text))
         #expect(elements[19] == .rectangle(
             frame: .init(x: 0, y: 124, w: 420, h: 1),
@@ -71,7 +71,7 @@ struct PanelElementsBuilderTests {
         }).build(inputs())
 
         #expect(elements[16] == .text(
-            frame: .init(x: 34, y: 91, w: 24, h: 25), text: "🔵",
+            frame: .init(x: 42, y: 91, w: 24, h: 25), text: "🔵",
             fontName: ".AppleSystemUIFont", fontSize: 17,
             color: PanelLayout.Colors.text, alignment: .center))
     }
@@ -82,7 +82,7 @@ struct PanelElementsBuilderTests {
             .build(inputs(project: .init(id: "work", name: "Work", icon: "/tmp/work.png")))
 
         #expect(elements[16] == .image(
-            frame: .init(x: 34, y: 92, w: 24, h: 24),
+            frame: .init(x: 42, y: 92, w: 24, h: 24),
             iconKey: "cached:/tmp/work.png", scaling: .scaleProportionally))
     }
 
@@ -147,7 +147,7 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 0, y: 84, w: 420, h: 40),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
         #expect(selected.last == .rectangle(
-            frame: .init(x: 3, y: 87, w: 414, h: 34),
+            frame: .init(x: 8, y: 87, w: 404, h: 34),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 17,
             strokeColor: PanelLayout.Colors.selectionOutline,
@@ -165,7 +165,7 @@ struct PanelElementsBuilderTests {
             return
         }
         #expect(elements.last == .rectangle(
-            frame: .init(x: 7, y: 91, w: 406, h: 26),
+            frame: .init(x: 12, y: 91, w: 396, h: 26),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 13,
             strokeColor: PanelLayout.Colors.selectionOutline,
@@ -181,8 +181,8 @@ struct PanelElementsBuilderTests {
         #expect(!inactive.contains { if case .neonRectangle = $0 { true } else { false } })
         // グローが他要素に塗り潰されないよう最前面(末尾)に置く
         #expect(active.last == .neonRectangle(
-            frame: .init(x: 3, y: 86, w: 414, h: 36),
-            cornerRadius: 18,
+            frame: .init(x: 8, y: 87, w: 404, h: 34),
+            cornerRadius: 17,
             strokeWidth: 1,
             topColor: PanelLayout.Colors.neonCoreTop,
             bottomColor: PanelLayout.Colors.neonCoreBottom,
@@ -194,7 +194,7 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 0, y: 84, w: 420, h: 40),
             fillColor: PanelLayout.Colors.activeRowBg, id: "row_work", tracksMouse: true))
         #expect(active[17] == .text(
-            frame: .init(x: 66, y: 92, w: 166, h: 24), text: "Work",
+            frame: .init(x: 74, y: 92, w: 158, h: 24), text: "Work",
             fontName: ".AppleSystemUIFont", fontSize: 16,
             color: PanelLayout.Colors.activeText))
     }
@@ -237,9 +237,9 @@ struct PanelElementsBuilderTests {
         #expect(PanelLayout.continuousTimeFrame(projectCount: 1)
             == .init(x: 182, y: 134, w: 90, h: 28))
         #expect(PanelLayout.accumulatedTimeFrame(rowOffset: 0)
-            == .init(x: 240, y: 84, w: 100, h: 40))
+            == .init(x: 296, y: 84, w: 100, h: 40))
         #expect(PanelLayout.accumulatedTimeFrame(rowOffset: 2)
-            == .init(x: 240, y: 164, w: 100, h: 40))
+            == .init(x: 296, y: 164, w: 100, h: 40))
     }
 
     @Test("パネル高さをプロジェクト数から算出する")

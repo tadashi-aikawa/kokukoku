@@ -133,11 +133,11 @@ struct PanelElementsBuilderTests {
 
     @Test("選択・ホバー・リセット確認の色を反映する")
     func interactionColors() {
-        let selected = builder().build(inputs(selectedIndex: 1))
+        let hovered = builder().build(inputs(hoveredId: "row_work"))
         let hoveredBreak = builder().build(inputs(hoveredId: "btn_break"))
         let confirming = builder().build(inputs(resetConfirming: true))
 
-        #expect(selected[14] == .rectangle(
+        #expect(hovered[14] == .rectangle(
             frame: .init(x: 0, y: 72, w: 420, h: 40),
             fillColor: PanelLayout.Colors.rowHoverBg, id: "row_work", tracksMouse: true))
         #expect(hoveredBreak[23] == .rectangle(
@@ -149,6 +149,39 @@ struct PanelElementsBuilderTests {
             fillColor: PanelLayout.Colors.resetConfirmBg, cornerRadius: 6,
             id: "btn_reset", tracksMouse: true))
         #expect(containsText("⚠️ 本当に?", in: confirming))
+    }
+
+    @Test("キーボード選択はカプセル輪郭で示し行背景は変えない")
+    func selectionOutline() {
+        let selected = builder().build(inputs(selectedIndex: 1))
+
+        #expect(selected[14] == .rectangle(
+            frame: .init(x: 0, y: 72, w: 420, h: 40),
+            fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
+        #expect(selected.last == .rectangle(
+            frame: .init(x: 3, y: 75, w: 414, h: 34),
+            fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
+            cornerRadius: 17,
+            strokeColor: PanelLayout.Colors.selectionOutline,
+            strokeWidth: 1))
+    }
+
+    @Test("計測中の行を選択した場合はネオンの内側に細い輪を引く")
+    func selectionOutlineOnActiveRow() {
+        let elements = builder(now: 1_100).build(inputs(
+            state: .init(activeProjectId: "work", activeStartedAt: 1_000),
+            selectedIndex: 1))
+
+        guard case .neonRectangle = elements[elements.count - 2] else {
+            Issue.record("選択輪郭の直前にネオン縁取りがない")
+            return
+        }
+        #expect(elements.last == .rectangle(
+            frame: .init(x: 7, y: 79, w: 406, h: 26),
+            fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
+            cornerRadius: 13,
+            strokeColor: PanelLayout.Colors.selectionOutline,
+            strokeWidth: 1))
     }
 
     @Test("計測中の行は炎色ネオン縁取りで示し文字ラベルは置かない")

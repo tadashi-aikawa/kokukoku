@@ -102,12 +102,13 @@ public struct PanelElementsBuilder {
             let index = offset + 1
             let y = layout.clockSectionHeight + Double(offset) * layout.rowHeight
             let isActive = inputs.state.activeProjectId == project.id
-            let isSelected = inputs.selectedIndex == index || inputs.hoveredId == "row_\(project.id)"
+            // マウスホバーは背景の明度変化のみ。キーボード選択はカプセル輪郭で示す(末尾で構築)
+            let isHovered = inputs.hoveredId == "row_\(project.id)"
             let rowColor: PanelColor
             if isActive {
-                rowColor = isSelected ? colors.activeRowHoverBg : colors.activeRowBg
+                rowColor = isHovered ? colors.activeRowHoverBg : colors.activeRowBg
             } else {
-                rowColor = isSelected ? colors.rowHoverBg : colors.rowBg
+                rowColor = isHovered ? colors.rowHoverBg : colors.rowBg
             }
             elements.append(.rectangle(
                 frame: .init(x: 0, y: y, w: layout.panelWidth, h: layout.rowHeight),
@@ -277,6 +278,24 @@ public struct PanelElementsBuilder {
                 bottomColor: colors.neonCoreBottom,
                 glowColor: colors.neonGlow,
                 glowRadius: 7))
+        }
+
+        // キーボード選択はネオンと同形のカプセル輪郭(消灯版)。Enterの確定対象を示す。
+        // 選択行が計測中(ネオンと重なる)場合は、ネオンの内側に細い輪として引っ込める
+        if let selected = inputs.selectedIndex,
+            selected >= 1, selected <= inputs.projects.count
+        {
+            let project = inputs.projects[selected - 1]
+            let y = layout.clockSectionHeight + Double(selected - 1) * layout.rowHeight
+            let inset = inputs.state.activeProjectId == project.id ? 7.0 : 3.0
+            let height = layout.rowHeight - inset * 2
+            elements.append(.rectangle(
+                frame: .init(
+                    x: inset, y: y + inset, w: layout.panelWidth - inset * 2, h: height),
+                fillColor: PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
+                cornerRadius: height / 2,
+                strokeColor: colors.selectionOutline,
+                strokeWidth: 1))
         }
 
         return elements

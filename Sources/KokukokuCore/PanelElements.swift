@@ -179,6 +179,9 @@ public enum PanelLayout {
         public static let neonCoreTop = PanelColor(red: 1.0, green: 0.96, blue: 0.82, alpha: 1)
         public static let neonCoreBottom = PanelColor(red: 1.0, green: 0.66, blue: 0.28, alpha: 1)
         public static let neonGlow = PanelColor(red: 0.95, green: 0.33, blue: 0.12, alpha: 0.95)
+        /// キーボード選択の輪郭(ネオンの「消灯版」: 生成りの細いカプセル輪郭)
+        public static let selectionOutline = PanelColor(
+            red: 0.95, green: 0.91, blue: 0.83, alpha: 0.5)
         public static let separator = PanelColor(red: 0.29, green: 0.28, blue: 0.24, alpha: 1)
         public static let resetConfirmBg = PanelColor(red: 0.48, green: 0.10, blue: 0.10, alpha: 1)
         /// パネル外周の縁取り(暗い背景でも輪郭が分かるよう生成りの低アルファ)

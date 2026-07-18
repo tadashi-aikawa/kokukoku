@@ -158,13 +158,15 @@ struct PanelElementsBuilderTests {
             activeProjectId: "work", activeStartedAt: 1_000)))
 
         #expect(!inactive.contains { if case .neonRectangle = $0 { true } else { false } })
-        #expect(active[19] == .neonRectangle(
-            frame: .init(x: 3, y: 75, w: 414, h: 30),
-            cornerRadius: 6,
-            strokeColor: PanelLayout.Colors.neonStroke,
-            strokeWidth: 1.5,
+        // グローが他要素に塗り潰されないよう最前面(末尾)に置く
+        #expect(active.last == .neonRectangle(
+            frame: .init(x: 3, y: 74, w: 414, h: 32),
+            cornerRadius: 16,
+            strokeWidth: 2,
+            topColor: PanelLayout.Colors.neonCoreTop,
+            bottomColor: PanelLayout.Colors.neonCoreBottom,
             glowColor: PanelLayout.Colors.neonGlow,
-            glowRadius: 6))
+            glowRadius: 7))
         #expect(!containsText("▶ 計測中", in: active))
         // 行背景と文字はアクティブ配色になる
         #expect(active[14] == .rectangle(

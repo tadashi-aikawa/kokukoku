@@ -77,12 +77,14 @@ public enum PanelElement: Equatable, Sendable {
         fillColor: PanelColor? = nil,
         strokeColor: PanelColor? = nil,
         strokeWidth: Double = 0)
-    /// ネオン管風の角丸縁取り(芯のstroke+外側ににじむグロー)。計測中行の合図に使う
+    /// ネオン管風の縁取り。芯は上下の炎色グラデーション、外側へ二層のグローがにじむ。
+    /// 計測中行の合図に使う
     case neonRectangle(
         frame: PanelFrame,
         cornerRadius: Double,
-        strokeColor: PanelColor,
         strokeWidth: Double,
+        topColor: PanelColor,
+        bottomColor: PanelColor,
         glowColor: PanelColor,
         glowRadius: Double)
     case line(from: PanelPoint, to: PanelPoint, color: PanelColor, width: Double)
@@ -173,9 +175,10 @@ public enum PanelLayout {
         public static let text = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 1)
         public static let subText = PanelColor(red: 0.62, green: 0.57, blue: 0.47, alpha: 1)
         public static let activeText = PanelColor(red: 1.0, green: 0.80, blue: 0.50, alpha: 1)
-        /// ネオン縁取りの芯(明るい橙金)とグロー(朱寄りの炎色)
-        public static let neonStroke = PanelColor(red: 1.0, green: 0.72, blue: 0.35, alpha: 1)
-        public static let neonGlow = PanelColor(red: 0.92, green: 0.38, blue: 0.16, alpha: 0.9)
+        /// ネオン縁取りの芯(上=淡い黄金→下=橙の炎色グラデ)とグロー(朱寄りの炎色)
+        public static let neonCoreTop = PanelColor(red: 1.0, green: 0.96, blue: 0.82, alpha: 1)
+        public static let neonCoreBottom = PanelColor(red: 1.0, green: 0.66, blue: 0.28, alpha: 1)
+        public static let neonGlow = PanelColor(red: 0.95, green: 0.33, blue: 0.12, alpha: 0.95)
         public static let separator = PanelColor(red: 0.29, green: 0.28, blue: 0.24, alpha: 1)
         public static let resetConfirmBg = PanelColor(red: 0.48, green: 0.10, blue: 0.10, alpha: 1)
         /// パネル外周の縁取り(暗い背景でも輪郭が分かるよう生成りの低アルファ)

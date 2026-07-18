@@ -63,23 +63,12 @@ final class PanelView: NSView {
                     path.stroke()
                 }
             case .neonRectangle(
-                let frame, let cornerRadius, let strokeColor, let strokeWidth,
-                let glowColor, let glowRadius):
-                let path = NSBezierPath(
-                    roundedRect: nsRect(frame), xRadius: cornerRadius, yRadius: cornerRadius)
-                path.lineWidth = strokeWidth
-                NSGraphicsContext.current?.saveGraphicsState()
-                let shadow = NSShadow()
-                shadow.shadowColor = nsColor(glowColor)
-                shadow.shadowBlurRadius = glowRadius
-                shadow.shadowOffset = .zero
-                shadow.set()
-                nsColor(strokeColor).setStroke()
-                path.stroke()
-                NSGraphicsContext.current?.restoreGraphicsState()
-                // にじみの上へ芯線を重ね描きしてネオン管の質感を出す
-                nsColor(strokeColor).setStroke()
-                path.stroke()
+                let frame, let cornerRadius, let strokeWidth,
+                let topColor, let bottomColor, let glowColor, let glowRadius):
+                drawNeonRectangle(
+                    in: context, rect: nsRect(frame), cornerRadius: cornerRadius,
+                    strokeWidth: strokeWidth, topColor: topColor, bottomColor: bottomColor,
+                    glowColor: glowColor, glowRadius: glowRadius)
             case .line(let from, let to, let color, let width):
                 context.setStrokeColor(cgColor(color))
                 context.setLineWidth(width)
@@ -113,6 +102,56 @@ final class PanelView: NSView {
                     respectFlipped: true, hints: nil)
             }
         }
+    }
+
+    /// ネオン管の輝き: 広い朱のにじみ→内側の強い光の二層グローの上へ、
+    /// 上=淡い黄金→下=橙の炎色グラデーションの芯を重ねる
+    private func drawNeonRectangle(
+        in context: CGContext, rect: NSRect, cornerRadius: Double, strokeWidth: Double,
+        topColor: PanelColor, bottomColor: PanelColor,
+        glowColor: PanelColor, glowRadius: Double
+    ) {
+        let path = CGPath(
+            roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius,
+            transform: nil)
+
+        // 内側にほのかな光を満たす
+        if let innerLight = cgColor(glowColor).copy(alpha: glowColor.alpha * 0.10) {
+            context.saveGState()
+            context.addPath(path)
+            context.setFillColor(innerLight)
+            context.fillPath()
+            context.restoreGState()
+        }
+
+        for blurScale in [2.6, 1.4, 0.6] {
+            context.saveGState()
+            context.setShadow(
+                offset: .zero, blur: glowRadius * blurScale, color: cgColor(glowColor))
+            context.addPath(path)
+            context.setStrokeColor(cgColor(bottomColor))
+            context.setLineWidth(strokeWidth + 1)
+            context.strokePath()
+            context.restoreGState()
+        }
+
+        context.saveGState()
+        context.addPath(path.copy(
+            strokingWithWidth: strokeWidth, lineCap: .round, lineJoin: .round, miterLimit: 10))
+        context.clip()
+        if let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: [cgColor(topColor), cgColor(bottomColor)] as CFArray,
+            locations: [0, 1])
+        {
+            // isFlippedのためminYが上端
+            context.drawLinearGradient(
+                gradient,
+                start: CGPoint(x: rect.midX, y: rect.minY),
+                end: CGPoint(x: rect.midX, y: rect.maxY),
+                options: [])
+        }
+        context.restoreGState()
     }
 
     override func mouseDown(with event: NSEvent) {

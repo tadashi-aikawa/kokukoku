@@ -165,18 +165,6 @@ public struct PanelElementsBuilder {
                     alignment: .right))
             }
 
-            // 計測中の合図は炎色ネオンの縁取り(文字ラベルは置かない)
-            if isActive {
-                elements.append(.neonRectangle(
-                    frame: .init(
-                        x: 3, y: y + 3, w: layout.panelWidth - 6, h: layout.rowHeight - 6),
-                    cornerRadius: 6,
-                    strokeColor: colors.neonStroke,
-                    strokeWidth: 1.5,
-                    glowColor: colors.neonGlow,
-                    glowRadius: 6))
-            }
-
             if index < inputs.projects.count {
                 elements.append(.rectangle(
                     frame: .init(
@@ -273,6 +261,23 @@ public struct PanelElementsBuilder {
             cornerRadius: 10,
             strokeColor: colors.panelBorder,
             strokeWidth: 1))
+
+        // 計測中の合図は炎色ネオンのカプセル縁取り(文字ラベルは置かない)。
+        // グローの光が隣の行や区切り線に自然ににじむよう最前面へ置く
+        if let activeOffset = inputs.projects.firstIndex(where: {
+            inputs.state.activeProjectId == $0.id
+        }) {
+            let y = layout.clockSectionHeight + Double(activeOffset) * layout.rowHeight
+            let height = layout.rowHeight - 4
+            elements.append(.neonRectangle(
+                frame: .init(x: 3, y: y + 2, w: layout.panelWidth - 6, h: height),
+                cornerRadius: height / 2,
+                strokeWidth: 2,
+                topColor: colors.neonCoreTop,
+                bottomColor: colors.neonCoreBottom,
+                glowColor: colors.neonGlow,
+                glowRadius: 7))
+        }
 
         return elements
     }

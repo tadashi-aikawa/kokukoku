@@ -117,14 +117,14 @@ public struct PanelElementsBuilder {
 
             if index <= 9 {
                 let numberText = String(index)
-                let height = measureTextHeight(numberText, inputs.ui.monoFontName, 12)
+                let height = measureTextHeight(numberText, inputs.ui.monoFontName, 13)
                 elements.append(.text(
                     frame: .init(
                         x: layout.padding, y: y + centeredOffset(layout.rowHeight, height),
                         w: 20, h: height),
                     text: numberText,
                     fontName: inputs.ui.monoFontName,
-                    fontSize: 12,
+                    fontSize: 13,
                     color: colors.subText))
             }
 
@@ -132,17 +132,17 @@ public struct PanelElementsBuilder {
             appendIcon(
                 icon, x: layout.projectContentX, containerY: y,
                 containerHeight: layout.rowHeight, color: isActive ? colors.activeText : colors.text,
-                fontName: inputs.ui.fontName, to: &elements)
+                fontName: inputs.ui.fontName, fontSize: 17, to: &elements)
 
             let nameX = layout.projectContentX + layout.iconSlotWidth + layout.iconGap
-            let nameHeight = measureTextHeight(project.name, inputs.ui.fontName, 14)
+            let nameHeight = measureTextHeight(project.name, inputs.ui.fontName, 16)
             elements.append(.text(
                 frame: .init(
                     x: nameX, y: y + centeredOffset(layout.rowHeight, nameHeight),
                     w: layout.projectNameRight - nameX, h: nameHeight),
                 text: project.name,
                 fontName: inputs.ui.fontName,
-                fontSize: 14,
+                fontSize: 16,
                 color: isActive ? colors.activeText : colors.text))
 
             var accumulated = inputs.state.accumulated[project.id] ?? 0
@@ -152,7 +152,7 @@ public struct PanelElementsBuilder {
             if inputs.editingTarget != .project(id: project.id) {
                 let accumulatedText = TimerEngine.formatTime(accumulated)
                 let accumulatedHeight = measureTextHeight(
-                    accumulatedText, inputs.ui.monoFontName, 14)
+                    accumulatedText, inputs.ui.monoFontName, 16)
                 elements.append(.text(
                     frame: .init(
                         x: layout.timeColumnX,
@@ -160,7 +160,7 @@ public struct PanelElementsBuilder {
                         w: layout.timeColumnWidth, h: accumulatedHeight),
                     text: accumulatedText,
                     fontName: inputs.ui.monoFontName,
-                    fontSize: 14,
+                    fontSize: 16,
                     color: isActive ? colors.activeText : colors.subText,
                     alignment: .right))
             }
@@ -221,7 +221,7 @@ public struct PanelElementsBuilder {
             tracksMouse: true))
         appendIcon(
             breakIcon, x: layout.padding, containerY: footerY + 4, containerHeight: 30,
-            color: colors.text, fontName: inputs.ui.fontName, to: &elements)
+            color: colors.text, fontName: inputs.ui.fontName, fontSize: 14, to: &elements)
         let breakHeight = measureTextHeight(breakName, inputs.ui.fontName, 14)
         elements.append(.text(
             frame: .init(
@@ -344,6 +344,7 @@ public struct PanelElementsBuilder {
         containerHeight: Double,
         color: PanelColor,
         fontName: String,
+        fontSize: Double,
         to elements: inout [PanelElement]
     ) {
         let layout = PanelLayout.self
@@ -358,14 +359,14 @@ public struct PanelElementsBuilder {
                 iconKey: key,
                 scaling: .scaleProportionally))
         case .text:
-            let height = measureTextHeight(icon, fontName, 14)
+            let height = measureTextHeight(icon, fontName, fontSize)
             elements.append(.text(
                 frame: .init(
                     x: x, y: containerY + centeredOffset(containerHeight, height),
                     w: layout.iconSlotWidth, h: height),
                 text: icon,
                 fontName: fontName,
-                fontSize: 14,
+                fontSize: fontSize,
                 color: color,
                 alignment: .center))
         case .empty:

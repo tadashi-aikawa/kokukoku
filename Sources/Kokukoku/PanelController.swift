@@ -312,7 +312,7 @@ final class PanelController {
         case .project(let id):
             guard let offset = projects.firstIndex(where: { $0.id == id }) else { return }
             frame = PanelLayout.accumulatedTimeFrame(rowOffset: offset)
-            fontSize = 14
+            fontSize = 16
             alignment = .right
             centerY = frame.y + frame.h / 2
         }

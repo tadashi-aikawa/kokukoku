@@ -109,13 +109,13 @@ public enum PanelLayout {
     public static let panelWidth = 420.0
     /// ヘッダー(現在時刻段: アナログ+デジタル時計)の高さ = プロジェクト行の開始位置
     public static let clockSectionHeight = 72.0
-    public static let rowHeight = 36.0
+    public static let rowHeight = 40.0
     public static let footerHeight = 40.0
     public static let padding = 12.0
     public static let projectContentX = padding + 22
     public static let projectNameRight = 232.0
     public static let iconTextWidth = 24.0
-    public static let iconImageSize = 20.0
+    public static let iconImageSize = 24.0
     public static let iconGap = 8.0
     public static let iconSlotWidth = 24.0
     public static let headerLogoSize = 28.0

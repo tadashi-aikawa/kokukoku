@@ -270,16 +270,21 @@ final class PanelController {
             centerY = frame.y + frame.h / 2
         }
         let editorHeight = fontSize + 8
-        let rect = NSRect(
-            x: frame.x - 4, y: centerY - editorHeight / 2,
-            width: frame.w + 8, height: editorHeight)
-
         let editor = InlineTimeEditor(
-            frame: rect,
+            frame: .zero,
             text: TimerEngine.formatTime(initialSeconds),
             fontName: ui.monoFontName,
             fontSize: fontSize,
             alignment: alignment)
+        // 入力欄の幅はフィールド自身の実測(sizeToFit=セル内側余白込み)に任せ、
+        // 時刻文字列へぴったり重ねる。列幅基準やと右寄せ時刻の左に空白が余る。
+        // ±3はセル内側余白+枠線の分で、フィールド内の文字を元の描画位置に揃える補正
+        editor.field.sizeToFit()
+        let editorWidth = editor.field.frame.width.rounded(.up)
+        let editorX = alignment == .right ? frame.x + frame.w - editorWidth + 3 : frame.x - 3
+        editor.field.frame = NSRect(
+            x: editorX, y: centerY - editorHeight / 2,
+            width: editorWidth, height: editorHeight)
         editor.onCommit = { [weak self] text in self?.commitInlineEdit(text) }
         editor.onCancel = { [weak self] in self?.endInlineEdit() }
 

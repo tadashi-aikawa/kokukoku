@@ -74,45 +74,19 @@ public struct PanelElementsBuilder {
             fillColor: colors.background,
             cornerRadius: 10))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: 0, w: layout.panelWidth, h: layout.headerTotalHeight),
+            frame: .init(x: 0, y: 0, w: layout.panelWidth, h: layout.clockSectionHeight),
             fillColor: colors.headerBg,
             cornerRadius: 10))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: layout.headerTotalHeight - 10, w: layout.panelWidth, h: 10),
+            frame: .init(x: 0, y: layout.clockSectionHeight - 10, w: layout.panelWidth, h: 10),
             fillColor: colors.headerBg))
 
         appendClock(inputs, to: &elements)
 
-        let logoSize = layout.headerLogoSize
-        let logoTextGap = layout.headerLogoTextGap
-        let timeFrame = layout.continuousTimeFrame
-        let startX = timeFrame.x - logoTextGap - logoSize
-        if hasLogoImage {
-            elements.append(.image(
-                frame: .init(x: startX, y: layout.clockSectionHeight + 8, w: logoSize, h: logoSize),
-                iconKey: "logo",
-                scaling: .shrinkToFit))
-        }
-
-        var continuousElapsed = inputs.state.continuousElapsedBase
-        if let startedAt = inputs.state.continuousStartedAt {
-            continuousElapsed += now() - startedAt
-        }
-        if inputs.editingTarget != .continuous {
-            elements.append(.text(
-                frame: timeFrame,
-                text: TimerEngine.formatTime(continuousElapsed),
-                fontName: inputs.ui.monoFontName,
-                fontSize: 16,
-                color: inputs.state.continuousStartedAt == nil ? colors.subText : colors.text))
-        }
-
         if inputs.isVersionVisible, let versionText = inputs.versionText, !versionText.isEmpty {
             let height = measureTextHeight(versionText, inputs.ui.monoFontName, 10)
             elements.append(.text(
-                frame: .init(
-                    x: layout.panelWidth - layout.padding - 72,
-                    y: layout.clockSectionHeight + 6, w: 72, h: height),
+                frame: .init(x: layout.panelWidth - layout.padding - 72, y: 6, w: 72, h: height),
                 text: versionText,
                 fontName: inputs.ui.monoFontName,
                 fontSize: 10,
@@ -121,12 +95,12 @@ public struct PanelElementsBuilder {
         }
 
         elements.append(.rectangle(
-            frame: .init(x: 0, y: layout.headerTotalHeight, w: layout.panelWidth, h: 1),
+            frame: .init(x: 0, y: layout.clockSectionHeight, w: layout.panelWidth, h: 1),
             fillColor: colors.separator))
 
         for (offset, project) in inputs.projects.enumerated() {
             let index = offset + 1
-            let y = layout.headerTotalHeight + Double(offset) * layout.rowHeight
+            let y = layout.clockSectionHeight + Double(offset) * layout.rowHeight
             let isActive = inputs.state.activeProjectId == project.id
             let isSelected = inputs.selectedIndex == index || inputs.hoveredId == "row_\(project.id)"
             let rowColor: PanelColor
@@ -212,7 +186,7 @@ public struct PanelElementsBuilder {
             }
         }
 
-        let footerY = layout.headerTotalHeight + Double(inputs.projects.count) * layout.rowHeight
+        let footerY = layout.clockSectionHeight + Double(inputs.projects.count) * layout.rowHeight
         elements.append(.rectangle(
             frame: .init(x: 0, y: footerY, w: layout.panelWidth, h: 1),
             fillColor: colors.separator))
@@ -223,6 +197,29 @@ public struct PanelElementsBuilder {
         elements.append(.rectangle(
             frame: .init(x: 0, y: footerY, w: layout.panelWidth, h: 10),
             fillColor: colors.footerBg))
+
+        // ロゴ+連続稼働時間(フッター中央)
+        let timeFrame = layout.continuousTimeFrame(projectCount: inputs.projects.count)
+        if hasLogoImage {
+            elements.append(.image(
+                frame: .init(
+                    x: timeFrame.x - layout.headerLogoTextGap - layout.headerLogoSize,
+                    y: footerY + 6, w: layout.headerLogoSize, h: layout.headerLogoSize),
+                iconKey: "logo",
+                scaling: .shrinkToFit))
+        }
+        var continuousElapsed = inputs.state.continuousElapsedBase
+        if let startedAt = inputs.state.continuousStartedAt {
+            continuousElapsed += now() - startedAt
+        }
+        if inputs.editingTarget != .continuous {
+            elements.append(.text(
+                frame: timeFrame,
+                text: TimerEngine.formatTime(continuousElapsed),
+                fontName: inputs.ui.monoFontName,
+                fontSize: 16,
+                color: inputs.state.continuousStartedAt == nil ? colors.subText : colors.text))
+        }
 
         let breakSelected = inputs.selectedIndex == inputs.projects.count + 1
             || inputs.hoveredId == "btn_break"
@@ -295,7 +292,7 @@ public struct PanelElementsBuilder {
         // 12・3・6・9時の目盛
         for fraction in [0.0, 0.25, 0.5, 0.75] {
             elements.append(.line(
-                from: Self.clockHandPoint(center: center, length: radius - 4, fraction: fraction),
+                from: Self.clockHandPoint(center: center, length: radius - 5, fraction: fraction),
                 to: Self.clockHandPoint(center: center, length: radius - 1, fraction: fraction),
                 color: colors.subText, width: 1))
         }
@@ -305,23 +302,23 @@ public struct PanelElementsBuilder {
         let secondFraction = Double(time.second) / 60
         elements.append(.line(
             from: center,
-            to: Self.clockHandPoint(center: center, length: radius - 10, fraction: hourFraction),
-            color: colors.text, width: 2.5))
+            to: Self.clockHandPoint(center: center, length: radius - 14, fraction: hourFraction),
+            color: colors.text, width: 3))
         elements.append(.line(
             from: center,
-            to: Self.clockHandPoint(center: center, length: radius - 5.5, fraction: minuteFraction),
+            to: Self.clockHandPoint(center: center, length: radius - 8, fraction: minuteFraction),
             color: colors.text, width: 2))
         elements.append(.line(
             from: center,
-            to: Self.clockHandPoint(center: center, length: radius - 3.5, fraction: secondFraction),
+            to: Self.clockHandPoint(center: center, length: radius - 5, fraction: secondFraction),
             color: colors.clockSecondHand, width: 1))
-        elements.append(.circle(center: center, radius: 2, fillColor: colors.text))
+        elements.append(.circle(center: center, radius: 2.5, fillColor: colors.text))
 
         elements.append(.text(
             frame: layout.clockDigitalFrame,
             text: String(format: "%02d:%02d:%02d", time.hour, time.minute, time.second),
             fontName: inputs.ui.monoFontName,
-            fontSize: 16,
+            fontSize: layout.clockDigitalFontSize,
             color: colors.text))
     }
 

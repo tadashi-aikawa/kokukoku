@@ -97,11 +97,8 @@ public enum PanelEditingTarget: Equatable, Sendable {
 
 public enum PanelLayout {
     public static let panelWidth = 420.0
-    /// 現在時刻段(ヘッダー上段: アナログ+デジタル時計)
-    public static let clockSectionHeight = 56.0
-    public static let headerHeight = 44.0
-    /// 現在時刻段+従来ヘッダーを合わせた高さ(プロジェクト行の開始位置)
-    public static let headerTotalHeight = clockSectionHeight + headerHeight
+    /// ヘッダー(現在時刻段: アナログ+デジタル時計)の高さ = プロジェクト行の開始位置
+    public static let clockSectionHeight = 72.0
     public static let rowHeight = 36.0
     public static let footerHeight = 40.0
     public static let padding = 12.0
@@ -118,32 +115,36 @@ public enum PanelLayout {
     public static let timeColumnWidth = 100.0
     public static let colors = Colors.self
 
-    /// アナログ時計の文字盤半径と中心(現在時刻段の中でデジタルと合わせて中央寄せ)
-    public static let clockRadius = 20.0
-    public static let clockDigitalWidth = 90.0
+    /// アナログ時計の文字盤半径と中心(ヘッダーの中でデジタルと合わせて中央寄せ)
+    public static let clockRadius = 28.0
+    public static let clockDigitalFontSize = 30.0
+    public static let clockDigitalWidth = 150.0
     public static let clockDigitalGap = 12.0
     public static let clockCenter = PanelPoint(
         x: (panelWidth - clockRadius * 2 - clockDigitalGap - clockDigitalWidth) / 2 + clockRadius,
         y: clockSectionHeight / 2)
     public static let clockDigitalFrame = PanelFrame(
         x: clockCenter.x + clockRadius + clockDigitalGap,
-        y: clockSectionHeight / 2 - 14, w: clockDigitalWidth, h: 28)
+        y: clockSectionHeight / 2 - 18, w: clockDigitalWidth, h: 36)
 
-    /// ヘッダーの連続稼働時間テキストの枠(インライン編集フィールドもここへ重ねる)
-    public static let continuousTimeFrame = PanelFrame(
-        x: (panelWidth - headerLogoSize - headerLogoTextGap - headerTimeWidth) / 2
-            + headerLogoSize + headerLogoTextGap,
-        y: clockSectionHeight + 12, w: headerTimeWidth, h: 28)
+    /// フッター中央の連続稼働時間テキストの枠(インライン編集フィールドもここへ重ねる)
+    public static func continuousTimeFrame(projectCount: Int) -> PanelFrame {
+        let footerY = clockSectionHeight + Double(projectCount) * rowHeight
+        return .init(
+            x: (panelWidth - headerLogoSize - headerLogoTextGap - headerTimeWidth) / 2
+                + headerLogoSize + headerLogoTextGap,
+            y: footerY + 10, w: headerTimeWidth, h: 28)
+    }
 
     /// プロジェクト行の累積時間テキストの枠(同上)
     public static func accumulatedTimeFrame(rowOffset: Int) -> PanelFrame {
         .init(
-            x: timeColumnX, y: headerTotalHeight + Double(rowOffset) * rowHeight,
+            x: timeColumnX, y: clockSectionHeight + Double(rowOffset) * rowHeight,
             w: timeColumnWidth, h: rowHeight)
     }
 
     public static func panelHeight(projectCount: Int) -> Double {
-        headerTotalHeight + Double(projectCount) * rowHeight + footerHeight
+        clockSectionHeight + Double(projectCount) * rowHeight + footerHeight
     }
 
     /// アイコン(墨絵の時計)由来のパレット:

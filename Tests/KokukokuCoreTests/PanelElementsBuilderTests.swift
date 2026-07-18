@@ -12,40 +12,40 @@ struct PanelElementsBuilderTests {
 
         #expect(elements.count == 29)
         #expect(elements[0] == .rectangle(
-            frame: .init(x: 0, y: 0, w: 420, h: 176),
+            frame: .init(x: 0, y: 0, w: 420, h: 148),
             fillColor: PanelLayout.Colors.background, cornerRadius: 10))
         #expect(elements[1] == .rectangle(
-            frame: .init(x: 0, y: 0, w: 420, h: 100),
+            frame: .init(x: 0, y: 0, w: 420, h: 72),
             fillColor: PanelLayout.Colors.headerBg, cornerRadius: 10))
         #expect(elements[3] == .circle(
-            center: PanelLayout.clockCenter, radius: 20,
+            center: PanelLayout.clockCenter, radius: 28,
             fillColor: PanelLayout.Colors.rowBg,
             strokeColor: PanelLayout.Colors.separator, strokeWidth: 1))
-        #expect(elements[13] == .text(
-            frame: .init(x: 182, y: 68, w: 90, h: 28), text: "00:00:00",
-            fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
-        #expect(elements[15] == .rectangle(
-            frame: .init(x: 0, y: 100, w: 420, h: 36),
+        #expect(elements[14] == .rectangle(
+            frame: .init(x: 0, y: 72, w: 420, h: 36),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
-        #expect(elements[16] == .text(
-            frame: .init(x: 12, y: 108, w: 20, h: 20), text: "1",
+        #expect(elements[15] == .text(
+            frame: .init(x: 12, y: 80, w: 20, h: 20), text: "1",
             fontName: "Menlo", fontSize: 12, color: PanelLayout.Colors.subText))
-        #expect(elements[18] == .text(
-            frame: .init(x: 66, y: 107, w: 166, h: 22), text: "Work",
+        #expect(elements[17] == .text(
+            frame: .init(x: 66, y: 79, w: 166, h: 22), text: "Work",
             fontName: ".AppleSystemUIFont", fontSize: 14, color: PanelLayout.Colors.text))
-        #expect(elements[20] == .rectangle(
-            frame: .init(x: 0, y: 136, w: 420, h: 1),
+        #expect(elements[19] == .rectangle(
+            frame: .init(x: 0, y: 108, w: 420, h: 1),
             fillColor: PanelLayout.Colors.separator))
+        #expect(elements[22] == .text(
+            frame: .init(x: 182, y: 118, w: 90, h: 28), text: "00:00:00",
+            fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
         #expect(elements[23] == .rectangle(
-            frame: .init(x: 8, y: 140, w: 108, h: 30),
+            frame: .init(x: 8, y: 112, w: 108, h: 30),
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 6,
             id: "btn_break", tracksMouse: true))
         #expect(elements[26] == .rectangle(
-            frame: .init(x: 294, y: 140, w: 118, h: 30),
+            frame: .init(x: 294, y: 112, w: 118, h: 30),
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 6,
             id: "btn_reset", tracksMouse: true))
         #expect(elements[28] == .rectangle(
-            frame: .init(x: 0.5, y: 0.5, w: 419, h: 175),
+            frame: .init(x: 0.5, y: 0.5, w: 419, h: 147),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 10,
             strokeColor: PanelLayout.Colors.panelBorder, strokeWidth: 1))
     }
@@ -56,10 +56,10 @@ struct PanelElementsBuilderTests {
         let withLogo = builder(hasLogoImage: true).build(inputs())
 
         #expect(!withoutLogo.contains(.image(
-            frame: .init(x: 148, y: 64, w: 28, h: 28),
+            frame: .init(x: 148, y: 114, w: 28, h: 28),
             iconKey: "logo", scaling: .shrinkToFit)))
-        #expect(withLogo[13] == .image(
-            frame: .init(x: 148, y: 64, w: 28, h: 28),
+        #expect(withLogo[22] == .image(
+            frame: .init(x: 148, y: 114, w: 28, h: 28),
             iconKey: "logo", scaling: .shrinkToFit))
     }
 
@@ -69,8 +69,8 @@ struct PanelElementsBuilderTests {
         let shown = builder().build(inputs(isVersionVisible: true, versionText: "v0.5.0"))
 
         #expect(!containsText("v0.5.0", in: hidden))
-        #expect(shown[14] == .text(
-            frame: .init(x: 336, y: 62, w: 72, h: 18), text: "v0.5.0",
+        #expect(shown[13] == .text(
+            frame: .init(x: 336, y: 6, w: 72, h: 18), text: "v0.5.0",
             fontName: "Menlo", fontSize: 10,
             color: PanelLayout.Colors.subText, alignment: .right))
     }
@@ -82,8 +82,8 @@ struct PanelElementsBuilderTests {
             return .none
         }).build(inputs())
 
-        #expect(elements[17] == .text(
-            frame: .init(x: 34, y: 107, w: 24, h: 22), text: "🔵",
+        #expect(elements[16] == .text(
+            frame: .init(x: 34, y: 79, w: 24, h: 22), text: "🔵",
             fontName: ".AppleSystemUIFont", fontSize: 14,
             color: PanelLayout.Colors.text, alignment: .center))
     }
@@ -93,8 +93,8 @@ struct PanelElementsBuilderTests {
         let elements = builder(resolveIcon: { icon in .image(key: "cached:\(icon)") })
             .build(inputs(project: .init(id: "work", name: "Work", icon: "/tmp/work.png")))
 
-        #expect(elements[17] == .image(
-            frame: .init(x: 36, y: 108, w: 20, h: 20),
+        #expect(elements[16] == .image(
+            frame: .init(x: 36, y: 80, w: 20, h: 20),
             iconKey: "cached:/tmp/work.png", scaling: .scaleProportionally))
     }
 
@@ -114,11 +114,11 @@ struct PanelElementsBuilderTests {
         let running = builder(now: 1_100).build(inputs(state: .init(
             continuousElapsedBase: 600, continuousStartedAt: 1_000)))
 
-        #expect(stopped[13] == .text(
-            frame: .init(x: 182, y: 68, w: 90, h: 28), text: "00:10:00",
+        #expect(stopped[22] == .text(
+            frame: .init(x: 182, y: 118, w: 90, h: 28), text: "00:10:00",
             fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
-        #expect(running[13] == .text(
-            frame: .init(x: 182, y: 68, w: 90, h: 28), text: "00:11:40",
+        #expect(running[22] == .text(
+            frame: .init(x: 182, y: 118, w: 90, h: 28), text: "00:11:40",
             fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.text))
     }
 
@@ -137,15 +137,15 @@ struct PanelElementsBuilderTests {
         let hoveredBreak = builder().build(inputs(hoveredId: "btn_break"))
         let confirming = builder().build(inputs(resetConfirming: true))
 
-        #expect(selected[15] == .rectangle(
-            frame: .init(x: 0, y: 100, w: 420, h: 36),
+        #expect(selected[14] == .rectangle(
+            frame: .init(x: 0, y: 72, w: 420, h: 36),
             fillColor: PanelLayout.Colors.rowHoverBg, id: "row_work", tracksMouse: true))
         #expect(hoveredBreak[23] == .rectangle(
-            frame: .init(x: 8, y: 140, w: 108, h: 30),
+            frame: .init(x: 8, y: 112, w: 108, h: 30),
             fillColor: PanelLayout.Colors.footerHoverBg, cornerRadius: 6,
             id: "btn_break", tracksMouse: true))
         #expect(confirming[26] == .rectangle(
-            frame: .init(x: 294, y: 140, w: 118, h: 30),
+            frame: .init(x: 294, y: 112, w: 118, h: 30),
             fillColor: PanelLayout.Colors.resetConfirmBg, cornerRadius: 6,
             id: "btn_reset", tracksMouse: true))
         #expect(containsText("⚠️ 本当に?", in: confirming))
@@ -186,17 +186,18 @@ struct PanelElementsBuilderTests {
 
     @Test("編集フィールドの枠は時刻テキストの列位置と一致する")
     func editingFrames() {
-        #expect(PanelLayout.continuousTimeFrame == .init(x: 182, y: 68, w: 90, h: 28))
+        #expect(PanelLayout.continuousTimeFrame(projectCount: 1)
+            == .init(x: 182, y: 118, w: 90, h: 28))
         #expect(PanelLayout.accumulatedTimeFrame(rowOffset: 0)
-            == .init(x: 240, y: 100, w: 100, h: 36))
+            == .init(x: 240, y: 72, w: 100, h: 36))
         #expect(PanelLayout.accumulatedTimeFrame(rowOffset: 2)
-            == .init(x: 240, y: 172, w: 100, h: 36))
+            == .init(x: 240, y: 144, w: 100, h: 36))
     }
 
     @Test("パネル高さをプロジェクト数から算出する")
     func panelHeight() {
-        #expect(PanelLayout.panelHeight(projectCount: 0) == 140)
-        #expect(PanelLayout.panelHeight(projectCount: 3) == 248)
+        #expect(PanelLayout.panelHeight(projectCount: 0) == 112)
+        #expect(PanelLayout.panelHeight(projectCount: 3) == 220)
     }
 
     @Test("現在時刻をデジタル秒付き・ゼロ埋めで表示する")
@@ -205,7 +206,8 @@ struct PanelElementsBuilderTests {
 
         #expect(elements[12] == .text(
             frame: PanelLayout.clockDigitalFrame, text: "09:05:07",
-            fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.text))
+            fontName: "Menlo", fontSize: PanelLayout.clockDigitalFontSize,
+            color: PanelLayout.Colors.text))
     }
 
     @Test("アナログ針の先端を時刻の一周比から計算する")
@@ -243,14 +245,13 @@ struct PanelElementsBuilderTests {
         // 9時30分: 時針は9時と10時の中間 = 一周比 (9 + 0.5) / 12
         expectNear(
             hourTo,
-            PanelElementsBuilder.clockHandPoint(center: center, length: 10, fraction: 9.5 / 12))
+            PanelElementsBuilder.clockHandPoint(center: center, length: 14, fraction: 9.5 / 12))
         expectNear(
             minuteTo,
-            PanelElementsBuilder.clockHandPoint(
-                center: center, length: 14.5, fraction: 30.75 / 60))
+            PanelElementsBuilder.clockHandPoint(center: center, length: 20, fraction: 30.75 / 60))
         expectNear(
             secondTo,
-            PanelElementsBuilder.clockHandPoint(center: center, length: 16.5, fraction: 45 / 60))
+            PanelElementsBuilder.clockHandPoint(center: center, length: 23, fraction: 45 / 60))
         #expect(secondColor == PanelLayout.Colors.clockSecondHand)
     }
 

@@ -300,12 +300,15 @@ final class PanelController {
         let centerY: Double
         switch target {
         case .continuous:
-            frame = PanelLayout.continuousTimeFrame
+            frame = PanelLayout.continuousTimeFrame(projectCount: projects.count)
             fontSize = 16
             alignment = .left
-            // ヘッダーの時刻テキストは枠の上寄りに描かれるため、
-            // 枠中心やなくヘッダーの見た目の中心に合わせる
-            centerY = PanelLayout.clockSectionHeight + PanelLayout.headerHeight / 2
+            // フッターの時刻テキストは枠の上寄りに描かれるため、
+            // 枠中心やなくフッターの見た目の中心に合わせる
+            let footerY =
+                PanelLayout.clockSectionHeight
+                + Double(projects.count) * PanelLayout.rowHeight
+            centerY = footerY + PanelLayout.footerHeight / 2
         case .project(let id):
             guard let offset = projects.firstIndex(where: { $0.id == id }) else { return }
             frame = PanelLayout.accumulatedTimeFrame(rowOffset: offset)

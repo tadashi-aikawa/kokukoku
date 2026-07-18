@@ -256,7 +256,7 @@ public struct PanelElementsBuilder {
             elements.append(.neonRectangle(
                 frame: .init(x: 3, y: y + 2, w: layout.panelWidth - 6, h: height),
                 cornerRadius: height / 2,
-                strokeWidth: 2,
+                strokeWidth: 1,
                 topColor: colors.neonCoreTop,
                 bottomColor: colors.neonCoreBottom,
                 glowColor: colors.neonGlow,

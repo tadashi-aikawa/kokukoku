@@ -183,7 +183,7 @@ struct PanelElementsBuilderTests {
         #expect(active.last == .neonRectangle(
             frame: .init(x: 3, y: 86, w: 414, h: 36),
             cornerRadius: 18,
-            strokeWidth: 2,
+            strokeWidth: 1,
             topColor: PanelLayout.Colors.neonCoreTop,
             bottomColor: PanelLayout.Colors.neonCoreBottom,
             glowColor: PanelLayout.Colors.neonGlow,

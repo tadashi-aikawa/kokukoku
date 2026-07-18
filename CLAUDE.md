@@ -24,6 +24,8 @@ Conventional Commits 形式で日本語で書く。
 
 - `type`: `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `build`, `ci`, `test`
   - 破壊的変更がある場合は `feat!` のように `!` を付ける
+  - 見た目だけの変更 (余白・色・サイズなど挙動が変わらないもの) は `feat` ではなく `style` を使う
+- ユーザーから見て1つの対応は1コミットにまとめる (タダシとのやりとりで生じた調整・手直しは分けず統合する)
 - `scope`: `timer_engine`, `ui_panel`, `alert`, `persistence` など機能単位 (省略可)
 - `description`: ユーザー視点で何が変わったかを簡潔に書く
 

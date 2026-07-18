@@ -12,9 +12,7 @@ public struct PanelElementsBuilder {
         public var state: TimerState
         public var selectedIndex: Int?
         public var hoveredId: String?
-        public var isVersionVisible: Bool
         public var resetConfirming: Bool
-        public var versionText: String?
         public var editingTarget: PanelEditingTarget?
         public var ui: ResolvedUIConfig
 
@@ -24,9 +22,7 @@ public struct PanelElementsBuilder {
             state: TimerState,
             selectedIndex: Int? = nil,
             hoveredId: String? = nil,
-            isVersionVisible: Bool = false,
             resetConfirming: Bool = false,
-            versionText: String? = nil,
             editingTarget: PanelEditingTarget? = nil,
             ui: ResolvedUIConfig
         ) {
@@ -35,9 +31,7 @@ public struct PanelElementsBuilder {
             self.state = state
             self.selectedIndex = selectedIndex
             self.hoveredId = hoveredId
-            self.isVersionVisible = isVersionVisible
             self.resetConfirming = resetConfirming
-            self.versionText = versionText
             self.editingTarget = editingTarget
             self.ui = ui
         }
@@ -82,17 +76,6 @@ public struct PanelElementsBuilder {
             fillColor: colors.headerBg))
 
         appendClock(inputs, to: &elements)
-
-        if inputs.isVersionVisible, let versionText = inputs.versionText, !versionText.isEmpty {
-            let height = measureTextHeight(versionText, inputs.ui.monoFontName, 10)
-            elements.append(.text(
-                frame: .init(x: layout.panelWidth - layout.padding - 72, y: 6, w: 72, h: height),
-                text: versionText,
-                fontName: inputs.ui.monoFontName,
-                fontSize: 10,
-                color: colors.subText,
-                alignment: .right))
-        }
 
         elements.append(.rectangle(
             frame: .init(x: 0, y: layout.clockSectionHeight, w: layout.panelWidth, h: 1),

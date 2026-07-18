@@ -19,7 +19,6 @@ final class PanelController {
     private let breakItem: KokukokuConfig.BreakItem?
     private let ui: ResolvedUIConfig
     private let keymap: ResolvedKeymap
-    private let versionText: String
     private let callbacks: Callbacks
     private let iconStore = IconStore()
     private let now: () -> Int = { Int(Date().timeIntervalSince1970) }
@@ -29,33 +28,24 @@ final class PanelController {
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
     private(set) var visible = false
-    private var isVersionVisible: Bool
     private var selectedIndex: Int?  // 1-origin (Luaと同じ)
     private var hoveredId: String?
-    private var isClosing = false
     private var resetConfirming = false
-    private var feedbackWorkItem: DispatchWorkItem?
     private var inlineEditor: InlineTimeEditor?
     private var editingTarget: PanelEditingTarget?
-
-    private static let feedbackDelay: TimeInterval = 0.4
-    private static let fadeDuration: TimeInterval = 0.3
 
     init(
         projects: [KokukokuConfig.Project],
         breakItem: KokukokuConfig.BreakItem?,
         ui: ResolvedUIConfig,
         keymap: ResolvedKeymap,
-        versionText: String,
         callbacks: Callbacks
     ) {
         self.projects = projects
         self.breakItem = breakItem
         self.ui = ui
         self.keymap = keymap
-        self.versionText = versionText
         self.callbacks = callbacks
-        self.isVersionVisible = ui.showVersionByDefault
         iconStore.onLoad = { [weak self] in self?.rebuildPanel() }
     }
 
@@ -64,7 +54,6 @@ final class PanelController {
     func show() {
         if visible, window != nil { return }
 
-        isVersionVisible = ui.showVersionByDefault
         resetConfirming = false
 
         // カーソル初期位置をアクティブプロジェクトに設定
@@ -91,7 +80,7 @@ final class PanelController {
         panelView.imageProvider = { [weak self] key in self?.iconStore.image(forKey: key) }
         panelView.onMouseDown = { [weak self] id in self?.handleClick(elementId: id) }
         panelView.onHoverChange = { [weak self] id in
-            guard let self, !self.isClosing else { return }
+            guard let self else { return }
             self.hoveredId = id
             self.rebuildPanel()
         }
@@ -123,8 +112,6 @@ final class PanelController {
     }
 
     func hide() {
-        feedbackWorkItem?.cancel()
-        feedbackWorkItem = nil
         inlineEditor?.field.removeFromSuperview()
         inlineEditor = nil
         editingTarget = nil
@@ -141,10 +128,8 @@ final class PanelController {
         window = nil
         panelView = nil
         visible = false
-        isVersionVisible = ui.showVersionByDefault
         selectedIndex = nil
         hoveredId = nil
-        isClosing = false
         resetConfirming = false
     }
 
@@ -190,24 +175,18 @@ final class PanelController {
                 state: callbacks.getState(),
                 selectedIndex: selectedIndex,
                 hoveredId: hoveredId,
-                isVersionVisible: isVersionVisible,
                 resetConfirming: resetConfirming,
-                versionText: versionText,
                 editingTarget: editingTarget,
                 ui: ui))
     }
 
     // MARK: - 操作の実行
 
+    /// 切替後もパネルは開いたまま(閉じるのはESC)。計測中行のネオンが切替成功の合図になる
     private func selectProject(_ projectId: String) {
         resetConfirming = false
-        let isAlreadyActive = callbacks.getState().activeProjectId == projectId
         callbacks.onProjectSelect(projectId)
-        if !isAlreadyActive, ui.closeOnSwitch {
-            hideWithFeedback(projectId: projectId)
-        } else {
-            rebuildPanel()
-        }
+        rebuildPanel()
     }
 
     private func handleResetAction() {
@@ -231,39 +210,6 @@ final class PanelController {
         } else if selectedIndex == projects.count + 2 {
             handleResetAction()
         }
-    }
-
-    /// 選択行をハイライトし、少し置いてからフェードアウトして閉じる
-    private func hideWithFeedback(projectId: String) {
-        guard let window, let panelView, visible else { return }
-
-        isClosing = true
-        panelView.elements = panelView.elements.map { element in
-            if case .rectangle(let frame, _, let radius, _, _, let id, let tracks) = element,
-                id == "row_\(projectId)"
-            {
-                return .rectangle(
-                    frame: frame, fillColor: PanelLayout.colors.switchSuccessBg,
-                    cornerRadius: radius, id: id, tracksMouse: tracks)
-            }
-            return element
-        }
-
-        let workItem = DispatchWorkItem { [weak self, weak window] in
-            guard let window else { return }
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Self.fadeDuration
-                window.animator().alphaValue = 0
-            } completionHandler: {
-                Task { @MainActor in
-                    // フェード中に閉じて再表示された場合、新しいパネルを巻き込まない
-                    guard let self, self.window === window else { return }
-                    self.hide()
-                }
-            }
-        }
-        feedbackWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.feedbackDelay, execute: workItem)
     }
 
     private func editSelectedProjectTime() {
@@ -367,7 +313,7 @@ final class PanelController {
             projects: projects,
             state: callbacks.getState(),
             lineFormat: ui.copyTextFormat,
-            separator: ui.copyTextSeparator,
+            separator: "\n",
             now: now)
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
@@ -378,7 +324,6 @@ final class PanelController {
     // MARK: - イベントハンドリング
 
     private func handleClick(elementId: String) {
-        guard !isClosing else { return }
         if editingTarget != nil { endInlineEdit() }
 
         if elementId.hasPrefix("row_") {
@@ -396,7 +341,6 @@ final class PanelController {
 
     /// 処理したらtrue(イベントを飲む)。Luaのeventtap返値と同じ意味
     private func handleKeyDown(_ event: NSEvent) -> Bool {
-        if isClosing { return true }
         // 編集中のキーはフィールド側が処理する(こぼれたキーでパネル操作が走らないよう飲む)
         if editingTarget != nil { return true }
 
@@ -426,9 +370,6 @@ final class PanelController {
             rebuildPanel()
         case .reset:
             handleResetAction()
-        case .toggleVersion:
-            isVersionVisible.toggle()
-            rebuildPanel()
         case .editTime:
             editSelectedProjectTime()
         case .editContinuousTime:

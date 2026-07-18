@@ -55,51 +55,27 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
 
     public struct UI: Codable, Equatable, Sendable {
         public var fontName: String?
-        public var monoFontName: String?
-        public var showVersionByDefault: Bool?
-        public var closeOnSwitch: Bool?
         public var copyTextFormat: String?
-        public var copyTextSeparator: String?
 
         public init(
             fontName: String? = nil,
-            monoFontName: String? = nil,
-            showVersionByDefault: Bool? = nil,
-            closeOnSwitch: Bool? = nil,
-            copyTextFormat: String? = nil,
-            copyTextSeparator: String? = nil
+            copyTextFormat: String? = nil
         ) {
             self.fontName = fontName
-            self.monoFontName = monoFontName
-            self.showVersionByDefault = showVersionByDefault
-            self.closeOnSwitch = closeOnSwitch
             self.copyTextFormat = copyTextFormat
-            self.copyTextSeparator = copyTextSeparator
         }
     }
 
     public struct Keymap: Codable, Equatable, Sendable {
         public var startBreak: String?
         public var reset: String?
-        public var toggleVersion: String?
-        public var editTime: String?
-        public var editContinuousTime: String?
-        public var copyToClipboard: String?
 
         public init(
             startBreak: String? = nil,
-            reset: String? = nil,
-            toggleVersion: String? = nil,
-            editTime: String? = nil,
-            editContinuousTime: String? = nil,
-            copyToClipboard: String? = nil
+            reset: String? = nil
         ) {
             self.startBreak = startBreak
             self.reset = reset
-            self.toggleVersion = toggleVersion
-            self.editTime = editTime
-            self.editContinuousTime = editContinuousTime
-            self.copyToClipboard = copyToClipboard
         }
     }
 
@@ -139,37 +115,23 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
 
 public struct ResolvedUIConfig: Equatable, Sendable {
     public var fontName: String
-    public var monoFontName: String
-    public var showVersionByDefault: Bool
-    public var closeOnSwitch: Bool
+    /// 時間表示の等幅フォント(設定不可の固定値)
+    public let monoFontName = "Menlo"
     public var copyTextFormat: String
-    public var copyTextSeparator: String
 
     public init(ui: KokukokuConfig.UI?) {
         self.fontName = ui?.fontName ?? ".AppleSystemUIFont"
-        self.monoFontName = ui?.monoFontName ?? "Menlo"
-        self.showVersionByDefault = ui?.showVersionByDefault ?? false
-        self.closeOnSwitch = ui?.closeOnSwitch ?? true
         self.copyTextFormat = ui?.copyTextFormat ?? "- {name}: {hh}:{mm}:{ss}"
-        self.copyTextSeparator = ui?.copyTextSeparator ?? "\n"
     }
 }
 
 public struct ResolvedKeymap: Equatable, Sendable {
     public var startBreak: String
     public var reset: String
-    public var toggleVersion: String
-    public var editTime: String
-    public var editContinuousTime: String
-    public var copyToClipboard: String
 
     public init(keymap: KokukokuConfig.Keymap?) {
         self.startBreak = keymap?.startBreak ?? "0"
         self.reset = keymap?.reset ?? "r"
-        self.toggleVersion = keymap?.toggleVersion ?? "v"
-        self.editTime = keymap?.editTime ?? "e"
-        self.editContinuousTime = keymap?.editContinuousTime ?? "E"
-        self.copyToClipboard = keymap?.copyToClipboard ?? "c"
     }
 }
 

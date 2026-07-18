@@ -164,29 +164,34 @@ struct ConfigLoaderTests {
         let toml = """
             [ui]
             fontName = "Helvetica"
-            monoFontName = "Monaco"
-            showVersionByDefault = true
-            closeOnSwitch = false
             copyTextFormat = "{name}: {h}"
-            copyTextSeparator = " / "
 
             [keymap]
             startBreak = "b"
             reset = "R"
-            toggleVersion = "V"
-            editTime = "t"
-            editContinuousTime = "T"
-            copyToClipboard = "y"
             """
 
         let config = try ConfigLoader.parse(toml: toml)
 
-        #expect(config.ui == .init(
-            fontName: "Helvetica", monoFontName: "Monaco", showVersionByDefault: true,
-            closeOnSwitch: false, copyTextFormat: "{name}: {h}", copyTextSeparator: " / "))
-        #expect(config.keymap == .init(
-            startBreak: "b", reset: "R", toggleVersion: "V", editTime: "t",
-            editContinuousTime: "T", copyToClipboard: "y"))
+        #expect(config.ui == .init(fontName: "Helvetica", copyTextFormat: "{name}: {h}"))
+        #expect(config.keymap == .init(startBreak: "b", reset: "R"))
+    }
+
+    @Test("断捨離済みの旧設定キーは無視される")
+    func parseIgnoresRemovedKeys() throws {
+        let toml = """
+            [ui]
+            closeOnSwitch = false
+            monoFontName = "Monaco"
+
+            [keymap]
+            toggleVersion = "V"
+            """
+
+        let config = try ConfigLoader.parse(toml: toml)
+
+        #expect(config.ui == .init())
+        #expect(config.keymap == .init())
     }
 
     @Test("ui・keymapセクションがなければnilになる")
@@ -201,13 +206,13 @@ struct ConfigLoaderTests {
     func parsePartialUIAndKeymap() throws {
         let config = try ConfigLoader.parse(toml: """
             [ui]
-            closeOnSwitch = false
+            fontName = "Helvetica"
 
             [keymap]
             reset = "x"
             """)
 
-        #expect(config.ui == .init(closeOnSwitch: false))
+        #expect(config.ui == .init(fontName: "Helvetica"))
         #expect(config.keymap == .init(reset: "x"))
     }
 }
@@ -217,18 +222,17 @@ struct ResolvedPanelConfigTests {
     @Test("UI設定の既定値を解決する")
     func defaultUI() {
         #expect(ResolvedUIConfig(ui: nil) == .init(ui: .init(
-            fontName: ".AppleSystemUIFont", monoFontName: "Menlo",
-            showVersionByDefault: false, closeOnSwitch: true,
-            copyTextFormat: "- {name}: {hh}:{mm}:{ss}", copyTextSeparator: "\n")))
+            fontName: ".AppleSystemUIFont",
+            copyTextFormat: "- {name}: {hh}:{mm}:{ss}")))
     }
 
     @Test("UI設定の指定値と既定値をマージする")
     func partialUI() {
-        let resolved = ResolvedUIConfig(ui: .init(fontName: "Helvetica", closeOnSwitch: false))
+        let resolved = ResolvedUIConfig(ui: .init(fontName: "Helvetica"))
 
         #expect(resolved.fontName == "Helvetica")
         #expect(resolved.monoFontName == "Menlo")
-        #expect(resolved.closeOnSwitch == false)
+        #expect(resolved.copyTextFormat == "- {name}: {hh}:{mm}:{ss}")
     }
 
     @Test("キーマップの既定値を解決する")
@@ -237,9 +241,5 @@ struct ResolvedPanelConfigTests {
 
         #expect(resolved.startBreak == "0")
         #expect(resolved.reset == "r")
-        #expect(resolved.toggleVersion == "v")
-        #expect(resolved.editTime == "e")
-        #expect(resolved.editContinuousTime == "E")
-        #expect(resolved.copyToClipboard == "c")
     }
 }

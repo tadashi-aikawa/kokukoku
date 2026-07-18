@@ -4,8 +4,6 @@ import KokukokuCore
 /// 全体の配線(元 Kokukoku.spoon/init.lua の setup 相当)。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    static let version = "0.0.0-development"
-
     private var panel: PanelController?
     private var hotkey: Hotkey?
     private var engine: TimerEngine?
@@ -40,7 +38,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             breakItem: config.breakItem,
             ui: ResolvedUIConfig(ui: config.ui),
             keymap: ResolvedKeymap(keymap: config.keymap),
-            versionText: "v" + Self.version,
             callbacks: .init(
                 onProjectSelect: { engine.startProject($0) },
                 onBreak: { engine.startBreak() },

@@ -16,11 +16,10 @@ struct PanelKeyInterpreterTests {
         #expect(PanelKeyInterpreter.interpret(characters: nil, keyCode: 126, keymap: defaults) == .moveUp)
     }
 
-    @Test("既定キーマップを解釈する")
+    @Test("既定キーマップと固定キーを解釈する")
     func defaultKeymap() {
         #expect(action("0") == .startBreak)
         #expect(action("r") == .reset)
-        #expect(action("v") == .toggleVersion)
         #expect(action("e") == .editTime)
         #expect(action("E") == .editContinuousTime)
         #expect(action("c") == .copyToClipboard)
@@ -30,12 +29,11 @@ struct PanelKeyInterpreterTests {
 
     @Test("カスタムキーマップを解釈する")
     func customKeymap() {
-        let keymap = ResolvedKeymap(keymap: .init(
-            startBreak: "b", reset: "R", toggleVersion: "V", editTime: "t",
-            editContinuousTime: "T", copyToClipboard: "y"))
+        let keymap = ResolvedKeymap(keymap: .init(startBreak: "b", reset: "R"))
 
-        #expect(PanelKeyInterpreter.interpret(characters: "V", keyCode: 0, keymap: keymap) == .toggleVersion)
-        #expect(PanelKeyInterpreter.interpret(characters: "v", keyCode: 0, keymap: keymap) == .passthrough)
+        #expect(PanelKeyInterpreter.interpret(characters: "b", keyCode: 0, keymap: keymap) == .startBreak)
+        #expect(PanelKeyInterpreter.interpret(characters: "R", keyCode: 0, keymap: keymap) == .reset)
+        #expect(PanelKeyInterpreter.interpret(characters: "0", keyCode: 0, keymap: keymap) == .passthrough)
     }
 
     @Test("キーマップは数字選択より優先される")

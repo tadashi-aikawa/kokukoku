@@ -106,20 +106,12 @@ key = "t"            # キー: 文字 または "f18" などのキー名
 # UI設定 (任意)
 [ui]
 fontName = ".AppleSystemUIFont"             # テキストのフォント (デフォルト: システムフォント)
-monoFontName = "Menlo"                      # 時間表示の等幅フォント (デフォルト: Menlo)
-showVersionByDefault = false                # ヘッダーにバージョンをデフォルト表示
 copyTextFormat = "- {name}: {hh}:{mm}:{ss}" # クリップボードコピーの行フォーマット
-copyTextSeparator = "\n"                    # クリップボードコピーの行区切り
-closeOnSwitch = true                        # プロジェクト切替時にパネルを自動で閉じる
 
-# パネルのキーマップ設定 (任意。キーごとに個別指定可)
+# パネルのキーマップ設定 (任意)
 [keymap]
-startBreak = "0"         # 休憩開始
-reset = "r"              # リセット確認
-toggleVersion = "v"      # バージョン表示切替
-editTime = "e"           # 累積時間の編集
-editContinuousTime = "E" # 連続作業時間の編集
-copyToClipboard = "c"    # クリップボードへコピー
+startBreak = "0" # 休憩開始
+reset = "r"      # リセット確認
 
 # アラート設定 (任意)
 [alert.continuousWork]
@@ -166,17 +158,16 @@ message = "%d分経過しました。休憩しましょう" # メッセージテ
 | `k` / `Up` | 選択を上へ移動 |
 | `Enter` | 選択中のアクションを実行 |
 | `Escape` | パネルを閉じる |
+| `e` | 選択中プロジェクトの累積時間を編集 |
+| `E` | 連続作業時間を編集（初期待機・休憩中でも可） |
+| `c` | 測定結果を箇条書きテキストとしてクリップボードにコピー |
 
 #### 設定可能キー（`keymap` でカスタマイズ可能）
 
 | キー (デフォルト) | 設定キー | 動作 |
 |------------------|----------|------|
 | `0` | `startBreak` | 休憩 |
-| `e` | `editTime` | 選択中プロジェクトの累積時間を編集 |
-| `E` | `editContinuousTime` | 連続作業時間を編集（初期待機・休憩中でも可） |
-| `c` | `copyToClipboard` | 測定結果を箇条書きテキストとしてクリップボードにコピー |
 | `r` | `reset` | リセット確認へ。もう一度押すと全タイマーをリセット |
-| `v` | `toggleVersion` | ヘッダーのバージョン表示を切替 |
 
 時間編集はパネル上のインライン編集です。`e` か `E` を押し、`01:23:45`（`83:45` や秒数だけでも可）のように入力して `Enter` で確定、`Escape` でキャンセルします。
 

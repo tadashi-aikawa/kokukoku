@@ -170,7 +170,6 @@ public enum PanelLayout {
         public static let rowHoverBg = PanelColor(red: 0.22, green: 0.22, blue: 0.19, alpha: 1)
         public static let activeRowBg = PanelColor(red: 0.19, green: 0.15, blue: 0.10, alpha: 1)
         public static let activeRowHoverBg = PanelColor(red: 0.24, green: 0.19, blue: 0.12, alpha: 1)
-        public static let switchSuccessBg = PanelColor(red: 0.42, green: 0.33, blue: 0.17, alpha: 1)
         public static let footerBg = PanelColor(red: 0.10, green: 0.10, blue: 0.09, alpha: 1)
         public static let footerHoverBg = PanelColor(red: 0.19, green: 0.19, blue: 0.17, alpha: 1)
         public static let text = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 1)

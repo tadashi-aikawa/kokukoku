@@ -5,7 +5,6 @@ public enum PanelKeyAction: Equatable, Sendable {
     case moveUp
     case startBreak
     case reset
-    case toggleVersion
     case editTime
     case editContinuousTime
     case copyToClipboard
@@ -23,10 +22,9 @@ public enum PanelKeyInterpreter {
         if characters == "k" || keyCode == 126 { return .moveUp }
         if characters == keymap.startBreak { return .startBreak }
         if characters == keymap.reset { return .reset }
-        if characters == keymap.toggleVersion { return .toggleVersion }
-        if characters == keymap.editTime { return .editTime }
-        if characters == keymap.copyToClipboard { return .copyToClipboard }
-        if characters == keymap.editContinuousTime { return .editContinuousTime }
+        if characters == "e" { return .editTime }
+        if characters == "c" { return .copyToClipboard }
+        if characters == "E" { return .editContinuousTime }
         if let characters, characters.count == 1,
             let scalar = characters.unicodeScalars.first,
             (49...57).contains(scalar.value)

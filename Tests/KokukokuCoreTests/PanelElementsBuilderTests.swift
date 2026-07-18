@@ -63,18 +63,6 @@ struct PanelElementsBuilderTests {
             iconKey: "logo", scaling: .shrinkToFit))
     }
 
-    @Test("表示指定時だけバージョンを追加する")
-    func versionVisibility() {
-        let hidden = builder().build(inputs(isVersionVisible: false, versionText: "v0.5.0"))
-        let shown = builder().build(inputs(isVersionVisible: true, versionText: "v0.5.0"))
-
-        #expect(!containsText("v0.5.0", in: hidden))
-        #expect(shown[13] == .text(
-            frame: .init(x: 336, y: 6, w: 72, h: 18), text: "v0.5.0",
-            fontName: "Menlo", fontSize: 10,
-            color: PanelLayout.Colors.subText, alignment: .right))
-    }
-
     @Test("絵文字アイコンをテキストとして描画する")
     func textIcon() {
         let elements = builder(resolveIcon: { _ in
@@ -343,16 +331,14 @@ struct PanelElementsBuilderTests {
         state: TimerState = .init(),
         selectedIndex: Int? = nil,
         hoveredId: String? = nil,
-        isVersionVisible: Bool = false,
         resetConfirming: Bool = false,
-        versionText: String? = nil,
         editingTarget: PanelEditingTarget? = nil
     ) -> PanelElementsBuilder.Inputs {
         .init(
             projects: [project], breakItem: breakItem, state: state,
             selectedIndex: selectedIndex, hoveredId: hoveredId,
-            isVersionVisible: isVersionVisible, resetConfirming: resetConfirming,
-            versionText: versionText, editingTarget: editingTarget, ui: ui)
+            resetConfirming: resetConfirming,
+            editingTarget: editingTarget, ui: ui)
     }
 
     private func containsText(_ text: String, in elements: [PanelElement]) -> Bool {

@@ -3,10 +3,7 @@
     <img src="./kokukoku.webp" width="256" />
     <p>
     <h3>刻刻</h3>
-    <div>A native macOS app for tracking time spent on each project.</div>
-    </p>
-    <p>
-        English | <a href="./README.ja.md">日本語</a>
+    <div>プロジェクトごとの作業時間を計測するmacOSネイティブアプリ</div>
     </p>
     <p>
         <a href="https://github.com/tadashi-aikawa/kokukoku/actions/workflows/ci.yml">
@@ -20,19 +17,19 @@
 
 ---
 
-- **Timer**: Track time spent on each project individually
-- **UI Panel**: Show a panel at the center of the screen where the mouse cursor is, to select projects and view elapsed time
-- **Continuous Timer**: Always display continuous work time as `HH:MM:SS`; idle, break, and reset states show `00:00:00`
-- **Alert**: Send macOS notifications when continuous work time exceeds configured thresholds
-- **Persistence**: Save timer state to JSON so it survives restarts
-- **Clipboard Copy**: Copy measurement results as bulleted text to clipboard
-- **Keyboard Shortcuts**: Select projects by number keys, navigate with j/k or arrow keys, break with 0, confirm reset with r
-- **Inline Time Editing**: Edit accumulated or continuous time directly in the panel
-- **Customization**: Configure project icons (emoji, URL, or file path), names, and fonts
+- **タイマー**: プロジェクトごとの作業時間を個別に計測
+- **UIパネル**: マウスカーソルのあるスクリーン中央にパネルを表示し、プロジェクト選択と経過時間を確認
+- **連続時間表示**: 連続作業時間は常に `HH:MM:SS` で表示し、初期待機・休憩中・リセット直後は `00:00:00`
+- **アラート**: 連続作業時間が設定した閾値を超えるとmacOS通知を送信
+- **永続化**: タイマーの状態をJSONに保存し、再起動後も継続
+- **クリップボードコピー**: 測定結果を箇条書きテキストとしてクリップボードにコピー
+- **キーボード操作**: 数字キーでプロジェクト選択、j/kや矢印キーで移動、0で休憩、rで確認付きリセット
+- **インライン時間編集**: 累積時間・連続作業時間をパネル上で直接編集
+- **カスタマイズ**: プロジェクトのアイコン（絵文字、URL、ファイルパス）、名前、フォントを設定可能
 
-## Setup
+## セットアップ
 
-### Install via Homebrew (Recommended)
+### Homebrew でインストール（推奨）
 
 ```bash
 brew install --cask tadashi-aikawa/tap/kokukoku
@@ -40,45 +37,44 @@ open -a KOKUKOKU
 ```
 
 > [!NOTE]
-> KOKUKOKU is a self-signed (non-notarized) app. If the first launch is blocked, allow it via
-> System Settings → Privacy & Security → "Open Anyway".
+> KOKUKOKU は自己署名（未公証）アプリです。初回起動がブロックされた場合は、
+> システム設定 → プライバシーとセキュリティ → 「このまま開く」で許可してください。
 
-To launch it automatically at login, add KOKUKOKU to
-System Settings → General → Login Items & Extensions → Open at Login.
+ログイン時に自動起動するには、システム設定 → 一般 → ログイン項目と機能拡張 → ログイン時に開く に KOKUKOKU を追加してください。
 
-To update:
+アップデート:
 
 ```bash
 brew upgrade --cask kokukoku
 ```
 
-### Install manually
+### 手動でインストール
 
-Download `KOKUKOKU-<version>.zip` from [Releases](https://github.com/tadashi-aikawa/kokukoku/releases/latest), unzip it, and move `KOKUKOKU.app` to `/Applications`. Then remove the quarantine attribute:
+[Releases](https://github.com/tadashi-aikawa/kokukoku/releases/latest) から `KOKUKOKU-<version>.zip` をダウンロード・展開し、`KOKUKOKU.app` を `/Applications` に移動します。その後、quarantine属性を除去してください:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/KOKUKOKU.app
 ```
 
-(Not needed when installed via Homebrew.)
+（Homebrew 経由なら不要）
 
-## Configuration
+## 設定
 
-KOKUKOKU reads `~/.config/kokukoku/config.toml` at launch. Restart the app after editing it.
+KOKUKOKU は起動時に `~/.config/kokukoku/config.toml` を読み込みます。編集後はアプリを再起動してください。
 
 ```toml
 [[projects]]
 id = "dev"
-name = "Development"
+name = "開発"
 icon = "💻"
 
 [[projects]]
 id = "meeting"
-name = "Meeting"
+name = "ミーティング"
 icon = "🗓"
 
 [breakItem]
-name = "Break"
+name = "休憩"
 icon = "☕"
 
 [hotkey]
@@ -86,120 +82,120 @@ modifiers = ["alt"]
 key = "t"
 ```
 
-### Configuration Options
+### 設定オプション
 
-Complete sample including all options (default values):
+全オプションを含む完全なサンプル（デフォルト値）:
 
 ```toml
-# Project definitions (required)
+# プロジェクト定義 (必須)
 [[projects]]
-id = "work"    # Unique string identifier (required)
-name = "Work"  # Display name (required)
-icon = "💼"    # Emoji text, image URL (http/https), or file path (/ or ~/) (optional)
+id = "work"    # 一意な文字列ID (必須)
+name = "Work"  # 表示名 (必須)
+icon = "💼"    # 絵文字、画像URL (http/https)、ファイルパス (/ か ~/) (任意)
 
-# Break button settings (optional; defaults: name="休憩", icon="☕")
+# 休憩ボタン設定 (任意。デフォルト: name="休憩", icon="☕")
 [breakItem]
 name = "休憩"
 icon = "☕"
 
-# Hotkey to toggle the panel (optional; omit to disable)
+# パネル表示のホットキー (任意。省略時は無効)
 [hotkey]
-modifiers = ["alt"]  # Modifier keys: "command"/"cmd", "option"/"alt", "control"/"ctrl", "shift"
-key = "t"            # Key: a character or a key name such as "f18"
+modifiers = ["alt"]  # 修飾キー: "command"/"cmd", "option"/"alt", "control"/"ctrl", "shift"
+key = "t"            # キー: 文字 または "f18" などのキー名
 
-# UI settings (optional)
+# UI設定 (任意)
 [ui]
-fontName = ".AppleSystemUIFont"             # Font for text (default: system font)
-monoFontName = "Menlo"                      # Monospace font for time display (default: Menlo)
-showVersionByDefault = false                # Show the version in the header by default
-copyTextFormat = "- {name}: {hh}:{mm}:{ss}" # Line format for clipboard copy
-copyTextSeparator = "\n"                    # Line separator for clipboard copy
-closeOnSwitch = true                        # Auto-close panel when switching projects
+fontName = ".AppleSystemUIFont"             # テキストのフォント (デフォルト: システムフォント)
+monoFontName = "Menlo"                      # 時間表示の等幅フォント (デフォルト: Menlo)
+showVersionByDefault = false                # ヘッダーにバージョンをデフォルト表示
+copyTextFormat = "- {name}: {hh}:{mm}:{ss}" # クリップボードコピーの行フォーマット
+copyTextSeparator = "\n"                    # クリップボードコピーの行区切り
+closeOnSwitch = true                        # プロジェクト切替時にパネルを自動で閉じる
 
-# Panel keymap settings (optional; each key is individually optional)
+# パネルのキーマップ設定 (任意。キーごとに個別指定可)
 [keymap]
-startBreak = "0"         # Start break
-reset = "r"              # Reset confirmation
-toggleVersion = "v"      # Toggle version display
-editTime = "e"           # Edit accumulated time
-editContinuousTime = "E" # Edit continuous work time
-copyToClipboard = "c"    # Copy to clipboard
+startBreak = "0"         # 休憩開始
+reset = "r"              # リセット確認
+toggleVersion = "v"      # バージョン表示切替
+editTime = "e"           # 累積時間の編集
+editContinuousTime = "E" # 連続作業時間の編集
+copyToClipboard = "c"    # クリップボードへコピー
 
-# Alert settings (optional)
+# アラート設定 (任意)
 [alert.continuousWork]
-thresholds = [1500, 3000, 4500]                  # Alert thresholds in seconds
-message = "%d分経過しました。休憩しましょう"     # Message template (%d = minutes)
+thresholds = [1500, 3000, 4500]              # アラート閾値 (秒)
+message = "%d分経過しました。休憩しましょう" # メッセージテンプレート (%d = 分)
 ```
 
-Timer state is saved to `~/.local/state/kokukoku/state.json`.
+タイマーの状態は `~/.local/state/kokukoku/state.json` に保存されます。
 
-### Copy Format Placeholders
+### コピーフォーマットのプレースホルダ
 
-Placeholders available in `copyTextFormat`:
+`copyTextFormat` で使用できるプレースホルダ:
 
-| Placeholder | Description | Example (for 3665 seconds) |
-|-------------|-------------|---------------------------|
-| `{name}` | Project name | `Work` |
-| `{hh}` | Hours (zero-padded) | `01` |
-| `{mm}` | Minutes (zero-padded) | `01` |
-| `{ss}` | Seconds (zero-padded) | `05` |
-| `{h}` | Hours | `1` |
-| `{m}` | Minutes | `1` |
-| `{s}` | Seconds | `5` |
+| プレースホルダ | 説明 | 例 (3665秒の場合) |
+|-------------|------|------------------|
+| `{name}` | プロジェクト名 | `Work` |
+| `{hh}` | 時間 (ゼロ埋め) | `01` |
+| `{mm}` | 分 (ゼロ埋め) | `01` |
+| `{ss}` | 秒 (ゼロ埋め) | `05` |
+| `{h}` | 時間 | `1` |
+| `{m}` | 分 | `1` |
+| `{s}` | 秒 | `5` |
 
-### Icon Types
+### アイコンの種類
 
-The `icon` field in project definitions supports three formats:
+プロジェクト定義の `icon` は3つの形式に対応:
 
-| Format | Example | Description |
-|--------|---------|-------------|
-| Emoji | `"💼"` | Displayed as text |
-| URL | `"https://example.com/icon.png"` | Downloaded and displayed as image |
-| File path | `"/path/to/icon.png"` or `"~/icons/work.png"` | Loaded from local file |
+| 形式 | 例 | 説明 |
+|------|-----|------|
+| 絵文字 | `"💼"` | テキストとして表示 |
+| URL | `"https://example.com/icon.png"` | ダウンロードして画像表示 |
+| ファイルパス | `"/path/to/icon.png"` や `"~/icons/work.png"` | ローカルファイルから読み込み |
 
-## Keyboard Shortcuts
+## キーボードショートカット
 
-These shortcuts are available while the panel is open:
+パネル表示中に使用できるショートカット:
 
-#### Fixed Keys
+#### 固定キー
 
-| Key | Action |
-|-----|--------|
-| `1`-`9` | Select the corresponding project |
-| `j` / `Down` | Move selection down |
-| `k` / `Up` | Move selection up |
-| `Enter` | Execute selected action |
-| `Escape` | Close panel |
+| キー | 動作 |
+|------|------|
+| `1`-`9` | 対応するプロジェクトを選択 |
+| `j` / `Down` | 選択を下へ移動 |
+| `k` / `Up` | 選択を上へ移動 |
+| `Enter` | 選択中のアクションを実行 |
+| `Escape` | パネルを閉じる |
 
-#### Configurable Keys (customizable via `keymap`)
+#### 設定可能キー（`keymap` でカスタマイズ可能）
 
-| Key (default) | Config key | Action |
-|---------------|-----------|--------|
-| `0` | `startBreak` | Break |
-| `e` | `editTime` | Edit accumulated time of selected project |
-| `E` | `editContinuousTime` | Edit continuous work time, even while idle or on break |
-| `c` | `copyToClipboard` | Copy measurement results to clipboard as bulleted text |
-| `r` | `reset` | Enter reset confirmation; press again to reset all timers |
-| `v` | `toggleVersion` | Toggle version display in the header |
+| キー (デフォルト) | 設定キー | 動作 |
+|------------------|----------|------|
+| `0` | `startBreak` | 休憩 |
+| `e` | `editTime` | 選択中プロジェクトの累積時間を編集 |
+| `E` | `editContinuousTime` | 連続作業時間を編集（初期待機・休憩中でも可） |
+| `c` | `copyToClipboard` | 測定結果を箇条書きテキストとしてクリップボードにコピー |
+| `r` | `reset` | リセット確認へ。もう一度押すと全タイマーをリセット |
+| `v` | `toggleVersion` | ヘッダーのバージョン表示を切替 |
 
-Time editing happens inline on the panel: press `e` or `E`, type a value such as `01:23:45` (or `83:45`, or plain seconds), then press `Enter` to apply or `Escape` to cancel.
+時間編集はパネル上のインライン編集です。`e` か `E` を押し、`01:23:45`（`83:45` や秒数だけでも可）のように入力して `Enter` で確定、`Escape` でキャンセルします。
 
-Breaking resets the continuous work timer to `00:00:00`. If you edit that value while idle or on break, the edited value is used when you start the next project.
+休憩に入ると連続作業時間は `00:00:00` にリセットされます。初期待機・休憩中に連続作業時間を編集した場合、その値は次のプロジェクト開始時に引き継がれます。
 
-## Development
+## 開発
 
 ```bash
-swift run Kokukoku               # Run directly
-swift run Kokukoku --show-panel  # Run and immediately show the panel
-./scripts/make-app.sh            # Build KOKUKOKU.app into .build/
+swift run Kokukoku               # 直接実行
+swift run Kokukoku --show-panel  # 起動と同時にパネルを表示
+./scripts/make-app.sh            # KOKUKOKU.app を .build/ に組み立て
 ```
 
-## Test
+## テスト
 
 ```bash
 swift test
 ```
 
-## License
+## ライセンス
 
 MIT

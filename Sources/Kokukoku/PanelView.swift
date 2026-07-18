@@ -62,6 +62,24 @@ final class PanelView: NSView {
                     path.lineWidth = strokeWidth
                     path.stroke()
                 }
+            case .neonRectangle(
+                let frame, let cornerRadius, let strokeColor, let strokeWidth,
+                let glowColor, let glowRadius):
+                let path = NSBezierPath(
+                    roundedRect: nsRect(frame), xRadius: cornerRadius, yRadius: cornerRadius)
+                path.lineWidth = strokeWidth
+                NSGraphicsContext.current?.saveGraphicsState()
+                let shadow = NSShadow()
+                shadow.shadowColor = nsColor(glowColor)
+                shadow.shadowBlurRadius = glowRadius
+                shadow.shadowOffset = .zero
+                shadow.set()
+                nsColor(strokeColor).setStroke()
+                path.stroke()
+                NSGraphicsContext.current?.restoreGraphicsState()
+                // にじみの上へ芯線を重ね描きしてネオン管の質感を出す
+                nsColor(strokeColor).setStroke()
+                path.stroke()
             case .line(let from, let to, let color, let width):
                 context.setStrokeColor(cgColor(color))
                 context.setLineWidth(width)

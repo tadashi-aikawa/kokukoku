@@ -165,16 +165,16 @@ public struct PanelElementsBuilder {
                     alignment: .right))
             }
 
+            // 計測中の合図は炎色ネオンの縁取り(文字ラベルは置かない)
             if isActive {
-                let activeText = "▶ 計測中"
-                let height = measureTextHeight(activeText, inputs.ui.fontName, 11)
-                elements.append(.text(
+                elements.append(.neonRectangle(
                     frame: .init(
-                        x: 350, y: y + centeredOffset(layout.rowHeight, height), w: 60, h: height),
-                    text: activeText,
-                    fontName: inputs.ui.fontName,
-                    fontSize: 11,
-                    color: colors.activeText))
+                        x: 3, y: y + 3, w: layout.panelWidth - 6, h: layout.rowHeight - 6),
+                    cornerRadius: 6,
+                    strokeColor: colors.neonStroke,
+                    strokeWidth: 1.5,
+                    glowColor: colors.neonGlow,
+                    glowRadius: 6))
             }
 
             if index < inputs.projects.count {

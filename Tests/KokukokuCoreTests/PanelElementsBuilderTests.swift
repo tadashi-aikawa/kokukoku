@@ -151,6 +151,31 @@ struct PanelElementsBuilderTests {
         #expect(containsText("⚠️ 本当に?", in: confirming))
     }
 
+    @Test("計測中の行は炎色ネオン縁取りで示し文字ラベルは置かない")
+    func activeRowNeon() {
+        let inactive = builder().build(inputs())
+        let active = builder(now: 1_100).build(inputs(state: .init(
+            activeProjectId: "work", activeStartedAt: 1_000)))
+
+        #expect(!inactive.contains { if case .neonRectangle = $0 { true } else { false } })
+        #expect(active[19] == .neonRectangle(
+            frame: .init(x: 3, y: 75, w: 414, h: 30),
+            cornerRadius: 6,
+            strokeColor: PanelLayout.Colors.neonStroke,
+            strokeWidth: 1.5,
+            glowColor: PanelLayout.Colors.neonGlow,
+            glowRadius: 6))
+        #expect(!containsText("▶ 計測中", in: active))
+        // 行背景と文字はアクティブ配色になる
+        #expect(active[14] == .rectangle(
+            frame: .init(x: 0, y: 72, w: 420, h: 36),
+            fillColor: PanelLayout.Colors.activeRowBg, id: "row_work", tracksMouse: true))
+        #expect(active[17] == .text(
+            frame: .init(x: 66, y: 79, w: 166, h: 22), text: "Work",
+            fontName: ".AppleSystemUIFont", fontSize: 14,
+            color: PanelLayout.Colors.activeText))
+    }
+
     @Test("IconKindはLuaと同じ接頭辞で分類する")
     func iconKind() {
         #expect(IconKind.classify(nil) == .empty)

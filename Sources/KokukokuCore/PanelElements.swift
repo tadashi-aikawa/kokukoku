@@ -77,6 +77,14 @@ public enum PanelElement: Equatable, Sendable {
         fillColor: PanelColor? = nil,
         strokeColor: PanelColor? = nil,
         strokeWidth: Double = 0)
+    /// ネオン管風の角丸縁取り(芯のstroke+外側ににじむグロー)。計測中行の合図に使う
+    case neonRectangle(
+        frame: PanelFrame,
+        cornerRadius: Double,
+        strokeColor: PanelColor,
+        strokeWidth: Double,
+        glowColor: PanelColor,
+        glowRadius: Double)
     case line(from: PanelPoint, to: PanelPoint, color: PanelColor, width: Double)
     case text(
         frame: PanelFrame,
@@ -149,21 +157,25 @@ public enum PanelLayout {
 
     /// アイコン(墨絵の時計)由来のパレット:
     /// 墨 #2D2E27 / 生成り #F8ECD8 / 朱 #DA5932 / 金茶 #AB8A55
-    /// 朱は面で使うと異常事態に見えるため警告(リセット確認)と秒針の点睛のみとし、
-    /// 計測中のアクセントは金茶で表す(アイコンの朱も点睛にとどまる配分)
+    /// 朱は面で使うと異常事態に見えるため警告(リセット確認)と秒針の点睛のみ。
+    /// 計測中は炎色ネオンの縁取り(明るい橙金の芯+朱系グロー)で表し、
+    /// 行背景はやや暗く沈めて光を際立たせる
     public enum Colors {
         public static let background = PanelColor(red: 0.13, green: 0.13, blue: 0.11, alpha: 0.95)
         public static let headerBg = PanelColor(red: 0.10, green: 0.10, blue: 0.09, alpha: 1)
         public static let rowBg = PanelColor(red: 0.16, green: 0.16, blue: 0.14, alpha: 1)
         public static let rowHoverBg = PanelColor(red: 0.22, green: 0.22, blue: 0.19, alpha: 1)
-        public static let activeRowBg = PanelColor(red: 0.24, green: 0.19, blue: 0.11, alpha: 1)
-        public static let activeRowHoverBg = PanelColor(red: 0.29, green: 0.23, blue: 0.14, alpha: 1)
+        public static let activeRowBg = PanelColor(red: 0.19, green: 0.15, blue: 0.10, alpha: 1)
+        public static let activeRowHoverBg = PanelColor(red: 0.24, green: 0.19, blue: 0.12, alpha: 1)
         public static let switchSuccessBg = PanelColor(red: 0.42, green: 0.33, blue: 0.17, alpha: 1)
         public static let footerBg = PanelColor(red: 0.10, green: 0.10, blue: 0.09, alpha: 1)
         public static let footerHoverBg = PanelColor(red: 0.19, green: 0.19, blue: 0.17, alpha: 1)
         public static let text = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 1)
         public static let subText = PanelColor(red: 0.62, green: 0.57, blue: 0.47, alpha: 1)
-        public static let activeText = PanelColor(red: 0.86, green: 0.70, blue: 0.44, alpha: 1)
+        public static let activeText = PanelColor(red: 1.0, green: 0.80, blue: 0.50, alpha: 1)
+        /// ネオン縁取りの芯(明るい橙金)とグロー(朱寄りの炎色)
+        public static let neonStroke = PanelColor(red: 1.0, green: 0.72, blue: 0.35, alpha: 1)
+        public static let neonGlow = PanelColor(red: 0.92, green: 0.38, blue: 0.16, alpha: 0.9)
         public static let separator = PanelColor(red: 0.29, green: 0.28, blue: 0.24, alpha: 1)
         public static let resetConfirmBg = PanelColor(red: 0.48, green: 0.10, blue: 0.10, alpha: 1)
         /// パネル外周の縁取り(暗い背景でも輪郭が分かるよう生成りの低アルファ)

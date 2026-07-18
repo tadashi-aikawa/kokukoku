@@ -9,8 +9,8 @@ final class InlineTimeEditor: NSObject, NSTextFieldDelegate {
     var onCommit: ((String) -> Void)?
     var onCancel: (() -> Void)?
 
-    // アクセントはPanelLayout.Colors.activeText(金茶)と揃える
-    private static let accent = NSColor(srgbRed: 0.86, green: 0.70, blue: 0.44, alpha: 1)
+    // アクセントはPanelLayout.Colors.activeText(炎色)と揃える
+    private static let accent = NSColor(srgbRed: 1.0, green: 0.80, blue: 0.50, alpha: 1)
     private static let invalid = NSColor(srgbRed: 1, green: 0.4, blue: 0.4, alpha: 1)
     private static let textColor = NSColor(srgbRed: 0.95, green: 0.91, blue: 0.83, alpha: 1)
 

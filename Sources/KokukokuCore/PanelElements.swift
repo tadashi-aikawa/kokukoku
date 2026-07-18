@@ -107,8 +107,9 @@ public enum PanelEditingTarget: Equatable, Sendable {
 
 public enum PanelLayout {
     public static let panelWidth = 420.0
-    /// ヘッダー(現在時刻段: アナログ+デジタル時計)の高さ = プロジェクト行の開始位置
-    public static let clockSectionHeight = 72.0
+    /// ヘッダー(現在時刻段: アナログ+デジタル時計)の高さ = プロジェクト行の開始位置。
+    /// 時計(直径56px)の上下に14pxずつの余白を取り、下の記録エリアと視覚的に分離する
+    public static let clockSectionHeight = 84.0
     public static let rowHeight = 40.0
     public static let footerHeight = 40.0
     public static let padding = 12.0

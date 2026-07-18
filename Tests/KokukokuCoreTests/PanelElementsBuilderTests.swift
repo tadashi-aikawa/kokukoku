@@ -12,40 +12,40 @@ struct PanelElementsBuilderTests {
 
         #expect(elements.count == 29)
         #expect(elements[0] == .rectangle(
-            frame: .init(x: 0, y: 0, w: 420, h: 152),
+            frame: .init(x: 0, y: 0, w: 420, h: 164),
             fillColor: PanelLayout.Colors.background, cornerRadius: 10))
         #expect(elements[1] == .rectangle(
-            frame: .init(x: 0, y: 0, w: 420, h: 72),
+            frame: .init(x: 0, y: 0, w: 420, h: 84),
             fillColor: PanelLayout.Colors.headerBg, cornerRadius: 10))
         #expect(elements[3] == .circle(
             center: PanelLayout.clockCenter, radius: 28,
             fillColor: PanelLayout.Colors.rowBg,
             strokeColor: PanelLayout.Colors.separator, strokeWidth: 1))
         #expect(elements[14] == .rectangle(
-            frame: .init(x: 0, y: 72, w: 420, h: 40),
+            frame: .init(x: 0, y: 84, w: 420, h: 40),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
         #expect(elements[15] == .text(
-            frame: .init(x: 12, y: 81, w: 20, h: 21), text: "1",
+            frame: .init(x: 12, y: 93, w: 20, h: 21), text: "1",
             fontName: "Menlo", fontSize: 13, color: PanelLayout.Colors.subText))
         #expect(elements[17] == .text(
-            frame: .init(x: 66, y: 80, w: 166, h: 24), text: "Work",
+            frame: .init(x: 66, y: 92, w: 166, h: 24), text: "Work",
             fontName: ".AppleSystemUIFont", fontSize: 16, color: PanelLayout.Colors.text))
         #expect(elements[19] == .rectangle(
-            frame: .init(x: 0, y: 112, w: 420, h: 1),
+            frame: .init(x: 0, y: 124, w: 420, h: 1),
             fillColor: PanelLayout.Colors.separator))
         #expect(elements[22] == .text(
-            frame: .init(x: 182, y: 122, w: 90, h: 28), text: "00:00:00",
+            frame: .init(x: 182, y: 134, w: 90, h: 28), text: "00:00:00",
             fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
         #expect(elements[23] == .rectangle(
-            frame: .init(x: 8, y: 116, w: 108, h: 30),
+            frame: .init(x: 8, y: 128, w: 108, h: 30),
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 6,
             id: "btn_break", tracksMouse: true))
         #expect(elements[26] == .rectangle(
-            frame: .init(x: 294, y: 116, w: 118, h: 30),
+            frame: .init(x: 294, y: 128, w: 118, h: 30),
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 6,
             id: "btn_reset", tracksMouse: true))
         #expect(elements[28] == .rectangle(
-            frame: .init(x: 0.5, y: 0.5, w: 419, h: 151),
+            frame: .init(x: 0.5, y: 0.5, w: 419, h: 163),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 10,
             strokeColor: PanelLayout.Colors.panelBorder, strokeWidth: 1))
     }
@@ -56,10 +56,10 @@ struct PanelElementsBuilderTests {
         let withLogo = builder(hasLogoImage: true).build(inputs())
 
         #expect(!withoutLogo.contains(.image(
-            frame: .init(x: 148, y: 118, w: 28, h: 28),
+            frame: .init(x: 148, y: 130, w: 28, h: 28),
             iconKey: "logo", scaling: .shrinkToFit)))
         #expect(withLogo[22] == .image(
-            frame: .init(x: 148, y: 118, w: 28, h: 28),
+            frame: .init(x: 148, y: 130, w: 28, h: 28),
             iconKey: "logo", scaling: .shrinkToFit))
     }
 
@@ -83,7 +83,7 @@ struct PanelElementsBuilderTests {
         }).build(inputs())
 
         #expect(elements[16] == .text(
-            frame: .init(x: 34, y: 79, w: 24, h: 25), text: "🔵",
+            frame: .init(x: 34, y: 91, w: 24, h: 25), text: "🔵",
             fontName: ".AppleSystemUIFont", fontSize: 17,
             color: PanelLayout.Colors.text, alignment: .center))
     }
@@ -94,7 +94,7 @@ struct PanelElementsBuilderTests {
             .build(inputs(project: .init(id: "work", name: "Work", icon: "/tmp/work.png")))
 
         #expect(elements[16] == .image(
-            frame: .init(x: 34, y: 80, w: 24, h: 24),
+            frame: .init(x: 34, y: 92, w: 24, h: 24),
             iconKey: "cached:/tmp/work.png", scaling: .scaleProportionally))
     }
 
@@ -115,10 +115,10 @@ struct PanelElementsBuilderTests {
             continuousElapsedBase: 600, continuousStartedAt: 1_000)))
 
         #expect(stopped[22] == .text(
-            frame: .init(x: 182, y: 122, w: 90, h: 28), text: "00:10:00",
+            frame: .init(x: 182, y: 134, w: 90, h: 28), text: "00:10:00",
             fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
         #expect(running[22] == .text(
-            frame: .init(x: 182, y: 122, w: 90, h: 28), text: "00:11:40",
+            frame: .init(x: 182, y: 134, w: 90, h: 28), text: "00:11:40",
             fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.text))
     }
 
@@ -138,14 +138,14 @@ struct PanelElementsBuilderTests {
         let confirming = builder().build(inputs(resetConfirming: true))
 
         #expect(hovered[14] == .rectangle(
-            frame: .init(x: 0, y: 72, w: 420, h: 40),
+            frame: .init(x: 0, y: 84, w: 420, h: 40),
             fillColor: PanelLayout.Colors.rowHoverBg, id: "row_work", tracksMouse: true))
         #expect(hoveredBreak[23] == .rectangle(
-            frame: .init(x: 8, y: 116, w: 108, h: 30),
+            frame: .init(x: 8, y: 128, w: 108, h: 30),
             fillColor: PanelLayout.Colors.footerHoverBg, cornerRadius: 6,
             id: "btn_break", tracksMouse: true))
         #expect(confirming[26] == .rectangle(
-            frame: .init(x: 294, y: 116, w: 118, h: 30),
+            frame: .init(x: 294, y: 128, w: 118, h: 30),
             fillColor: PanelLayout.Colors.resetConfirmBg, cornerRadius: 6,
             id: "btn_reset", tracksMouse: true))
         #expect(containsText("⚠️ 本当に?", in: confirming))
@@ -156,10 +156,10 @@ struct PanelElementsBuilderTests {
         let selected = builder().build(inputs(selectedIndex: 1))
 
         #expect(selected[14] == .rectangle(
-            frame: .init(x: 0, y: 72, w: 420, h: 40),
+            frame: .init(x: 0, y: 84, w: 420, h: 40),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
         #expect(selected.last == .rectangle(
-            frame: .init(x: 3, y: 75, w: 414, h: 34),
+            frame: .init(x: 3, y: 87, w: 414, h: 34),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 17,
             strokeColor: PanelLayout.Colors.selectionOutline,
@@ -177,7 +177,7 @@ struct PanelElementsBuilderTests {
             return
         }
         #expect(elements.last == .rectangle(
-            frame: .init(x: 7, y: 79, w: 406, h: 26),
+            frame: .init(x: 7, y: 91, w: 406, h: 26),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 13,
             strokeColor: PanelLayout.Colors.selectionOutline,
@@ -193,7 +193,7 @@ struct PanelElementsBuilderTests {
         #expect(!inactive.contains { if case .neonRectangle = $0 { true } else { false } })
         // グローが他要素に塗り潰されないよう最前面(末尾)に置く
         #expect(active.last == .neonRectangle(
-            frame: .init(x: 3, y: 74, w: 414, h: 36),
+            frame: .init(x: 3, y: 86, w: 414, h: 36),
             cornerRadius: 18,
             strokeWidth: 2,
             topColor: PanelLayout.Colors.neonCoreTop,
@@ -203,10 +203,10 @@ struct PanelElementsBuilderTests {
         #expect(!containsText("▶ 計測中", in: active))
         // 行背景と文字はアクティブ配色になる
         #expect(active[14] == .rectangle(
-            frame: .init(x: 0, y: 72, w: 420, h: 40),
+            frame: .init(x: 0, y: 84, w: 420, h: 40),
             fillColor: PanelLayout.Colors.activeRowBg, id: "row_work", tracksMouse: true))
         #expect(active[17] == .text(
-            frame: .init(x: 66, y: 80, w: 166, h: 24), text: "Work",
+            frame: .init(x: 66, y: 92, w: 166, h: 24), text: "Work",
             fontName: ".AppleSystemUIFont", fontSize: 16,
             color: PanelLayout.Colors.activeText))
     }
@@ -247,17 +247,17 @@ struct PanelElementsBuilderTests {
     @Test("編集フィールドの枠は時刻テキストの列位置と一致する")
     func editingFrames() {
         #expect(PanelLayout.continuousTimeFrame(projectCount: 1)
-            == .init(x: 182, y: 122, w: 90, h: 28))
+            == .init(x: 182, y: 134, w: 90, h: 28))
         #expect(PanelLayout.accumulatedTimeFrame(rowOffset: 0)
-            == .init(x: 240, y: 72, w: 100, h: 40))
+            == .init(x: 240, y: 84, w: 100, h: 40))
         #expect(PanelLayout.accumulatedTimeFrame(rowOffset: 2)
-            == .init(x: 240, y: 152, w: 100, h: 40))
+            == .init(x: 240, y: 164, w: 100, h: 40))
     }
 
     @Test("パネル高さをプロジェクト数から算出する")
     func panelHeight() {
-        #expect(PanelLayout.panelHeight(projectCount: 0) == 112)
-        #expect(PanelLayout.panelHeight(projectCount: 3) == 232)
+        #expect(PanelLayout.panelHeight(projectCount: 0) == 124)
+        #expect(PanelLayout.panelHeight(projectCount: 3) == 244)
     }
 
     @Test("現在時刻をデジタル秒付き・ゼロ埋めで表示する")

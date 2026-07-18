@@ -24,5 +24,7 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>本日の予定をパネルに表示し、開始前にお知らせするためにカレンダーへアクセスします。</string>
 </dict>
 </plist>

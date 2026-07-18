@@ -108,7 +108,15 @@ reset = "r"      # リセット確認
 [alert.continuousWork]
 thresholds = [1500, 3000, 4500]              # アラート閾値 (秒)
 message = "%d分経過しました。休憩しましょう" # メッセージテンプレート (%d = 分)
+
+# カレンダー連携 (任意。省略時は連携無効・カレンダーへの権限要求もしない)
+[calendar]
+name = "一般"               # 対象カレンダー名 (必須。Googleカレンダー上の表示名と一致させる)
+refreshIntervalMinutes = 5  # 定期更新の間隔 (分)
+notificationLeadMinutes = 5 # 予定開始の何分前に通知するか
 ```
+
+カレンダー連携は macOS のカレンダー (EventKit) を経由します。システム設定 > インターネットアカウントに Google アカウントを追加しておいてください。Google カレンダー側の変更が反映されるまで数分 (実測 3〜4 分) かかるため、`notificationLeadMinutes` を 5 分より短くすると直前の予定変更を拾えない可能性があります。
 
 タイマーの状態は `~/.local/state/kokukoku/state.json` に保存されます。
 

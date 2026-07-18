@@ -197,6 +197,65 @@ struct ConfigLoaderTests {
         #expect(config.keymap == nil)
     }
 
+    @Test("calendarセクションを読み込める")
+    func parseCalendar() throws {
+        let toml = """
+            [calendar]
+            name = "一般"
+            refreshIntervalMinutes = 10
+            notificationLeadMinutes = 3
+            """
+
+        let config = try ConfigLoader.parse(toml: toml)
+
+        #expect(
+            config.calendar
+                == .init(name: "一般", refreshIntervalMinutes: 10, notificationLeadMinutes: 3))
+    }
+
+    @Test("calendarセクションがなければnilになる(連携は完全に無効)")
+    func parseWithoutCalendar() throws {
+        let config = try ConfigLoader.parse(toml: "")
+
+        #expect(config.calendar == nil)
+    }
+
+    @Test("calendarのnameがなければinvalidエラーになる")
+    func parseCalendarWithoutName() {
+        #expect(throws: ConfigError.self) {
+            try ConfigLoader.parse(toml: "[calendar]\nrefreshIntervalMinutes = 5")
+        }
+    }
+
+    @Test("calendarのnameが空文字ならinvalidエラーになる")
+    func parseCalendarEmptyName() {
+        #expect(
+            throws: ConfigError.invalid(description: "calendar.name must be a non-empty string")
+        ) {
+            try ConfigLoader.parse(toml: "[calendar]\nname = \"\"")
+        }
+    }
+
+    @Test("calendarの更新間隔が1未満ならinvalidエラーになる")
+    func parseCalendarInvalidRefreshInterval() {
+        #expect(
+            throws: ConfigError.invalid(
+                description: "calendar.refreshIntervalMinutes must be >= 1")
+        ) {
+            try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\nrefreshIntervalMinutes = 0")
+        }
+    }
+
+    @Test("calendarの通知リード時間が1未満ならinvalidエラーになる")
+    func parseCalendarInvalidNotificationLead() {
+        #expect(
+            throws: ConfigError.invalid(
+                description: "calendar.notificationLeadMinutes must be >= 1")
+        ) {
+            try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\nnotificationLeadMinutes = -1")
+        }
+    }
+
     @Test("ui・keymapは部分指定できる")
     func parsePartialUIAndKeymap() throws {
         let config = try ConfigLoader.parse(toml: """
@@ -236,5 +295,25 @@ struct ResolvedPanelConfigTests {
 
         #expect(resolved.startBreak == "0")
         #expect(resolved.reset == "r")
+    }
+
+    @Test("calendar設定の既定値を解決する")
+    func defaultCalendar() {
+        let resolved = ResolvedCalendarConfig(calendar: .init(name: "一般"))
+
+        #expect(resolved.name == "一般")
+        #expect(resolved.refreshIntervalMinutes == 5)
+        #expect(resolved.notificationLeadMinutes == 5)
+    }
+
+    @Test("calendar設定の指定値が既定値より優先される")
+    func specifiedCalendar() {
+        let resolved = ResolvedCalendarConfig(
+            calendar: .init(name: "仕事", refreshIntervalMinutes: 15, notificationLeadMinutes: 2))
+
+        #expect(resolved == ResolvedCalendarConfig(
+            calendar: .init(name: "仕事", refreshIntervalMinutes: 15, notificationLeadMinutes: 2)))
+        #expect(resolved.refreshIntervalMinutes == 15)
+        #expect(resolved.notificationLeadMinutes == 2)
     }
 }

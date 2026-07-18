@@ -56,6 +56,22 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         }
     }
 
+    public struct Calendar: Codable, Equatable, Sendable {
+        public var name: String
+        public var refreshIntervalMinutes: Int?
+        public var notificationLeadMinutes: Int?
+
+        public init(
+            name: String,
+            refreshIntervalMinutes: Int? = nil,
+            notificationLeadMinutes: Int? = nil
+        ) {
+            self.name = name
+            self.refreshIntervalMinutes = refreshIntervalMinutes
+            self.notificationLeadMinutes = notificationLeadMinutes
+        }
+    }
+
     public struct Keymap: Codable, Equatable, Sendable {
         public var startBreak: String?
         public var reset: String?
@@ -74,19 +90,22 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
     public var alert: Alert?
     public var ui: UI?
     public var keymap: Keymap?
+    public var calendar: Calendar?
 
     public init(
         projects: [Project] = [],
         hotkey: Hotkey? = nil,
         alert: Alert? = nil,
         ui: UI? = nil,
-        keymap: Keymap? = nil
+        keymap: Keymap? = nil,
+        calendar: Calendar? = nil
     ) {
         self.projects = projects
         self.hotkey = hotkey
         self.alert = alert
         self.ui = ui
         self.keymap = keymap
+        self.calendar = calendar
     }
 
     public init(from decoder: Decoder) throws {
@@ -96,6 +115,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         self.alert = try container.decodeIfPresent(Alert.self, forKey: .alert)
         self.ui = try container.decodeIfPresent(UI.self, forKey: .ui)
         self.keymap = try container.decodeIfPresent(Keymap.self, forKey: .keymap)
+        self.calendar = try container.decodeIfPresent(Calendar.self, forKey: .calendar)
     }
 }
 
@@ -118,6 +138,19 @@ public struct ResolvedKeymap: Equatable, Sendable {
     public init(keymap: KokukokuConfig.Keymap?) {
         self.startBreak = keymap?.startBreak ?? "0"
         self.reset = keymap?.reset ?? "r"
+    }
+}
+
+/// [calendar] 設定の既定値を解決したもの
+public struct ResolvedCalendarConfig: Equatable, Sendable {
+    public var name: String
+    public var refreshIntervalMinutes: Int
+    public var notificationLeadMinutes: Int
+
+    public init(calendar: KokukokuConfig.Calendar) {
+        self.name = calendar.name
+        self.refreshIntervalMinutes = calendar.refreshIntervalMinutes ?? 5
+        self.notificationLeadMinutes = calendar.notificationLeadMinutes ?? 5
     }
 }
 
@@ -161,6 +194,19 @@ public enum ConfigLoader {
             }
             if !seenIds.insert(project.id).inserted {
                 throw ConfigError.invalid(description: "duplicate project id: \(project.id)")
+            }
+        }
+        if let calendar = config.calendar {
+            if calendar.name.isEmpty {
+                throw ConfigError.invalid(description: "calendar.name must be a non-empty string")
+            }
+            if let interval = calendar.refreshIntervalMinutes, interval < 1 {
+                throw ConfigError.invalid(
+                    description: "calendar.refreshIntervalMinutes must be >= 1")
+            }
+            if let lead = calendar.notificationLeadMinutes, lead < 1 {
+                throw ConfigError.invalid(
+                    description: "calendar.notificationLeadMinutes must be >= 1")
             }
         }
     }

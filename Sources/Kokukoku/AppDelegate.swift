@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkey: Hotkey?
     private var engine: TimerEngine?
     private var alert: ContinuousWorkAlert?
+    private var calendarService: CalendarService?
     private var tickTask: Task<Void, Never>?
     private let persistence = Persistence()
 
@@ -49,10 +50,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         tickTask?.cancel()
         hotkey?.unregister()
+        calendarService?.stop()
     }
 
     /// 設定から各コンポーネントを組み立てる(起動時・設定再読込時の共通経路)
     private func setUp(config: KokukokuConfig) {
+        // 旧アダプタを止めてから新アダプタを起こす(多重購読・二重通知の防止)
+        calendarService?.stop()
+        calendarService = nil
+
         let engine = TimerEngine(
             projects: config.projects,
             initialState: persistence.load(),
@@ -80,6 +86,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.engine = engine
         self.alert = alert
         self.panel = panel
+
+        // [calendar] 設定がない場合はカレンダー連携を完全に無効にする(権限要求もしない)
+        if let calendarConfig = config.calendar {
+            let service = CalendarService(config: ResolvedCalendarConfig(calendar: calendarConfig))
+            service.start()
+            calendarService = service
+        }
 
         if let hotkeyConfig = config.hotkey {
             hotkey = Hotkey(

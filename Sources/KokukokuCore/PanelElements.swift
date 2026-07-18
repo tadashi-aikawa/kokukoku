@@ -14,6 +14,29 @@ public struct PanelColor: Equatable, Sendable {
     }
 }
 
+public struct PanelPoint: Equatable, Sendable {
+    public var x: Double
+    public var y: Double
+
+    public init(x: Double, y: Double) {
+        self.x = x
+        self.y = y
+    }
+}
+
+/// ローカルタイムゾーンの現在時刻(アナログ・デジタル時計の描画入力)
+public struct ClockTime: Equatable, Sendable {
+    public var hour: Int
+    public var minute: Int
+    public var second: Int
+
+    public init(hour: Int, minute: Int, second: Int) {
+        self.hour = hour
+        self.minute = minute
+        self.second = second
+    }
+}
+
 public struct PanelFrame: Equatable, Sendable {
     public var x: Double
     public var y: Double
@@ -44,8 +67,17 @@ public enum PanelElement: Equatable, Sendable {
         frame: PanelFrame,
         fillColor: PanelColor,
         cornerRadius: Double = 0,
+        strokeColor: PanelColor? = nil,
+        strokeWidth: Double = 0,
         id: String? = nil,
         tracksMouse: Bool = false)
+    case circle(
+        center: PanelPoint,
+        radius: Double,
+        fillColor: PanelColor? = nil,
+        strokeColor: PanelColor? = nil,
+        strokeWidth: Double = 0)
+    case line(from: PanelPoint, to: PanelPoint, color: PanelColor, width: Double)
     case text(
         frame: PanelFrame,
         text: String,
@@ -65,7 +97,11 @@ public enum PanelEditingTarget: Equatable, Sendable {
 
 public enum PanelLayout {
     public static let panelWidth = 420.0
+    /// 現在時刻段(ヘッダー上段: アナログ+デジタル時計)
+    public static let clockSectionHeight = 56.0
     public static let headerHeight = 44.0
+    /// 現在時刻段+従来ヘッダーを合わせた高さ(プロジェクト行の開始位置)
+    public static let headerTotalHeight = clockSectionHeight + headerHeight
     public static let rowHeight = 36.0
     public static let footerHeight = 40.0
     public static let padding = 12.0
@@ -82,26 +118,37 @@ public enum PanelLayout {
     public static let timeColumnWidth = 100.0
     public static let colors = Colors.self
 
+    /// アナログ時計の文字盤半径と中心(現在時刻段の中でデジタルと合わせて中央寄せ)
+    public static let clockRadius = 20.0
+    public static let clockDigitalWidth = 90.0
+    public static let clockDigitalGap = 12.0
+    public static let clockCenter = PanelPoint(
+        x: (panelWidth - clockRadius * 2 - clockDigitalGap - clockDigitalWidth) / 2 + clockRadius,
+        y: clockSectionHeight / 2)
+    public static let clockDigitalFrame = PanelFrame(
+        x: clockCenter.x + clockRadius + clockDigitalGap,
+        y: clockSectionHeight / 2 - 14, w: clockDigitalWidth, h: 28)
+
     /// ヘッダーの連続稼働時間テキストの枠(インライン編集フィールドもここへ重ねる)
     public static let continuousTimeFrame = PanelFrame(
         x: (panelWidth - headerLogoSize - headerLogoTextGap - headerTimeWidth) / 2
             + headerLogoSize + headerLogoTextGap,
-        y: 12, w: headerTimeWidth, h: 28)
+        y: clockSectionHeight + 12, w: headerTimeWidth, h: 28)
 
     /// プロジェクト行の累積時間テキストの枠(同上)
     public static func accumulatedTimeFrame(rowOffset: Int) -> PanelFrame {
         .init(
-            x: timeColumnX, y: headerHeight + Double(rowOffset) * rowHeight,
+            x: timeColumnX, y: headerTotalHeight + Double(rowOffset) * rowHeight,
             w: timeColumnWidth, h: rowHeight)
     }
 
     public static func panelHeight(projectCount: Int) -> Double {
-        headerHeight + Double(projectCount) * rowHeight + footerHeight
+        headerTotalHeight + Double(projectCount) * rowHeight + footerHeight
     }
 
     /// アイコン(墨絵の時計)由来のパレット:
     /// 墨 #2D2E27 / 生成り #F8ECD8 / 朱 #DA5932 / 金茶 #AB8A55
-    /// 朱は面で使うと異常事態に見えるため警告(リセット確認)専用とし、
+    /// 朱は面で使うと異常事態に見えるため警告(リセット確認)と秒針の点睛のみとし、
     /// 計測中のアクセントは金茶で表す(アイコンの朱も点睛にとどまる配分)
     public enum Colors {
         public static let background = PanelColor(red: 0.13, green: 0.13, blue: 0.11, alpha: 0.95)
@@ -118,6 +165,10 @@ public enum PanelLayout {
         public static let activeText = PanelColor(red: 0.86, green: 0.70, blue: 0.44, alpha: 1)
         public static let separator = PanelColor(red: 0.29, green: 0.28, blue: 0.24, alpha: 1)
         public static let resetConfirmBg = PanelColor(red: 0.48, green: 0.10, blue: 0.10, alpha: 1)
+        /// パネル外周の縁取り(暗い背景でも輪郭が分かるよう生成りの低アルファ)
+        public static let panelBorder = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 0.28)
+        public static let clockSecondHand = PanelColor(
+            red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
     }
 }
 

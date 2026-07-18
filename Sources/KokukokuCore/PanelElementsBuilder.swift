@@ -44,17 +44,20 @@ public struct PanelElementsBuilder {
     }
 
     private let now: () -> Int
+    private let localTime: () -> ClockTime
     private let measureTextHeight: (_ text: String, _ fontName: String, _ size: Double) -> Double
     private let resolveIcon: (String) -> IconResolution
     private let hasLogoImage: Bool
 
     public init(
         now: @escaping () -> Int,
+        localTime: @escaping () -> ClockTime = { ClockTime(hour: 0, minute: 0, second: 0) },
         measureTextHeight: @escaping (_ text: String, _ fontName: String, _ size: Double) -> Double,
         resolveIcon: @escaping (String) -> IconResolution,
         hasLogoImage: Bool
     ) {
         self.now = now
+        self.localTime = localTime
         self.measureTextHeight = measureTextHeight
         self.resolveIcon = resolveIcon
         self.hasLogoImage = hasLogoImage
@@ -71,12 +74,14 @@ public struct PanelElementsBuilder {
             fillColor: colors.background,
             cornerRadius: 10))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: 0, w: layout.panelWidth, h: layout.headerHeight),
+            frame: .init(x: 0, y: 0, w: layout.panelWidth, h: layout.headerTotalHeight),
             fillColor: colors.headerBg,
             cornerRadius: 10))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: layout.headerHeight - 10, w: layout.panelWidth, h: 10),
+            frame: .init(x: 0, y: layout.headerTotalHeight - 10, w: layout.panelWidth, h: 10),
             fillColor: colors.headerBg))
+
+        appendClock(inputs, to: &elements)
 
         let logoSize = layout.headerLogoSize
         let logoTextGap = layout.headerLogoTextGap
@@ -84,7 +89,7 @@ public struct PanelElementsBuilder {
         let startX = timeFrame.x - logoTextGap - logoSize
         if hasLogoImage {
             elements.append(.image(
-                frame: .init(x: startX, y: 8, w: logoSize, h: logoSize),
+                frame: .init(x: startX, y: layout.clockSectionHeight + 8, w: logoSize, h: logoSize),
                 iconKey: "logo",
                 scaling: .shrinkToFit))
         }
@@ -105,7 +110,9 @@ public struct PanelElementsBuilder {
         if inputs.isVersionVisible, let versionText = inputs.versionText, !versionText.isEmpty {
             let height = measureTextHeight(versionText, inputs.ui.monoFontName, 10)
             elements.append(.text(
-                frame: .init(x: layout.panelWidth - layout.padding - 72, y: 6, w: 72, h: height),
+                frame: .init(
+                    x: layout.panelWidth - layout.padding - 72,
+                    y: layout.clockSectionHeight + 6, w: 72, h: height),
                 text: versionText,
                 fontName: inputs.ui.monoFontName,
                 fontSize: 10,
@@ -114,12 +121,12 @@ public struct PanelElementsBuilder {
         }
 
         elements.append(.rectangle(
-            frame: .init(x: 0, y: layout.headerHeight, w: layout.panelWidth, h: 1),
+            frame: .init(x: 0, y: layout.headerTotalHeight, w: layout.panelWidth, h: 1),
             fillColor: colors.separator))
 
         for (offset, project) in inputs.projects.enumerated() {
             let index = offset + 1
-            let y = layout.headerHeight + Double(offset) * layout.rowHeight
+            let y = layout.headerTotalHeight + Double(offset) * layout.rowHeight
             let isActive = inputs.state.activeProjectId == project.id
             let isSelected = inputs.selectedIndex == index || inputs.hoveredId == "row_\(project.id)"
             let rowColor: PanelColor
@@ -205,7 +212,7 @@ public struct PanelElementsBuilder {
             }
         }
 
-        let footerY = layout.headerHeight + Double(inputs.projects.count) * layout.rowHeight
+        let footerY = layout.headerTotalHeight + Double(inputs.projects.count) * layout.rowHeight
         elements.append(.rectangle(
             frame: .init(x: 0, y: footerY, w: layout.panelWidth, h: 1),
             fillColor: colors.separator))
@@ -262,7 +269,70 @@ public struct PanelElementsBuilder {
             color: colors.subText,
             alignment: .right))
 
+        // 外周の縁取り(暗い背景でもパネルの輪郭が分かるように最前面へ)
+        elements.append(.rectangle(
+            frame: .init(x: 0.5, y: 0.5, w: layout.panelWidth - 1, h: panelHeight - 1),
+            fillColor: PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
+            cornerRadius: 10,
+            strokeColor: colors.panelBorder,
+            strokeWidth: 1))
+
         return elements
+    }
+
+    /// 現在時刻段(アナログ時計+デジタル秒表示)を構築する
+    private func appendClock(_ inputs: Inputs, to elements: inout [PanelElement]) {
+        let layout = PanelLayout.self
+        let colors = PanelLayout.Colors.self
+        let center = layout.clockCenter
+        let radius = layout.clockRadius
+        let time = localTime()
+
+        elements.append(.circle(
+            center: center, radius: radius,
+            fillColor: colors.rowBg, strokeColor: colors.separator, strokeWidth: 1))
+
+        // 12・3・6・9時の目盛
+        for fraction in [0.0, 0.25, 0.5, 0.75] {
+            elements.append(.line(
+                from: Self.clockHandPoint(center: center, length: radius - 4, fraction: fraction),
+                to: Self.clockHandPoint(center: center, length: radius - 1, fraction: fraction),
+                color: colors.subText, width: 1))
+        }
+
+        let hourFraction = (Double(time.hour % 12) + Double(time.minute) / 60) / 12
+        let minuteFraction = (Double(time.minute) + Double(time.second) / 60) / 60
+        let secondFraction = Double(time.second) / 60
+        elements.append(.line(
+            from: center,
+            to: Self.clockHandPoint(center: center, length: radius - 10, fraction: hourFraction),
+            color: colors.text, width: 2.5))
+        elements.append(.line(
+            from: center,
+            to: Self.clockHandPoint(center: center, length: radius - 5.5, fraction: minuteFraction),
+            color: colors.text, width: 2))
+        elements.append(.line(
+            from: center,
+            to: Self.clockHandPoint(center: center, length: radius - 3.5, fraction: secondFraction),
+            color: colors.clockSecondHand, width: 1))
+        elements.append(.circle(center: center, radius: 2, fillColor: colors.text))
+
+        elements.append(.text(
+            frame: layout.clockDigitalFrame,
+            text: String(format: "%02d:%02d:%02d", time.hour, time.minute, time.second),
+            fontName: inputs.ui.monoFontName,
+            fontSize: 16,
+            color: colors.text))
+    }
+
+    /// 文字盤中心から針の先端座標を求める。fractionは12時起点で時計回りの一周比(0.0〜1.0)
+    static func clockHandPoint(center: PanelPoint, length: Double, fraction: Double)
+        -> PanelPoint
+    {
+        let angle = fraction * 2 * Double.pi - Double.pi / 2
+        return PanelPoint(
+            x: center.x + length * cos(angle),
+            y: center.y + length * sin(angle))
     }
 
     private func appendIcon(

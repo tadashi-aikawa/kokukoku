@@ -167,6 +167,12 @@ final class PanelController {
 
         let builder = PanelElementsBuilder(
             now: now,
+            localTime: {
+                let parts = Calendar.current.dateComponents(
+                    [.hour, .minute, .second], from: Date())
+                return ClockTime(
+                    hour: parts.hour ?? 0, minute: parts.minute ?? 0, second: parts.second ?? 0)
+            },
             measureTextHeight: { text, fontName, size in
                 let font = NSFont(name: fontName, size: size) ?? NSFont.systemFont(ofSize: size)
                 let measured = (text.isEmpty ? " " : text as NSString).size(
@@ -233,7 +239,7 @@ final class PanelController {
 
         isClosing = true
         panelView.elements = panelView.elements.map { element in
-            if case .rectangle(let frame, _, let radius, let id, let tracks) = element,
+            if case .rectangle(let frame, _, let radius, _, _, let id, let tracks) = element,
                 id == "row_\(projectId)"
             {
                 return .rectangle(
@@ -299,7 +305,7 @@ final class PanelController {
             alignment = .left
             // ヘッダーの時刻テキストは枠の上寄りに描かれるため、
             // 枠中心やなくヘッダーの見た目の中心に合わせる
-            centerY = PanelLayout.headerHeight / 2
+            centerY = PanelLayout.clockSectionHeight + PanelLayout.headerHeight / 2
         case .project(let id):
             guard let offset = projects.firstIndex(where: { $0.id == id }) else { return }
             frame = PanelLayout.accumulatedTimeFrame(rowOffset: offset)

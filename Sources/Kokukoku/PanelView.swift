@@ -31,15 +31,44 @@ final class PanelView: NSView {
 
         for element in elements {
             switch element {
-            case .rectangle(let frame, let fillColor, let cornerRadius, _, _):
+            case .rectangle(
+                let frame, let fillColor, let cornerRadius,
+                let strokeColor, let strokeWidth, _, _):
                 let rect = nsRect(frame)
-                context.setFillColor(cgColor(fillColor))
-                if cornerRadius > 0 {
-                    NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
-                        .fill()
-                } else {
-                    context.fill(rect)
+                let path =
+                    cornerRadius > 0
+                    ? NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+                    : NSBezierPath(rect: rect)
+                if fillColor.alpha > 0 {
+                    nsColor(fillColor).setFill()
+                    path.fill()
                 }
+                if let strokeColor, strokeWidth > 0 {
+                    nsColor(strokeColor).setStroke()
+                    path.lineWidth = strokeWidth
+                    path.stroke()
+                }
+            case .circle(let center, let radius, let fillColor, let strokeColor, let strokeWidth):
+                let rect = NSRect(
+                    x: center.x - radius, y: center.y - radius,
+                    width: radius * 2, height: radius * 2)
+                let path = NSBezierPath(ovalIn: rect)
+                if let fillColor {
+                    nsColor(fillColor).setFill()
+                    path.fill()
+                }
+                if let strokeColor, strokeWidth > 0 {
+                    nsColor(strokeColor).setStroke()
+                    path.lineWidth = strokeWidth
+                    path.stroke()
+                }
+            case .line(let from, let to, let color, let width):
+                context.setStrokeColor(cgColor(color))
+                context.setLineWidth(width)
+                context.setLineCap(.round)
+                context.move(to: CGPoint(x: from.x, y: from.y))
+                context.addLine(to: CGPoint(x: to.x, y: to.y))
+                context.strokePath()
             case .text(let frame, let text, let fontName, let fontSize, let color, let alignment):
                 let paragraph = NSMutableParagraphStyle()
                 paragraph.lineBreakMode = .byClipping
@@ -97,7 +126,7 @@ final class PanelView: NSView {
     private func trackedElementId(at point: NSPoint) -> String? {
         var found: String?
         for element in elements {
-            if case .rectangle(let frame, _, _, let id, let tracksMouse) = element,
+            if case .rectangle(let frame, _, _, _, _, let id, let tracksMouse) = element,
                 tracksMouse, let id, nsRect(frame).contains(point)
             {
                 found = id

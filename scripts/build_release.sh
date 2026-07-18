@@ -4,33 +4,37 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERSION="${1:-}"
-SOURCE_DIR="$ROOT_DIR/Kokukoku.spoon"
+APP="$ROOT_DIR/.build/KOKUKOKU.app"
 DIST_DIR="$ROOT_DIR/dist"
-DIST_SPOON_DIR="$DIST_DIR/Kokukoku.spoon"
-ARCHIVE="$DIST_DIR/Kokukoku.spoon.zip"
+ARCHIVE="$DIST_DIR/KOKUKOKU-$VERSION.zip"
 
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
   echo "Usage: scripts/build_release.sh <version>" >&2
   exit 1
 fi
 
+"$SCRIPT_DIR/make-app.sh" release "$VERSION"
+
+# ad-hoc フォールバックのままリリースする事故を防ぐ。
+# CI 以外(ローカル検証)では kokukoku-dev 証明書が無いことがあるためスキップする
+if [[ "${CI:-}" == "true" ]]; then
+  # grep -q をパイプ終端に置くとマッチ時点で先行プロセスが SIGPIPE(exit 141)に
+  # なり pipefail に拾われるため、一旦変数に受ける
+  CODESIGN_INFO="$(codesign -dvv "$APP" 2>&1)"
+  echo "$CODESIGN_INFO"
+  grep -q "Authority=kokukoku-dev" <<<"$CODESIGN_INFO"
+fi
+
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
-cp -R "$SOURCE_DIR" "$DIST_SPOON_DIR"
 
-sed -i.bak -E \
-  "s/^([[:space:]]*version[[:space:]]*=[[:space:]]*)\"[^\"]+\"/\\1\"$VERSION\"/" \
-  "$DIST_SPOON_DIR/init.lua"
-rm "$DIST_SPOON_DIR/init.lua.bak"
-
-grep -Fq "version = \"$VERSION\"" "$DIST_SPOON_DIR/init.lua"
-
-(
-  cd "$DIST_DIR"
-  zip -r -q "Kokukoku.spoon.zip" "Kokukoku.spoon" -x "*.DS_Store" "*/.DS_Store"
-)
+# ditto zip: 拡張属性・署名メタデータを保持しつつダブルクリック展開できる。
+# --keepParent が無いと展開時に KOKUKOKU.app の中身がばらける
+ditto -c -k --keepParent "$APP" "$ARCHIVE"
 
 unzip -tq "$ARCHIVE"
-unzip -Z1 "$ARCHIVE" | grep -Fx "Kokukoku.spoon/init.lua" >/dev/null
+# grep -q だと SIGPIPE で unzip が exit 141 になり pipefail に拾われうる(-q なしの
+# grep は入力を最後まで読むため安全)
+unzip -Z1 "$ARCHIVE" | grep -x "KOKUKOKU.app/Contents/Info.plist" >/dev/null
 
 echo "Built and validated $ARCHIVE (version $VERSION)"

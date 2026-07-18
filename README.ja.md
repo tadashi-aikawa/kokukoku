@@ -3,7 +3,7 @@
     <img src="./kokukoku.webp" width="256" />
     <p>
     <h3>刻刻</h3>
-    <div>プロジェクトごとの作業時間を計測するHammerspoon Spoon</div>
+    <div>プロジェクトごとの作業時間を計測するmacOSネイティブアプリ</div>
     </p>
     <p>
         <a href="./README.md">English</a> | 日本語
@@ -27,232 +27,134 @@
 - **永続化**: タイマーの状態をJSONに保存し、再起動後も継続
 - **クリップボードコピー**: 測定結果を箇条書きテキストとしてクリップボードにコピー
 - **キーボード操作**: 数字キーでプロジェクト選択、j/kや矢印キーで移動、0で休憩、rで確認付きリセット
+- **インライン時間編集**: 累積時間・連続作業時間をパネル上で直接編集
 - **カスタマイズ**: プロジェクトのアイコン（絵文字、URL、ファイルパス）、名前、フォントを設定可能
 
 ## セットアップ
 
-### 前提準備
-
-まだ Hammerspoon をインストールしていない場合:
+### Homebrew でインストール（推奨）
 
 ```bash
-brew install --cask hammerspoon
-open -a Hammerspoon
+brew install --cask tadashi-aikawa/tap/kokukoku
+open -a KOKUKOKU
 ```
 
-続いて SpoonInstall をインストール:
+> [!NOTE]
+> KOKUKOKU は自己署名（未公証）アプリです。初回起動がブロックされた場合は、
+> システム設定 → プライバシーとセキュリティ → 「このまま開く」で許可してください。
+
+ログイン時に自動起動するには、システム設定 → 一般 → ログイン項目と機能拡張 → ログイン時に開く に KOKUKOKU を追加してください。
+
+アップデート:
 
 ```bash
-mkdir -p ~/.hammerspoon/Spoons
-curl -L https://github.com/Hammerspoon/Spoons/raw/master/Spoons/SpoonInstall.spoon.zip -o /tmp/SpoonInstall.spoon.zip
-unzip -o /tmp/SpoonInstall.spoon.zip -d ~/.hammerspoon/Spoons
+brew upgrade --cask kokukoku
 ```
 
-### SpoonInstall でインストール（推奨）
+### 手動でインストール
 
-Hammerspoon Console で以下を1回だけ実行:
-
-```lua
-hs.loadSpoon("SpoonInstall")
-spoon.SpoonInstall:installSpoonFromZipURL(
-  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
-)
-hs.reload()
-```
-
-続いて `~/.hammerspoon/init.lua` に以下を追加:
-
-```lua
-hs.loadSpoon("Kokukoku")
-
-spoon.Kokukoku:setup({
-  projects = {
-    { id = "work", name = "Work", icon = "💼" },
-    { id = "meeting", name = "Meeting", icon = "🗓" },
-  },
-  breakItem = { name = "Break", icon = "☕" },
-  hotkey = { modifiers = { "alt" }, key = "t" },
-})
-```
-
-インストール済みの Spoon を更新する場合（Hammerspoon Console で1回だけ実行）:
-
-```lua
-hs.loadSpoon("SpoonInstall")
-spoon.SpoonInstall:installSpoonFromZipURL(
-  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
-)
-hs.reload()
-```
-
-> [!WARNING]
-> インストール・更新コマンドを `~/.hammerspoon/init.lua` に置くと、`hs.reload()` によって再読込のたびに再実行されてループします。`init.lua` には常駐設定のみを書き、インストール・更新時だけ Console から手動実行してください。
-
-### ソースからインストール（開発向け）
+[Releases](https://github.com/tadashi-aikawa/kokukoku/releases/latest) から `KOKUKOKU-<version>.zip` をダウンロード・展開し、`KOKUKOKU.app` を `/Applications` に移動します。その後、quarantine属性を除去してください:
 
 ```bash
-git clone https://github.com/tadashi-aikawa/kokukoku /path/to/kokukoku
-ln -sfn /path/to/kokukoku/Kokukoku.spoon ~/.hammerspoon/Spoons/Kokukoku.spoon
+xattr -dr com.apple.quarantine /Applications/KOKUKOKU.app
 ```
 
-`~/.hammerspoon/init.lua` に以下を追加:
+（Homebrew 経由なら不要）
 
-```lua
-hs.loadSpoon("Kokukoku")
+## 設定
 
-spoon.Kokukoku:setup({
-  projects = {
-    { id = "work", name = "Work", icon = "💼" },
-    { id = "meeting", name = "Meeting", icon = "🗓" },
-    { id = "break", name = "Break", icon = "☕", isBreak = true },
-  },
-  hotkey = { modifiers = { "alt" }, key = "t" },
-})
+KOKUKOKU は起動時に `~/.config/kokukoku/config.toml` を読み込みます。編集後はアプリを再起動してください。
+
+```toml
+[[projects]]
+id = "dev"
+name = "開発"
+icon = "💻"
+
+[[projects]]
+id = "meeting"
+name = "ミーティング"
+icon = "🗓"
+
+[breakItem]
+name = "休憩"
+icon = "☕"
+
+[hotkey]
+modifiers = ["alt"]
+key = "t"
 ```
 
-更新する場合:
+### 設定オプション
 
-```bash
-git -C /path/to/kokukoku pull
+全オプションを含む完全なサンプル（デフォルト値）:
+
+```toml
+# プロジェクト定義 (必須)
+[[projects]]
+id = "work"    # 一意な文字列ID (必須)
+name = "Work"  # 表示名 (必須)
+icon = "💼"    # 絵文字、画像URL (http/https)、ファイルパス (/ か ~/) (任意)
+
+# 休憩ボタン設定 (任意。デフォルト: name="休憩", icon="☕")
+[breakItem]
+name = "休憩"
+icon = "☕"
+
+# パネル表示のホットキー (任意。省略時は無効)
+[hotkey]
+modifiers = ["alt"]  # 修飾キー: "command"/"cmd", "option"/"alt", "control"/"ctrl", "shift"
+key = "t"            # キー: 文字 または "f18" などのキー名
+
+# UI設定 (任意)
+[ui]
+fontName = ".AppleSystemUIFont"             # テキストのフォント (デフォルト: システムフォント)
+monoFontName = "Menlo"                      # 時間表示の等幅フォント (デフォルト: Menlo)
+showVersionByDefault = false                # ヘッダーにバージョンをデフォルト表示
+copyTextFormat = "- {name}: {hh}:{mm}:{ss}" # クリップボードコピーの行フォーマット
+copyTextSeparator = "\n"                    # クリップボードコピーの行区切り
+closeOnSwitch = true                        # プロジェクト切替時にパネルを自動で閉じる
+
+# パネルのキーマップ設定 (任意。キーごとに個別指定可)
+[keymap]
+startBreak = "0"         # 休憩開始
+reset = "r"              # リセット確認
+toggleVersion = "v"      # バージョン表示切替
+editTime = "e"           # 累積時間の編集
+editContinuousTime = "E" # 連続作業時間の編集
+copyToClipboard = "c"    # クリップボードへコピー
+
+# アラート設定 (任意)
+[alert.continuousWork]
+thresholds = [1500, 3000, 4500]              # アラート閾値 (秒)
+message = "%d分経過しました。休憩しましょう" # メッセージテンプレート (%d = 分)
 ```
 
-## 設定例
+タイマーの状態は `~/.local/state/kokukoku/state.json` に保存されます。
 
-```lua
-hs.loadSpoon("Kokukoku")
+### コピーフォーマットのプレースホルダ
 
-spoon.Kokukoku:setup({
-  projects = {
-    { id = "dev", name = "Development", icon = "💻" },
-    { id = "review", name = "Code Review", icon = "👀" },
-    { id = "meeting", name = "Meeting", icon = "🗓" },
-    { id = "docs", name = "Documentation", icon = "📝" },
-  },
-  breakItem = {
-    name = "Break",
-    icon = "☕",
-  },
-  hotkey = {
-    modifiers = { "alt" },
-    key = "t",
-  },
-  ui = {
-    fontName = "HackGen Console NF",
-    monoFontName = "HackGen Console NF",
-    showVersionByDefault = false,
-    copyTextFormat = "- {name}: {hh}:{mm}",
-    copyTextSeparator = "\n",
-    closeOnSwitch = true,
-  },
-  keymap = {
-    startBreak = "0",
-    reset = "r",
-    toggleVersion = "v",
-    editTime = "e",
-    editContinuousTime = "E",
-    copyToClipboard = "c",
-  },
-  alert = {
-    continuousWork = {
-      thresholds = { 1500, 3000, 4500 },
-      message = "%d分経過しました。休憩しましょう",
-    },
-  },
-  persistence = {
-    path = os.getenv("HOME") .. "/.kokukoku/state.json",
-  },
-  tickInterval = 1,
-})
-```
+`copyTextFormat` で使用できるプレースホルダ:
 
-## 設定オプション
-
-全設定を含むサンプル（デフォルト値）:
-
-```lua
-{
-  -- プロジェクト定義（必須）
-  projects = {
-    {
-      id = "work",       -- 一意の文字列識別子（必須）
-      name = "Work",     -- 表示名（必須）
-      icon = "💼",       -- 絵文字テキスト、画像URL (http/https)、ファイルパス (/ or ~/)（省略可）
-    },
-  },
-
-  -- 休憩ボタン設定（省略可。省略時は name="休憩", icon="☕"）
-  breakItem = {
-    name = "休憩",  -- 表示名（省略可、デフォルト: "休憩"）
-    icon = "☕",    -- アイコン（省略可、デフォルト: "☕"）
-  },
-
-  -- パネル表示/非表示のトグルホットキー（省略可。省略するとホットキー無効）
-  hotkey = {
-    modifiers = { "alt" }, -- 修飾キー
-    key = "t",             -- キー
-  },
-
-  -- UI設定（省略可）
-  ui = {
-    fontName = ".AppleSystemUIFont",              -- テキスト用フォント（デフォルト: システムフォント）
-    monoFontName = "Menlo",                       -- 時間表示用等幅フォント（デフォルト: Menlo）
-    showVersionByDefault = false,                 -- ヘッダーのバージョン表示を初期状態で出すか（デフォルト: false）
-    copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- コピー時の行フォーマット（デフォルト: "- {name}: {hh}:{mm}:{ss}"）
-    copyTextSeparator = "\n",                     -- コピー時の行区切り文字（デフォルト: "\n"）
-    closeOnSwitch = true,                         -- プロジェクト切替時にパネルを自動で閉じるか（デフォルト: true）
-  },
-
-  -- パネル内キーマップ設定（省略可。各キー個別に省略可）
-  keymap = {
-    startBreak = "0",       -- 休憩開始（デフォルト: "0"）
-    reset = "r",            -- リセット確認（デフォルト: "r"）
-    toggleVersion = "v",    -- バージョン表示切替（デフォルト: "v"）
-    editTime = "e",         -- 累積時間編集（デフォルト: "e"）
-    editContinuousTime = "E", -- 連続稼働時間編集（デフォルト: "E"）
-    copyToClipboard = "c",  -- クリップボードにコピー（デフォルト: "c"）
-  },
-
-  -- アラート設定（省略可）
-  alert = {
-    continuousWork = {
-      thresholds = {},                              -- アラート閾値（秒）（例: { 1500, 3000 }）
-      message = "%d分経過しました。休憩しましょう",    -- メッセージテンプレート（%d = 分数）
-    },
-  },
-
-  -- 永続化設定（省略可）
-  persistence = {
-    path = "~/.kokukoku/state.json", -- タイマー状態の保存先ファイルパス
-  },
-
-  -- タイマーのティック間隔（秒、デフォルト: 1）
-  tickInterval = 1,
-}
-```
-
-### コピーフォーマットのプレースホルダー
-
-`copyTextFormat` で使用できるプレースホルダー:
-
-| プレースホルダー | 説明 | 例（3665秒の場合） |
-|-----------------|------|-------------------|
+| プレースホルダ | 説明 | 例 (3665秒の場合) |
+|-------------|------|------------------|
 | `{name}` | プロジェクト名 | `Work` |
-| `{hh}` | 時間（ゼロ埋め） | `01` |
-| `{mm}` | 分（ゼロ埋め） | `01` |
-| `{ss}` | 秒（ゼロ埋め） | `05` |
+| `{hh}` | 時間 (ゼロ埋め) | `01` |
+| `{mm}` | 分 (ゼロ埋め) | `01` |
+| `{ss}` | 秒 (ゼロ埋め) | `05` |
 | `{h}` | 時間 | `1` |
 | `{m}` | 分 | `1` |
 | `{s}` | 秒 | `5` |
 
 ### アイコンの種類
 
-プロジェクト定義の `icon` フィールドは3つの形式に対応しています:
+プロジェクト定義の `icon` は3つの形式に対応:
 
 | 形式 | 例 | 説明 |
 |------|-----|------|
 | 絵文字 | `"💼"` | テキストとして表示 |
-| URL | `"https://example.com/icon.png"` | ダウンロードして画像として表示 |
-| ファイルパス | `"/path/to/icon.png"` or `"~/icons/work.png"` | ローカルファイルから読み込み |
+| URL | `"https://example.com/icon.png"` | ダウンロードして画像表示 |
+| ファイルパス | `"/path/to/icon.png"` や `"~/icons/work.png"` | ローカルファイルから読み込み |
 
 ## キーボードショートカット
 
@@ -263,41 +165,38 @@ spoon.Kokukoku:setup({
 | キー | 動作 |
 |------|------|
 | `1`-`9` | 対応するプロジェクトを選択 |
-| `j` / `Down` | 選択を下に移動 |
-| `k` / `Up` | 選択を上に移動 |
+| `j` / `Down` | 選択を下へ移動 |
+| `k` / `Up` | 選択を上へ移動 |
 | `Enter` | 選択中のアクションを実行 |
 | `Escape` | パネルを閉じる |
 
-#### 設定可能キー（`keymap` で変更可能）
+#### 設定可能キー（`keymap` でカスタマイズ可能）
 
-| キー（デフォルト） | 設定キー | 動作 |
-|-------------------|---------|------|
+| キー (デフォルト) | 設定キー | 動作 |
+|------------------|----------|------|
 | `0` | `startBreak` | 休憩 |
 | `e` | `editTime` | 選択中プロジェクトの累積時間を編集 |
-| `E` | `editContinuousTime` | 初期待機中や休憩中も含めて連続稼働時間を編集 |
+| `E` | `editContinuousTime` | 連続作業時間を編集（初期待機・休憩中でも可） |
 | `c` | `copyToClipboard` | 測定結果を箇条書きテキストとしてクリップボードにコピー |
-| `r` | `reset` | リセット確認に入る。もう一度押すと全タイマーをリセット |
-| `v` | `toggleVersion` | ヘッダーのバージョン表示を切り替え |
+| `r` | `reset` | リセット確認へ。もう一度押すと全タイマーをリセット |
+| `v` | `toggleVersion` | ヘッダーのバージョン表示を切替 |
 
-休憩に入ると連続稼働時間は `00:00:00` にリセットされます。初期待機中や休憩中に編集した値は、次にプロジェクトを開始したときの連続稼働時間として引き継がれます。
+時間編集はパネル上のインライン編集です。`e` か `E` を押し、`01:23:45`（`83:45` や秒数だけでも可）のように入力して `Enter` で確定、`Escape` でキャンセルします。
+
+休憩に入ると連続作業時間は `00:00:00` にリセットされます。初期待機・休憩中に連続作業時間を編集した場合、その値は次のプロジェクト開始時に引き継がれます。
 
 ## 開発
 
-ソースから symlink で導入しておくと、`Kokukoku.spoon/` 配下の変更を Hammerspoon の `Reload Config` ですぐ確認できます。
+```bash
+swift run Kokukoku               # 直接実行
+swift run Kokukoku --show-panel  # 起動と同時にパネルを表示
+./scripts/make-app.sh            # KOKUKOKU.app を .build/ に組み立て
+```
 
 ## テスト
 
-ユニットテストは `busted` で実行します。
-
 ```bash
-busted
-```
-
-特定のテストだけ実行したい場合:
-
-```bash
-busted spec/timer_engine_spec.lua
-busted spec/persistence_spec.lua
+swift test
 ```
 
 ## ライセンス

@@ -45,6 +45,7 @@ module.exports = {
       "@semantic-release/exec",
       {
         prepareCmd: "./scripts/build_release.sh ${nextRelease.version}",
+        successCmd: "./scripts/update_tap.sh ${nextRelease.version}",
       },
     ],
     [
@@ -52,8 +53,8 @@ module.exports = {
       {
         assets: [
           {
-            path: "dist/Kokukoku.spoon.zip",
-            label: "Kokukoku Spoon",
+            path: "dist/KOKUKOKU-*.zip",
+            label: "KOKUKOKU.app",
           },
         ],
         successComment: false,

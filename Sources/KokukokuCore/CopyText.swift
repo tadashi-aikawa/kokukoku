@@ -1,0 +1,58 @@
+import Foundation
+
+public enum CopyText {
+    public static func build(
+        projects: [KokukokuConfig.Project],
+        state: TimerState,
+        lineFormat: String = "- {name}: {hh}:{mm}:{ss}",
+        separator: String = "\n",
+        now: () -> Int
+    ) -> String {
+        projects.compactMap { project in
+            var accumulated = state.accumulated[project.id] ?? 0
+            if state.activeProjectId == project.id, let activeStartedAt = state.activeStartedAt {
+                accumulated += now() - activeStartedAt
+            }
+            guard accumulated > 0 else { return nil }
+
+            let hours = accumulated / 3600
+            let minutes = (accumulated % 3600) / 60
+            let seconds = accumulated % 60
+            let replacements = [
+                "{name}": project.name,
+                "{hh}": String(format: "%02d", hours),
+                "{mm}": String(format: "%02d", minutes),
+                "{ss}": String(format: "%02d", seconds),
+                "{h}": String(hours),
+                "{m}": String(minutes),
+                "{s}": String(seconds),
+            ]
+            return replacePlaceholders(in: lineFormat, with: replacements)
+        }.joined(separator: separator)
+    }
+
+    private static func replacePlaceholders(
+        in format: String, with replacements: [String: String]
+    ) -> String {
+        var result = ""
+        var index = format.startIndex
+
+        while index < format.endIndex {
+            if format[index] == "{",
+                let closingIndex = format[index...].firstIndex(of: "}")
+            {
+                let endIndex = format.index(after: closingIndex)
+                let placeholder = String(format[index..<endIndex])
+                if let replacement = replacements[placeholder] {
+                    result += replacement
+                    index = endIndex
+                    continue
+                }
+            }
+            result.append(format[index])
+            index = format.index(after: index)
+        }
+
+        return result
+    }
+}

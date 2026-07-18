@@ -3,7 +3,7 @@
     <img src="./kokukoku.webp" width="256" />
     <p>
     <h3>刻刻</h3>
-    <div>A Hammerspoon Spoon for tracking time spent on each project.</div>
+    <div>A native macOS app for tracking time spent on each project.</div>
     </p>
     <p>
         English | <a href="./README.ja.md">日本語</a>
@@ -27,208 +27,111 @@
 - **Persistence**: Save timer state to JSON so it survives restarts
 - **Clipboard Copy**: Copy measurement results as bulleted text to clipboard
 - **Keyboard Shortcuts**: Select projects by number keys, navigate with j/k or arrow keys, break with 0, confirm reset with r
+- **Inline Time Editing**: Edit accumulated or continuous time directly in the panel
 - **Customization**: Configure project icons (emoji, URL, or file path), names, and fonts
 
 ## Setup
 
-### Prerequisites
-
-If you do not have Hammerspoon yet:
+### Install via Homebrew (Recommended)
 
 ```bash
-brew install --cask hammerspoon
-open -a Hammerspoon
+brew install --cask tadashi-aikawa/tap/kokukoku
+open -a KOKUKOKU
 ```
 
-Then install SpoonInstall:
+> [!NOTE]
+> KOKUKOKU is a self-signed (non-notarized) app. If the first launch is blocked, allow it via
+> System Settings → Privacy & Security → "Open Anyway".
 
-```bash
-mkdir -p ~/.hammerspoon/Spoons
-curl -L https://github.com/Hammerspoon/Spoons/raw/master/Spoons/SpoonInstall.spoon.zip -o /tmp/SpoonInstall.spoon.zip
-unzip -o /tmp/SpoonInstall.spoon.zip -d ~/.hammerspoon/Spoons
-```
-
-### Install via SpoonInstall (Recommended)
-
-Run this once in the Hammerspoon Console:
-
-```lua
-hs.loadSpoon("SpoonInstall")
-spoon.SpoonInstall:installSpoonFromZipURL(
-  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
-)
-hs.reload()
-```
-
-Then add this to `~/.hammerspoon/init.lua`:
-
-```lua
-hs.loadSpoon("Kokukoku")
-
-spoon.Kokukoku:setup({
-  projects = {
-    { id = "work", name = "Work", icon = "💼" },
-    { id = "meeting", name = "Meeting", icon = "🗓" },
-  },
-  breakItem = { name = "Break", icon = "☕" },
-  hotkey = { modifiers = { "alt" }, key = "t" },
-})
-```
-
-To update an already installed Spoon (run once in Hammerspoon Console):
-
-```lua
-hs.loadSpoon("SpoonInstall")
-spoon.SpoonInstall:installSpoonFromZipURL(
-  "https://github.com/tadashi-aikawa/kokukoku/releases/latest/download/Kokukoku.spoon.zip"
-)
-hs.reload()
-```
-
-> [!WARNING]
-> Do not put the install or update commands in `~/.hammerspoon/init.lua`. `hs.reload()` will rerun them on each reload and cause a loop. Keep only persistent setup in `init.lua`, and run installation or updates manually from the Console.
-
-### Install from source (for development)
-
-```bash
-git clone https://github.com/tadashi-aikawa/kokukoku /path/to/kokukoku
-ln -sfn /path/to/kokukoku/Kokukoku.spoon ~/.hammerspoon/Spoons/Kokukoku.spoon
-```
-
-Add this to `~/.hammerspoon/init.lua`:
-
-```lua
-hs.loadSpoon("Kokukoku")
-
-spoon.Kokukoku:setup({
-  projects = {
-    { id = "work", name = "Work", icon = "💼" },
-    { id = "meeting", name = "Meeting", icon = "🗓" },
-  },
-  breakItem = { name = "Break", icon = "☕" },
-  hotkey = { modifiers = { "alt" }, key = "t" },
-})
-```
+To launch it automatically at login, add KOKUKOKU to
+System Settings → General → Login Items & Extensions → Open at Login.
 
 To update:
 
 ```bash
-git -C /path/to/kokukoku pull
+brew upgrade --cask kokukoku
 ```
 
-## Configuration Example
+### Install manually
 
-```lua
-hs.loadSpoon("Kokukoku")
+Download `KOKUKOKU-<version>.zip` from [Releases](https://github.com/tadashi-aikawa/kokukoku/releases/latest), unzip it, and move `KOKUKOKU.app` to `/Applications`. Then remove the quarantine attribute:
 
-spoon.Kokukoku:setup({
-  projects = {
-    { id = "dev", name = "Development", icon = "💻" },
-    { id = "review", name = "Code Review", icon = "👀" },
-    { id = "meeting", name = "Meeting", icon = "🗓" },
-    { id = "docs", name = "Documentation", icon = "📝" },
-  },
-  breakItem = {
-    name = "Break",
-    icon = "☕",
-  },
-  hotkey = {
-    modifiers = { "alt" },
-    key = "t",
-  },
-  ui = {
-    fontName = "HackGen Console NF",
-    monoFontName = "HackGen Console NF",
-    showVersionByDefault = false,
-    copyTextFormat = "- {name}: {hh}:{mm}",
-    copyTextSeparator = "\n",
-    closeOnSwitch = true,
-  },
-  keymap = {
-    startBreak = "0",
-    reset = "r",
-    toggleVersion = "v",
-    editTime = "e",
-    editContinuousTime = "E",
-    copyToClipboard = "c",
-  },
-  alert = {
-    continuousWork = {
-      thresholds = { 1500, 3000, 4500 },
-      message = "%d minutes have passed. Take a break!",
-    },
-  },
-  persistence = {
-    path = os.getenv("HOME") .. "/.kokukoku/state.json",
-  },
-  tickInterval = 1,
-})
+```bash
+xattr -dr com.apple.quarantine /Applications/KOKUKOKU.app
 ```
 
-## Configuration Options
+(Not needed when installed via Homebrew.)
+
+## Configuration
+
+KOKUKOKU reads `~/.config/kokukoku/config.toml` at launch. Restart the app after editing it.
+
+```toml
+[[projects]]
+id = "dev"
+name = "Development"
+icon = "💻"
+
+[[projects]]
+id = "meeting"
+name = "Meeting"
+icon = "🗓"
+
+[breakItem]
+name = "Break"
+icon = "☕"
+
+[hotkey]
+modifiers = ["alt"]
+key = "t"
+```
+
+### Configuration Options
 
 Complete sample including all options (default values):
 
-```lua
-{
-  -- Project definitions (required)
-  projects = {
-    {
-      id = "work",       -- Unique string identifier (required)
-      name = "Work",     -- Display name (required)
-      icon = "💼",       -- Emoji text, image URL (http/https), or file path (/ or ~/) (optional)
-    },
-  },
+```toml
+# Project definitions (required)
+[[projects]]
+id = "work"    # Unique string identifier (required)
+name = "Work"  # Display name (required)
+icon = "💼"    # Emoji text, image URL (http/https), or file path (/ or ~/) (optional)
 
-  -- Break button settings (optional; defaults: name="休憩", icon="☕")
-  breakItem = {
-    name = "休憩",  -- Display name (optional, default: "休憩")
-    icon = "☕",    -- Icon (optional, default: "☕")
-  },
+# Break button settings (optional; defaults: name="休憩", icon="☕")
+[breakItem]
+name = "休憩"
+icon = "☕"
 
-  -- Hotkey to toggle the panel (optional; omit to disable)
-  hotkey = {
-    modifiers = { "alt" }, -- Modifier keys
-    key = "t",             -- Key
-  },
+# Hotkey to toggle the panel (optional; omit to disable)
+[hotkey]
+modifiers = ["alt"]  # Modifier keys: "command"/"cmd", "option"/"alt", "control"/"ctrl", "shift"
+key = "t"            # Key: a character or a key name such as "f18"
 
-  -- UI settings (optional)
-  ui = {
-    fontName = ".AppleSystemUIFont",              -- Font for text (default: system font)
-    monoFontName = "Menlo",                       -- Monospace font for time display (default: Menlo)
-    showVersionByDefault = false,                 -- Show the version in the header by default
-    copyTextFormat = "- {name}: {hh}:{mm}:{ss}",  -- Line format for clipboard copy (default: "- {name}: {hh}:{mm}:{ss}")
-    copyTextSeparator = "\n",                     -- Line separator for clipboard copy (default: "\n")
-    closeOnSwitch = true,                         -- Auto-close panel when switching projects (default: true)
-  },
+# UI settings (optional)
+[ui]
+fontName = ".AppleSystemUIFont"             # Font for text (default: system font)
+monoFontName = "Menlo"                      # Monospace font for time display (default: Menlo)
+showVersionByDefault = false                # Show the version in the header by default
+copyTextFormat = "- {name}: {hh}:{mm}:{ss}" # Line format for clipboard copy
+copyTextSeparator = "\n"                    # Line separator for clipboard copy
+closeOnSwitch = true                        # Auto-close panel when switching projects
 
-  -- Panel keymap settings (optional; each key is individually optional)
-  keymap = {
-    startBreak = "0",       -- Start break (default: "0")
-    reset = "r",            -- Reset confirmation (default: "r")
-    toggleVersion = "v",    -- Toggle version display (default: "v")
-    editTime = "e",         -- Edit accumulated time (default: "e")
-    editContinuousTime = "E", -- Edit continuous work time (default: "E")
-    copyToClipboard = "c",  -- Copy to clipboard (default: "c")
-  },
+# Panel keymap settings (optional; each key is individually optional)
+[keymap]
+startBreak = "0"         # Start break
+reset = "r"              # Reset confirmation
+toggleVersion = "v"      # Toggle version display
+editTime = "e"           # Edit accumulated time
+editContinuousTime = "E" # Edit continuous work time
+copyToClipboard = "c"    # Copy to clipboard
 
-  -- Alert settings (optional)
-  alert = {
-    continuousWork = {
-      thresholds = {},                              -- Alert thresholds in seconds (e.g. { 1500, 3000 })
-      message = "%d分経過しました。休憩しましょう", -- Message template (%d = minutes)
-    },
-  },
-
-  -- Persistence settings (optional)
-  persistence = {
-    path = "~/.kokukoku/state.json", -- File path for saving timer state
-  },
-
-  -- Timer tick interval in seconds (default: 1)
-  tickInterval = 1,
-}
+# Alert settings (optional)
+[alert.continuousWork]
+thresholds = [1500, 3000, 4500]                  # Alert thresholds in seconds
+message = "%d分経過しました。休憩しましょう"     # Message template (%d = minutes)
 ```
+
+Timer state is saved to `~/.local/state/kokukoku/state.json`.
 
 ### Copy Format Placeholders
 
@@ -279,25 +182,22 @@ These shortcuts are available while the panel is open:
 | `r` | `reset` | Enter reset confirmation; press again to reset all timers |
 | `v` | `toggleVersion` | Toggle version display in the header |
 
+Time editing happens inline on the panel: press `e` or `E`, type a value such as `01:23:45` (or `83:45`, or plain seconds), then press `Enter` to apply or `Escape` to cancel.
+
 Breaking resets the continuous work timer to `00:00:00`. If you edit that value while idle or on break, the edited value is used when you start the next project.
 
 ## Development
 
-If you install from source with symlink, editing files under `Kokukoku.spoon/` and running `Reload Config` in Hammerspoon reflects changes immediately.
+```bash
+swift run Kokukoku               # Run directly
+swift run Kokukoku --show-panel  # Run and immediately show the panel
+./scripts/make-app.sh            # Build KOKUKOKU.app into .build/
+```
 
 ## Test
 
-Run unit tests with `busted`.
-
 ```bash
-busted
-```
-
-If you want to run specific tests:
-
-```bash
-busted spec/timer_engine_spec.lua
-busted spec/persistence_spec.lua
+swift test
 ```
 
 ## License

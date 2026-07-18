@@ -27,6 +27,7 @@ final class CalendarService {
     var onNotification: ((Set<CalendarEvent.EventKey>) -> Void)?
 
     var maxAttendees: Int { config.maxAttendees }
+    var maxVisibleEvents: Int { config.maxVisibleEvents }
 
     init(config: ResolvedCalendarConfig) {
         self.config = config
@@ -225,8 +226,9 @@ final class CalendarService {
                 withExternalIdentifier: event.key.externalIdentifier)
             if items.isEmpty {
                 log("中止確定: \(event.title)")
-                // 表示フィルタ相当(終日・辞退除外)かつ開始前の予定だけを告知対象にする
-                if event.start > Date(), !event.isAllDay, event.myStatus != .declined {
+                // 表示フィルタ相当(終日・辞退除外)かつ終了前の予定だけを告知対象にする。
+                // 開始時刻基準にすると同期遅延(3〜4分)で開始直前の中止を告知できないため終了基準
+                if event.end > Date(), !event.isAllDay, event.myStatus != .declined {
                     notices.append("『\(event.title)』は中止になりました")
                     noticed = true
                 }

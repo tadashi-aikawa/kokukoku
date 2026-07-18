@@ -44,6 +44,8 @@ final class PanelController {
     private var highlightedKeys: Set<CalendarEvent.EventKey> = []
     /// 通知パネルが閉じたときに呼ばれる(中止告知のクリア用)
     var onNotificationClosed: (() -> Void)?
+    /// 「他◯件」クリックでの全件展開中(パネルを閉じると畳んだ状態に戻る)
+    private var calendarExpanded = false
 
     init(
         projects: [KokukokuConfig.Project],
@@ -176,6 +178,7 @@ final class PanelController {
         selectedIndex = nil
         hoveredId = nil
         resetConfirming = false
+        calendarExpanded = false
         if notificationMode {
             notificationMode = false
             highlightedKeys = []
@@ -207,7 +210,8 @@ final class PanelController {
             state.notices = []
         }
         return CalendarSectionModel.rows(
-            state: state, now: Date(), includeFreshness: notificationMode)
+            state: state, now: Date(), includeFreshness: notificationMode,
+            expanded: calendarExpanded)
     }
 
     /// 表示中に予定の行数が変わった場合、画面中央位置を維持したままウィンドウ高を追従させる
@@ -429,6 +433,14 @@ final class PanelController {
             return
         } else if elementId == "btn_cal_close" {
             hide()
+            return
+        } else if elementId == "cal_overflow" {
+            calendarExpanded = true
+            rebuildPanel()
+            return
+        } else if elementId == "cal_collapse" {
+            calendarExpanded = false
+            rebuildPanel()
             return
         } else if elementId.hasPrefix("cal_event_") {
             openCalendarDetail(eventIndex: Int(elementId.dropFirst("cal_event_".count)) ?? -1)

@@ -61,17 +61,20 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         public var refreshIntervalMinutes: Int?
         public var notificationLeadMinutes: Int?
         public var maxAttendees: Int?
+        public var maxVisibleEvents: Int?
 
         public init(
             name: String,
             refreshIntervalMinutes: Int? = nil,
             notificationLeadMinutes: Int? = nil,
-            maxAttendees: Int? = nil
+            maxAttendees: Int? = nil,
+            maxVisibleEvents: Int? = nil
         ) {
             self.name = name
             self.refreshIntervalMinutes = refreshIntervalMinutes
             self.notificationLeadMinutes = notificationLeadMinutes
             self.maxAttendees = maxAttendees
+            self.maxVisibleEvents = maxVisibleEvents
         }
     }
 
@@ -151,12 +154,15 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
     public var notificationLeadMinutes: Int
     /// パネルの予定行に表示する参加者数の上限(超過分は「他◯人」)
     public var maxAttendees: Int
+    /// 展開前に表示する予定数の上限(超過分は「他◯件」に畳む)
+    public var maxVisibleEvents: Int
 
     public init(calendar: KokukokuConfig.Calendar) {
         self.name = calendar.name
         self.refreshIntervalMinutes = calendar.refreshIntervalMinutes ?? 5
         self.notificationLeadMinutes = calendar.notificationLeadMinutes ?? 5
         self.maxAttendees = calendar.maxAttendees ?? 5
+        self.maxVisibleEvents = calendar.maxVisibleEvents ?? 5
     }
 }
 
@@ -216,6 +222,9 @@ public enum ConfigLoader {
             }
             if let max = calendar.maxAttendees, max < 1 {
                 throw ConfigError.invalid(description: "calendar.maxAttendees must be >= 1")
+            }
+            if let max = calendar.maxVisibleEvents, max < 1 {
+                throw ConfigError.invalid(description: "calendar.maxVisibleEvents must be >= 1")
             }
         }
     }

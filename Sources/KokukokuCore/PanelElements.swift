@@ -250,7 +250,7 @@ public enum PanelLayout {
         switch row {
         case .event: return calendarEventRowHeight
         case .attendees: return calendarAttendeeRowHeight
-        case .overflow: return calendarOverflowRowHeight
+        case .overflow, .collapse: return calendarOverflowRowHeight
         case .error: return calendarErrorRowHeight
         case .notice: return calendarNoticeRowHeight
         case .freshness: return calendarFreshnessRowHeight

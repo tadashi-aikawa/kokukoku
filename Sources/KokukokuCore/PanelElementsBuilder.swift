@@ -495,16 +495,14 @@ public struct PanelElementsBuilder {
                 }
 
             case .overflow(let hiddenCount):
-                let text = "他\(hiddenCount)件"
-                let height = measureTextHeight(text, inputs.ui.fontName, 11)
-                elements.append(.text(
-                    frame: .init(
-                        x: layout.calendarContentX, y: y + centeredOffset(rowHeight, height),
-                        w: metrics.panelWidth - layout.calendarContentX * 2, h: height),
-                    text: text,
-                    fontName: inputs.ui.fontName,
-                    fontSize: 11,
-                    color: colors.subText))
+                appendCalendarToggleRow(
+                    text: "他\(hiddenCount)件 ▾", id: "cal_overflow",
+                    y: y, rowHeight: rowHeight, inputs: inputs, to: &elements)
+
+            case .collapse:
+                appendCalendarToggleRow(
+                    text: "畳む ▴", id: "cal_collapse",
+                    y: y, rowHeight: rowHeight, inputs: inputs, to: &elements)
 
             case .error(let message):
                 let height = measureTextHeight(message, inputs.ui.fontName, 12)
@@ -546,6 +544,30 @@ public struct PanelElementsBuilder {
         }
 
         appendCalendarRail(dots, ui: inputs.ui, to: &elements)
+    }
+
+    /// 「他◯件」「畳む」のクリック可能なトグル行(ホバーで背景が浮かぶ)
+    private func appendCalendarToggleRow(
+        text: String, id: String,
+        y: Double, rowHeight: Double,
+        inputs: Inputs, to elements: inout [PanelElement]
+    ) {
+        let colors = PanelLayout.Colors.self
+        elements.append(.rectangle(
+            frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
+            fillColor: inputs.hoveredId == id
+                ? colors.rowHoverBg : PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
+            id: id,
+            tracksMouse: true))
+        let height = measureTextHeight(text, inputs.ui.fontName, 11)
+        elements.append(.text(
+            frame: .init(
+                x: PanelLayout.calendarContentX, y: y + centeredOffset(rowHeight, height),
+                w: metrics.panelWidth - PanelLayout.calendarContentX * 2, h: height),
+            text: text,
+            fontName: inputs.ui.fontName,
+            fontSize: 11,
+            color: colors.subText))
     }
 
     /// 先頭予定のカウントダウン(行データ列に1つだけ入っている)

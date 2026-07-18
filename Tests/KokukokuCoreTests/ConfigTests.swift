@@ -263,6 +263,15 @@ struct ConfigLoaderTests {
         }
     }
 
+    @Test("calendarの予定表示上限が1未満ならinvalidエラーになる")
+    func parseCalendarInvalidMaxVisibleEvents() {
+        #expect(
+            throws: ConfigError.invalid(description: "calendar.maxVisibleEvents must be >= 1")
+        ) {
+            try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\nmaxVisibleEvents = 0")
+        }
+    }
+
     @Test("ui・keymapは部分指定できる")
     func parsePartialUIAndKeymap() throws {
         let config = try ConfigLoader.parse(toml: """
@@ -312,6 +321,7 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.refreshIntervalMinutes == 5)
         #expect(resolved.notificationLeadMinutes == 5)
         #expect(resolved.maxAttendees == 5)
+        #expect(resolved.maxVisibleEvents == 5)
     }
 
     @Test("calendar設定の指定値が既定値より優先される")

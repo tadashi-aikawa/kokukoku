@@ -7,6 +7,8 @@ public struct CalendarPanelState: Equatable, Sendable {
     public var error: CalendarFetchError?
     /// 予定行に表示する参加者数の上限(ResolvedCalendarConfig.maxAttendees)
     public var maxAttendees: Int
+    /// 展開前に表示する予定数の上限(ResolvedCalendarConfig.maxVisibleEvents)
+    public var maxVisibleEvents: Int
     /// 最後に取得成功した時刻(通知パネルの鮮度表示に使う)
     public var lastSuccessAt: Date?
     /// 通知で強調する予定(通知モードのみ)
@@ -18,6 +20,7 @@ public struct CalendarPanelState: Equatable, Sendable {
         events: [CalendarEvent],
         error: CalendarFetchError? = nil,
         maxAttendees: Int = 5,
+        maxVisibleEvents: Int = 5,
         lastSuccessAt: Date? = nil,
         highlightedKeys: Set<CalendarEvent.EventKey> = [],
         notices: [String] = []
@@ -25,6 +28,7 @@ public struct CalendarPanelState: Equatable, Sendable {
         self.events = events
         self.error = error
         self.maxAttendees = maxAttendees
+        self.maxVisibleEvents = maxVisibleEvents
         self.lastSuccessAt = lastSuccessAt
         self.highlightedKeys = highlightedKeys
         self.notices = notices
@@ -37,8 +41,10 @@ public enum CalendarSectionRow: Equatable, Sendable {
     case event(CalendarEventRow)
     /// 予定行の2行目: 参加者一覧。参加者情報が無い予定には付かない
     case attendees(CalendarAttendeesRow)
-    /// 上限超過分の「他◯件」
+    /// 上限超過分の「他◯件」(クリックで全件展開)
     case overflow(hiddenCount: Int)
+    /// 展開中の「畳む」(クリックで上限表示へ戻す)
+    case collapse
     case error(message: String)
     /// 中止(または確認不能)の告知(通知文脈のみ)
     case notice(text: String)
@@ -100,18 +106,18 @@ public struct CalendarAttendeesRow: Equatable, Sendable {
 }
 
 public enum CalendarSectionModel {
-    /// 表示件数の上限。超過分は「他◯件」に畳む
-    public static let maxVisibleEvents = 5
     /// 間隔警告の固定閾値(秒)。R2: 10分未満は移動猶予が少ないため強調する
     public static let gapWarningThresholdSeconds = 600
 
     /// 表示状態から予定セクションの行データ列を組み立てる。空配列はセクションごと非表示。
-    /// includeFreshness は通知モードのみ true(「◯分前時点の情報」を末尾に付ける)
+    /// includeFreshness は通知モードのみ true(「◯分前時点の情報」を末尾に付ける)。
+    /// expanded は「他◯件」クリックでの全件展開中(末尾に「畳む」が付く)
     public static func rows(
         state: CalendarPanelState,
         now: Date,
         calendar: Foundation.Calendar = .autoupdatingCurrent,
-        includeFreshness: Bool = false
+        includeFreshness: Bool = false,
+        expanded: Bool = false
     ) -> [CalendarSectionRow] {
         if let error = state.error {
             return [.error(message: error.userMessage)]
@@ -119,7 +125,9 @@ public enum CalendarSectionModel {
         var rows: [CalendarSectionRow] = state.notices.map { .notice(text: $0) }
         guard !state.events.isEmpty else { return rows }
 
-        let shown = Array(state.events.prefix(maxVisibleEvents))
+        let hasOverflow = state.events.count > state.maxVisibleEvents
+        let shown = expanded
+            ? state.events : Array(state.events.prefix(state.maxVisibleEvents))
         for (index, event) in shown.enumerated() {
             var row = eventRow(for: event, calendar: calendar)
             row.isHighlighted = state.highlightedKeys.contains(event.key)
@@ -135,8 +143,12 @@ public enum CalendarSectionModel {
                 rows.append(.attendees(attendees))
             }
         }
-        if state.events.count > maxVisibleEvents {
-            rows.append(.overflow(hiddenCount: state.events.count - maxVisibleEvents))
+        if hasOverflow {
+            if expanded {
+                rows.append(.collapse)
+            } else {
+                rows.append(.overflow(hiddenCount: state.events.count - state.maxVisibleEvents))
+            }
         }
         if includeFreshness, let freshness = freshnessText(lastSuccessAt: state.lastSuccessAt, now: now) {
             rows.append(.freshness(text: freshness))

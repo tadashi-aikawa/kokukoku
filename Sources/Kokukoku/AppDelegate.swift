@@ -88,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         events: service.snapshot.visibleEvents(now: Date()),
                         error: service.snapshot.lastError,
                         maxAttendees: service.maxAttendees,
+                        maxVisibleEvents: service.maxVisibleEvents,
                         lastSuccessAt: service.snapshot.lastSuccessAt,
                         notices: service.notices)
                 }))

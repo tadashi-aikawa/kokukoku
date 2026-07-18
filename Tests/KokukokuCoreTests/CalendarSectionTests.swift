@@ -256,6 +256,53 @@ struct CalendarSectionModelTests {
         #expect(rows.last == .overflow(hiddenCount: 2))
     }
 
+    @Test("表示上限はmaxVisibleEventsで変えられる")
+    func customMaxVisibleEvents() {
+        let events = (0..<4).map { i in
+            makeEvent(
+                id: "e\(i)@google.com",
+                start: at(hour: 13 + i), end: at(hour: 13 + i, minute: 30))
+        }
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: events, maxVisibleEvents: 2),
+            now: at(hour: 12), calendar: calendar)
+
+        let eventCount = rows.filter { eventRow($0) != nil }.count
+        #expect(eventCount == 2)
+        #expect(rows.last == .overflow(hiddenCount: 2))
+    }
+
+    @Test("展開中は全件表示され末尾が「畳む」になる")
+    func expandedShowsAll() {
+        let events = (0..<7).map { i in
+            makeEvent(
+                id: "e\(i)@google.com",
+                start: at(hour: 13 + i), end: at(hour: 13 + i, minute: 30))
+        }
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: events),
+            now: at(hour: 12), calendar: calendar,
+            expanded: true)
+
+        let eventCount = rows.filter { eventRow($0) != nil }.count
+        #expect(eventCount == 7)
+        #expect(rows.last == .collapse)
+    }
+
+    @Test("上限以内なら展開中でも「畳む」は出ない")
+    func noCollapseWithinLimit() {
+        let events = [makeEvent(start: at(hour: 13), end: at(hour: 14))]
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: events),
+            now: at(hour: 12), calendar: calendar,
+            expanded: true)
+
+        #expect(rows.last != .collapse)
+    }
+
     @Test("予定0件なら行なし(セクション非表示)")
     func emptyEvents() {
         let rows = CalendarSectionModel.rows(

@@ -7,11 +7,27 @@ public struct CalendarPanelState: Equatable, Sendable {
     public var error: CalendarFetchError?
     /// 予定行に表示する参加者数の上限(ResolvedCalendarConfig.maxAttendees)
     public var maxAttendees: Int
+    /// 最後に取得成功した時刻(通知パネルの鮮度表示に使う)
+    public var lastSuccessAt: Date?
+    /// 通知で強調する予定(通知モードのみ)
+    public var highlightedKeys: Set<CalendarEvent.EventKey>
+    /// 中止(または確認不能)になった予定の告知(通知予約済み・表示中の予定のみ対象)
+    public var notices: [String]
 
-    public init(events: [CalendarEvent], error: CalendarFetchError? = nil, maxAttendees: Int = 5) {
+    public init(
+        events: [CalendarEvent],
+        error: CalendarFetchError? = nil,
+        maxAttendees: Int = 5,
+        lastSuccessAt: Date? = nil,
+        highlightedKeys: Set<CalendarEvent.EventKey> = [],
+        notices: [String] = []
+    ) {
         self.events = events
         self.error = error
         self.maxAttendees = maxAttendees
+        self.lastSuccessAt = lastSuccessAt
+        self.highlightedKeys = highlightedKeys
+        self.notices = notices
     }
 }
 
@@ -24,6 +40,10 @@ public enum CalendarSectionRow: Equatable, Sendable {
     /// 上限超過分の「他◯件」
     case overflow(hiddenCount: Int)
     case error(message: String)
+    /// 中止(または確認不能)の告知(通知文脈のみ)
+    case notice(text: String)
+    /// 「◯分前時点の情報」(通知モードのみ。同期遅延の可能性を利用者が判断できるように)
+    case freshness(text: String)
 }
 
 /// 予定行の表示データ(時刻等は整形済み)
@@ -41,6 +61,8 @@ public struct CalendarEventRow: Equatable, Sendable {
     /// 直前の予定との間隔(タイムラインのレール上に描く)。先頭は nil
     public var gapText: String?
     public var gapIsWarning: Bool
+    /// 通知で強調中か(通知モードの該当予定)
+    public var isHighlighted: Bool
 
     public init(
         startText: String,
@@ -50,7 +72,8 @@ public struct CalendarEventRow: Equatable, Sendable {
         detailURL: URL? = nil,
         countdownText: String? = nil,
         gapText: String? = nil,
-        gapIsWarning: Bool = false
+        gapIsWarning: Bool = false,
+        isHighlighted: Bool = false
     ) {
         self.startText = startText
         self.endText = endText
@@ -60,6 +83,7 @@ public struct CalendarEventRow: Equatable, Sendable {
         self.countdownText = countdownText
         self.gapText = gapText
         self.gapIsWarning = gapIsWarning
+        self.isHighlighted = isHighlighted
     }
 }
 
@@ -81,21 +105,24 @@ public enum CalendarSectionModel {
     /// 間隔警告の固定閾値(秒)。R2: 10分未満は移動猶予が少ないため強調する
     public static let gapWarningThresholdSeconds = 600
 
-    /// 表示状態から予定セクションの行データ列を組み立てる。空配列はセクションごと非表示
+    /// 表示状態から予定セクションの行データ列を組み立てる。空配列はセクションごと非表示。
+    /// includeFreshness は通知モードのみ true(「◯分前時点の情報」を末尾に付ける)
     public static func rows(
         state: CalendarPanelState,
         now: Date,
-        calendar: Foundation.Calendar = .autoupdatingCurrent
+        calendar: Foundation.Calendar = .autoupdatingCurrent,
+        includeFreshness: Bool = false
     ) -> [CalendarSectionRow] {
         if let error = state.error {
             return [.error(message: error.userMessage)]
         }
-        guard !state.events.isEmpty else { return [] }
+        var rows: [CalendarSectionRow] = state.notices.map { .notice(text: $0) }
+        guard !state.events.isEmpty else { return rows }
 
-        var rows: [CalendarSectionRow] = []
         let shown = Array(state.events.prefix(maxVisibleEvents))
         for (index, event) in shown.enumerated() {
             var row = eventRow(for: event, calendar: calendar)
+            row.isHighlighted = state.highlightedKeys.contains(event.key)
             if index == 0 {
                 row.countdownText = countdownText(for: event, now: now)
             } else {
@@ -111,7 +138,17 @@ public enum CalendarSectionModel {
         if state.events.count > maxVisibleEvents {
             rows.append(.overflow(hiddenCount: state.events.count - maxVisibleEvents))
         }
+        if includeFreshness, let freshness = freshnessText(lastSuccessAt: state.lastSuccessAt, now: now) {
+            rows.append(.freshness(text: freshness))
+        }
         return rows
+    }
+
+    /// 鮮度表示。最終取得時刻(Googleとの同期完了時刻は把握できないため、それより新しく見せない)
+    static func freshnessText(lastSuccessAt: Date?, now: Date) -> String? {
+        guard let lastSuccessAt else { return nil }
+        let minutes = Int(now.timeIntervalSince(lastSuccessAt) / 60)
+        return minutes < 1 ? "1分以内に取得した情報" : "\(minutes)分前時点の情報"
     }
 
     /// 先頭予定のカウントダウン。分は切り上げ(残30秒を「あと0分」と見せない)

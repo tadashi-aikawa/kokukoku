@@ -233,6 +233,10 @@ public enum PanelLayout {
     public static let calendarAttendeeRowHeight = 16.0
     public static let calendarOverflowRowHeight = 18.0
     public static let calendarErrorRowHeight = 26.0
+    /// 中止告知行(通知文脈)の高さ
+    public static let calendarNoticeRowHeight = 20.0
+    /// 鮮度表示行(通知モード)の高さ
+    public static let calendarFreshnessRowHeight = 14.0
     public static let calendarSectionPaddingTop = 6.0
     public static let calendarSectionPaddingBottom = 8.0
     /// タイムラインのレール(縦線+予定ごとの点)のx座標
@@ -248,6 +252,8 @@ public enum PanelLayout {
         case .attendees: return calendarAttendeeRowHeight
         case .overflow: return calendarOverflowRowHeight
         case .error: return calendarErrorRowHeight
+        case .notice: return calendarNoticeRowHeight
+        case .freshness: return calendarFreshnessRowHeight
         }
     }
 

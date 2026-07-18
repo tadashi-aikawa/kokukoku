@@ -87,7 +87,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return CalendarPanelState(
                         events: service.snapshot.visibleEvents(now: Date()),
                         error: service.snapshot.lastError,
-                        maxAttendees: service.maxAttendees)
+                        maxAttendees: service.maxAttendees,
+                        lastSuccessAt: service.snapshot.lastSuccessAt,
+                        notices: service.notices)
                 }))
 
         self.engine = engine
@@ -97,6 +99,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // [calendar] 設定がない場合はカレンダー連携を完全に無効にする(権限要求もしない)
         if let calendarConfig = config.calendar {
             let service = CalendarService(config: ResolvedCalendarConfig(calendar: calendarConfig))
+            // 開始前通知: パネルを自動表示して該当予定を強調する
+            service.onNotification = { [weak self] keys in
+                self?.panel?.showCalendarNotification(keys: keys)
+            }
+            panel.onNotificationClosed = { [weak service] in service?.clearNotices() }
             service.start()
             calendarService = service
         }

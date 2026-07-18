@@ -17,6 +17,8 @@ public struct PanelElementsBuilder {
         public var alertThresholds: [Int]
         /// 本日の残予定セクションの行データ列(CalendarSectionModel.rows)。空ならセクション非表示
         public var calendarRows: [CalendarSectionRow]
+        /// 通知モード: 閉じるボタンをヘッダー右上に出す(通知パネルは外クリックで閉じないため)
+        public var showsCalendarCloseButton: Bool
         public var ui: ResolvedUIConfig
 
         public init(
@@ -28,6 +30,7 @@ public struct PanelElementsBuilder {
             editingTarget: PanelEditingTarget? = nil,
             alertThresholds: [Int] = [],
             calendarRows: [CalendarSectionRow] = [],
+            showsCalendarCloseButton: Bool = false,
             ui: ResolvedUIConfig
         ) {
             self.projects = projects
@@ -38,6 +41,7 @@ public struct PanelElementsBuilder {
             self.editingTarget = editingTarget
             self.alertThresholds = alertThresholds
             self.calendarRows = calendarRows
+            self.showsCalendarCloseButton = showsCalendarCloseButton
             self.ui = ui
         }
     }
@@ -106,6 +110,30 @@ public struct PanelElementsBuilder {
                 fontSize: 12,
                 color: colors.activeText,
                 alignment: .right))
+        }
+
+        // 通知パネルは外クリックで閉じないため、常時表示の閉じるボタンを右上に置く
+        if inputs.showsCalendarCloseButton {
+            let closeText = "✕ 閉じる"
+            let closeHovered = inputs.hoveredId == "btn_cal_close"
+            let closeFrame = PanelFrame(
+                x: metrics.panelWidth - layout.padding - 76, y: 8, w: 76, h: 22)
+            elements.append(.rectangle(
+                frame: closeFrame,
+                fillColor: closeHovered ? colors.footerHoverBg : colors.headerBg,
+                cornerRadius: 11,
+                id: "btn_cal_close",
+                tracksMouse: true))
+            let closeHeight = measureTextHeight(closeText, inputs.ui.fontName, 11)
+            elements.append(.text(
+                frame: .init(
+                    x: closeFrame.x, y: closeFrame.y + centeredOffset(closeFrame.h, closeHeight),
+                    w: closeFrame.w, h: closeHeight),
+                text: closeText,
+                fontName: inputs.ui.fontName,
+                fontSize: 11,
+                color: colors.subText,
+                alignment: .center))
         }
 
         // 予定セクションは時計と同じ「時間の世界」ゾーンとしてヘッダー直下に置く
@@ -353,6 +381,8 @@ public struct PanelElementsBuilder {
         }) ? 110 : 0
         // タイムラインの点の中心Yと、その予定の間隔情報(レール描画は行の後にまとめて行う)
         var dots: [(centerY: Double, gapText: String?, gapIsWarning: Bool)] = []
+        // 参加者行は直前の予定行の強調に追随させる
+        var lastEventHighlighted = false
 
         for row in inputs.calendarRows {
             let rowHeight = layout.calendarRowHeight(row)
@@ -360,18 +390,24 @@ public struct PanelElementsBuilder {
             case .event(let event):
                 let lineCenterY = y + rowHeight / 2
                 dots.append((lineCenterY, event.gapText, event.gapIsWarning))
+                lastEventHighlighted = event.isHighlighted
 
-                // 行クリックでカレンダー詳細ページを開けるようホバー追跡させる
-                if event.detailURL != nil {
-                    let id = "cal_event_\(eventIndex)"
-                    elements.append(.rectangle(
-                        frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
-                        fillColor: inputs.hoveredId == id
-                            ? colors.rowHoverBg
-                            : PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
-                        id: id,
-                        tracksMouse: true))
+                // 行背景: 通知の強調は計測中行と同じ暖色背景で示す。
+                // クリックで詳細ページを開けるようホバー追跡も兼ねる
+                let id = "cal_event_\(eventIndex)"
+                let isHovered = inputs.hoveredId == id
+                let rowFill: PanelColor
+                if event.isHighlighted {
+                    rowFill = isHovered ? colors.activeRowHoverBg : colors.activeRowBg
+                } else {
+                    rowFill = isHovered
+                        ? colors.rowHoverBg : PanelColor(red: 0, green: 0, blue: 0, alpha: 0)
                 }
+                elements.append(.rectangle(
+                    frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
+                    fillColor: rowFill,
+                    id: event.detailURL != nil ? id : nil,
+                    tracksMouse: event.detailURL != nil))
 
                 // 開始は明色・終了は沈み色で一目で区別する
                 let startHeight = measureTextHeight(event.startText, inputs.ui.monoFontName, 13)
@@ -426,6 +462,12 @@ public struct PanelElementsBuilder {
                 eventIndex += 1
 
             case .attendees(let attendees):
+                // 直前の予定行が強調中なら参加者行も同じ背景でつなげる
+                if lastEventHighlighted {
+                    elements.append(.rectangle(
+                        frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
+                        fillColor: colors.activeRowBg))
+                }
                 // 予定名の列に揃えたインデントで参加者一覧を小さく添える。主催者は明色で強調
                 var x = layout.calendarContentX + layout.calendarTimeWidth + 8
                 let height = measureTextHeight("参加者", inputs.ui.fontName, 11)
@@ -474,6 +516,31 @@ public struct PanelElementsBuilder {
                     fontName: inputs.ui.fontName,
                     fontSize: 12,
                     color: colors.clockSecondHand))
+
+            case .notice(let text):
+                let height = measureTextHeight(text, inputs.ui.fontName, 12)
+                elements.append(.text(
+                    frame: .init(
+                        x: layout.calendarContentX, y: y + centeredOffset(rowHeight, height),
+                        w: metrics.panelWidth - layout.calendarContentX - layout.padding,
+                        h: height),
+                    text: text,
+                    fontName: inputs.ui.fontName,
+                    fontSize: 12,
+                    color: colors.clockSecondHand))
+
+            case .freshness(let text):
+                let height = measureTextHeight(text, inputs.ui.fontName, 10)
+                elements.append(.text(
+                    frame: .init(
+                        x: layout.calendarContentX, y: y + centeredOffset(rowHeight, height),
+                        w: metrics.panelWidth - layout.calendarContentX - layout.padding,
+                        h: height),
+                    text: text,
+                    fontName: inputs.ui.fontName,
+                    fontSize: 10,
+                    color: colors.subText,
+                    alignment: .right))
             }
             y += rowHeight
         }

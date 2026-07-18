@@ -275,6 +275,59 @@ struct CalendarSectionModelTests {
         #expect(rows == [.error(message: "カレンダー『一般』が見つかりません")])
     }
 
+    @Test("強調キーに一致する予定行はisHighlightedになる")
+    func highlightedEvent() {
+        let event = makeEvent(start: at(hour: 14), end: at(hour: 15))
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [event], highlightedKeys: [event.key]),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(eventRow(rows[0])?.isHighlighted == true)
+    }
+
+    @Test("中止告知は先頭にnotice行として並ぶ")
+    func noticeRows() {
+        let rows = CalendarSectionModel.rows(
+            state: .init(
+                events: [makeEvent(start: at(hour: 14), end: at(hour: 15))],
+                notices: ["『定例』は中止になりました"]),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(rows.first == .notice(text: "『定例』は中止になりました"))
+        #expect(eventRow(rows[1]) != nil)
+    }
+
+    @Test("予定0件でも中止告知だけは表示される")
+    func noticeWithoutEvents() {
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [], notices: ["『定例』は中止になりました"]),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(rows == [.notice(text: "『定例』は中止になりました")])
+    }
+
+    @Test("通知モードでは鮮度表示が末尾に付く")
+    func freshnessRow() {
+        let rows = CalendarSectionModel.rows(
+            state: .init(
+                events: [makeEvent(start: at(hour: 14), end: at(hour: 15))],
+                lastSuccessAt: at(hour: 11, minute: 57)),
+            now: at(hour: 12), calendar: calendar,
+            includeFreshness: true)
+
+        #expect(rows.last == .freshness(text: "3分前時点の情報"))
+    }
+
+    @Test("取得直後の鮮度表示は「1分以内」になる")
+    func freshnessJustNow() {
+        #expect(
+            CalendarSectionModel.freshnessText(
+                lastSuccessAt: at(hour: 12), now: at(hour: 12, minute: 0, second: 30))
+                == "1分以内に取得した情報")
+        #expect(CalendarSectionModel.freshnessText(lastSuccessAt: nil, now: at(hour: 12)) == nil)
+    }
+
     @Test("複数一致エラーは候補一覧を含む")
     func multipleCalendarsMessage() {
         let error = CalendarFetchError.multipleCalendars(

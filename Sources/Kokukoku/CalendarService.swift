@@ -18,6 +18,14 @@ final class CalendarService {
     /// --calendar-debug: 取得スモーク用にスナップショット全件をstderrへ出力する
     private let debugDump = CommandLine.arguments.contains("--calendar-debug")
 
+    /// 開始前通知の通知済み管理(通知回単位・プロセス内のみ)
+    private var notifier = CalendarNotifier()
+    private var notifyTask: Task<Void, Never>?
+    /// 中止(確定)告知。通知パネルが閉じられたら clearNotices() でクリアされる
+    private(set) var notices: [String] = []
+    /// 通知すべき予定が発生したときに呼ばれる(空Setは告知のみの再表示)
+    var onNotification: ((Set<CalendarEvent.EventKey>) -> Void)?
+
     var maxAttendees: Int { config.maxAttendees }
 
     init(config: ResolvedCalendarConfig) {
@@ -56,6 +64,12 @@ final class CalendarService {
         workspaceObservers = []
         refreshTask?.cancel()
         refreshTask = nil
+        notifyTask?.cancel()
+        notifyTask = nil
+    }
+
+    func clearNotices() {
+        notices = []
     }
 
     private func beginObserving() {
@@ -139,6 +153,47 @@ final class CalendarService {
             if debugDump {
                 dumpSnapshot(now: now)
             }
+            // 通知判定の一般規則: すべてのスナップショット更新時に評価する
+            // (同期遅延で通知時刻経過後に取得された予定・寝ていた間の取りこぼし防止)
+            evaluateNotifications(now: Date())
+            scheduleNextNotification()
+        }
+    }
+
+    /// 「通知時刻 ≤ 現在 < 開始時刻 かつ 未通知の通知回」を通知する
+    private func evaluateNotifications(now: Date) {
+        let due = notifier.dueEvents(
+            in: snapshot.visibleEvents(now: now), now: now,
+            leadMinutes: config.notificationLeadMinutes)
+        guard !due.isEmpty else { return }
+        log("開始前通知: \(due.map(\.title).joined(separator: ", "))")
+        onNotification?(Set(due.map(\.key)))
+    }
+
+    /// 次の通知時刻へタイマーを仕掛け直す。表示の60秒前と表示時点に同期をキックして鮮度を上げる
+    private func scheduleNextNotification() {
+        notifyTask?.cancel()
+        notifyTask = nil
+        guard
+            let fireDate = notifier.nextFireDate(
+                in: snapshot.visibleEvents(now: Date()), now: Date(),
+                leadMinutes: config.notificationLeadMinutes)
+        else { return }
+        notifyTask = Task { [weak self] in
+            let kickDelay = fireDate.timeIntervalSinceNow - 60
+            if kickDelay > 0 {
+                try? await Task.sleep(for: .seconds(kickDelay))
+                guard let self, !Task.isCancelled else { return }
+                self.eventStore.refreshSourcesIfNecessary()
+            }
+            let fireDelay = fireDate.timeIntervalSinceNow
+            if fireDelay > 0 {
+                try? await Task.sleep(for: .seconds(fireDelay))
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.eventStore.refreshSourcesIfNecessary()
+            self.evaluateNotifications(now: Date())
+            self.scheduleNextNotification()
         }
     }
 
@@ -162,16 +217,26 @@ final class CalendarService {
     }
 
     /// 生スナップショットから消えた予定を再照会し、中止(削除)かどうかを確定する。
-    /// 通知への接続は後続タスク(現状はログ出力まで)
+    /// 開始前の予定の中止が確定したら告知を積んで通知パネルを出す(黙って取り消さない)
     private func reportRemovals(_ candidates: [CalendarEvent]) {
+        var noticed = false
         for event in candidates {
             let items = eventStore.calendarItems(
                 withExternalIdentifier: event.key.externalIdentifier)
             if items.isEmpty {
                 log("中止確定: \(event.title)")
+                // 表示フィルタ相当(終日・辞退除外)かつ開始前の予定だけを告知対象にする
+                if event.start > Date(), !event.isAllDay, event.myStatus != .declined {
+                    notices.append("『\(event.title)』は中止になりました")
+                    noticed = true
+                }
             } else {
+                // 取得範囲外への移動・時刻変更(単発予定はEventKeyごと変わる)など。中止ではない
                 log("取得範囲外へ移動: \(event.title)")
             }
+        }
+        if noticed {
+            onNotification?([])
         }
     }
 

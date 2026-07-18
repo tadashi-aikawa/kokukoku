@@ -38,6 +38,12 @@ final class PanelController {
     private var editingTarget: PanelEditingTarget?
     /// 現在表示中の予定セクション行(クリック時のMeet URL解決とパネル高計算に使う)
     private var calendarRows: [CalendarSectionRow] = []
+    /// 通知モード: 開始前通知としての自動表示中(フォーカス非奪取・外クリックで閉じない)
+    private(set) var notificationMode = false
+    /// 通知で強調する予定
+    private var highlightedKeys: Set<CalendarEvent.EventKey> = []
+    /// 通知パネルが閉じたときに呼ばれる(中止告知のクリア用)
+    var onNotificationClosed: (() -> Void)?
 
     init(
         projects: [KokukokuConfig.Project],
@@ -63,16 +69,33 @@ final class PanelController {
 
     // MARK: - 公開操作 (show / hide / toggle / update)
 
+    /// 開始前通知としてパネルを自動表示する(該当予定を強調)。
+    /// 既に通知パネル表示中なら同じパネルにまとめて強調を足す。
+    /// 通常パネル表示中なら畳んで通知パネルとして出し直す
+    func showCalendarNotification(keys: Set<CalendarEvent.EventKey>) {
+        if visible, notificationMode {
+            highlightedKeys.formUnion(keys)
+            rebuildPanel()
+            return
+        }
+        if visible { hide() }
+        notificationMode = true
+        highlightedKeys = keys
+        show()
+    }
+
     func show() {
         if visible, window != nil { return }
 
         resetConfirming = false
 
-        // カーソル初期位置をアクティブプロジェクトに設定
+        // カーソル初期位置をアクティブプロジェクトに設定(通知モードはカーソルなし)
         let state = callbacks.getState()
-        selectedIndex = state.activeProjectId.flatMap { activeId in
-            projects.firstIndex { $0.id == activeId }.map { $0 + 1 }
-        }
+        selectedIndex = notificationMode
+            ? nil
+            : state.activeProjectId.flatMap { activeId in
+                projects.firstIndex { $0.id == activeId }.map { $0 + 1 }
+            }
 
         calendarRows = currentCalendarRows()
         let panelSize = NSSize(
@@ -105,6 +128,13 @@ final class PanelController {
         self.panelView = panelView
         visible = true
         rebuildPanel()
+
+        if notificationMode {
+            // 通知パネルはキーボードフォーカスも奪わず、外クリックでは閉じない
+            // (閉じるのはパネル上の閉じるボタンか既存のパネルトグルホットキー)
+            window.orderFrontRegardless()
+            return
+        }
         window.makeKeyAndOrderFront(nil)
 
         // パネル外クリックで閉じる(他アプリ宛はグローバル、自アプリ宛はローカルの両モニタで拾う)
@@ -146,6 +176,11 @@ final class PanelController {
         selectedIndex = nil
         hoveredId = nil
         resetConfirming = false
+        if notificationMode {
+            notificationMode = false
+            highlightedKeys = []
+            onNotificationClosed?()
+        }
     }
 
     func toggle() {
@@ -162,10 +197,17 @@ final class PanelController {
 
     // MARK: - 描画
 
-    /// 予定セクションの行データ列を最新のカレンダー状態から組み立てる
+    /// 予定セクションの行データ列を最新のカレンダー状態から組み立てる。
+    /// 強調・中止告知・鮮度表示は通知モードのときだけ乗せる
     private func currentCalendarRows() -> [CalendarSectionRow] {
-        guard let state = callbacks.getCalendarState() else { return [] }
-        return CalendarSectionModel.rows(state: state, now: Date())
+        guard var state = callbacks.getCalendarState() else { return [] }
+        if notificationMode {
+            state.highlightedKeys = highlightedKeys
+        } else {
+            state.notices = []
+        }
+        return CalendarSectionModel.rows(
+            state: state, now: Date(), includeFreshness: notificationMode)
     }
 
     /// 表示中に予定の行数が変わった場合、画面中央位置を維持したままウィンドウ高を追従させる
@@ -221,6 +263,7 @@ final class PanelController {
                 editingTarget: editingTarget,
                 alertThresholds: alertThresholds,
                 calendarRows: calendarRows,
+                showsCalendarCloseButton: notificationMode,
                 ui: ui))
     }
 
@@ -383,6 +426,9 @@ final class PanelController {
             return
         } else if elementId == "btn_reset" {
             handleResetAction()
+            return
+        } else if elementId == "btn_cal_close" {
+            hide()
             return
         } else if elementId.hasPrefix("cal_event_") {
             openCalendarDetail(eventIndex: Int(elementId.dropFirst("cal_event_".count)) ?? -1)

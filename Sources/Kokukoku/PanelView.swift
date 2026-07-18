@@ -78,7 +78,7 @@ final class PanelView: NSView {
                 context.strokePath()
             case .text(let frame, let text, let fontName, let fontSize, let color, let alignment):
                 let paragraph = NSMutableParagraphStyle()
-                paragraph.lineBreakMode = .byClipping
+                paragraph.lineBreakMode = .byTruncatingTail
                 switch alignment {
                 case .left: paragraph.alignment = .left
                 case .center: paragraph.alignment = .center

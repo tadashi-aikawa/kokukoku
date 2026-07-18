@@ -21,6 +21,7 @@ final class PanelController {
     private let keymap: ResolvedKeymap
     private let callbacks: Callbacks
     private let iconStore = IconStore()
+    private let metrics: PanelMetrics
     private let now: () -> Int = { Int(Date().timeIntervalSince1970) }
 
     private var window: PanelWindow?
@@ -46,6 +47,13 @@ final class PanelController {
         self.ui = ui
         self.keymap = keymap
         self.callbacks = callbacks
+        // パネル幅は最長プロジェクト名の実測幅で決める(プロジェクトは設定再読込まで不変)
+        let nameFont = NSFont(name: ui.fontName, size: 16) ?? NSFont.systemFont(ofSize: 16)
+        self.metrics = PanelMetrics.compute(
+            projectNames: projects.map(\.name),
+            measureNameWidth: { name in
+                Double((name as NSString).size(withAttributes: [.font: nameFont]).width)
+            })
         iconStore.onLoad = { [weak self] in self?.rebuildPanel() }
     }
 
@@ -63,7 +71,7 @@ final class PanelController {
         }
 
         let panelSize = NSSize(
-            width: PanelLayout.panelWidth,
+            width: metrics.panelWidth,
             height: PanelLayout.panelHeight(projectCount: projects.count))
 
         // アクティブモニタ(マウスカーソルのあるスクリーン)の中央に表示
@@ -166,7 +174,8 @@ final class PanelController {
                 return height > 0 ? height : max(size + 8, size)
             },
             resolveIcon: { [iconStore] icon in iconStore.resolve(icon) },
-            hasLogoImage: iconStore.logoImage != nil
+            hasLogoImage: iconStore.logoImage != nil,
+            metrics: metrics
         )
         panelView.elements = builder.build(
             .init(
@@ -251,7 +260,7 @@ final class PanelController {
         let centerY: Double
         switch target {
         case .continuous:
-            frame = PanelLayout.continuousTimeFrame(projectCount: projects.count)
+            frame = metrics.continuousTimeFrame(projectCount: projects.count)
             fontSize = 16
             alignment = .left
             // フッターの時刻テキストは枠の上寄りに描かれるため、
@@ -262,7 +271,7 @@ final class PanelController {
             centerY = footerY + PanelLayout.footerHeight / 2
         case .project(let id):
             guard let offset = projects.firstIndex(where: { $0.id == id }) else { return }
-            frame = PanelLayout.accumulatedTimeFrame(rowOffset: offset)
+            frame = metrics.accumulatedTimeFrame(rowOffset: offset)
             fontSize = 16
             alignment = .right
             centerY = frame.y + frame.h / 2

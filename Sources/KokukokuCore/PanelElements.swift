@@ -105,8 +105,78 @@ public enum PanelEditingTarget: Equatable, Sendable {
     case continuous
 }
 
+/// パネル幅とそれに連動する座標。幅は最長プロジェクト名の実測幅から決まるため、
+/// 静的定数のPanelLayoutと分けてインスタンスとして持ち回る
+public struct PanelMetrics: Equatable, Sendable {
+    public let panelWidth: Double
+
+    public init(panelWidth: Double) {
+        self.panelWidth = panelWidth
+    }
+
+    /// 最長プロジェクト名がちょうど収まる幅を計算する。
+    /// 名前が短ければminPanelWidthまで縮み、長くてもmaxPanelWidthで頭打ち
+    /// (収まらない分は描画側が「…」で省略する)
+    public static func compute(
+        projectNames: [String],
+        measureNameWidth: (String) -> Double
+    ) -> PanelMetrics {
+        let maxNameWidth = projectNames.map(measureNameWidth).max() ?? 0
+        let width = PanelLayout.projectNameX + maxNameWidth.rounded(.up)
+            + PanelLayout.nameTimeGap + PanelLayout.timeColumnWidth + PanelLayout.numberColumnX
+        return PanelMetrics(
+            panelWidth: min(max(width, PanelLayout.minPanelWidth), PanelLayout.maxPanelWidth))
+    }
+
+    /// 累積時間列は右端を行番号列と対称の位置(パネル右端-18px)に揃え、
+    /// 行全体の左右バランスを保つ
+    public var timeColumnX: Double {
+        panelWidth - PanelLayout.numberColumnX - PanelLayout.timeColumnWidth
+    }
+
+    /// プロジェクト名の右端は累積時間列の左端に連動させる
+    public var projectNameRight: Double {
+        timeColumnX - PanelLayout.nameTimeGap
+    }
+
+    /// アナログ時計の中心(ヘッダーの中でデジタルと合わせて中央寄せ)
+    public var clockCenter: PanelPoint {
+        PanelPoint(
+            x: (panelWidth - PanelLayout.clockRadius * 2 - PanelLayout.clockDigitalGap
+                - PanelLayout.clockDigitalWidth) / 2 + PanelLayout.clockRadius,
+            y: PanelLayout.clockSectionHeight / 2)
+    }
+
+    public var clockDigitalFrame: PanelFrame {
+        PanelFrame(
+            x: clockCenter.x + PanelLayout.clockRadius + PanelLayout.clockDigitalGap,
+            y: PanelLayout.clockSectionHeight / 2 - 18,
+            w: PanelLayout.clockDigitalWidth, h: 36)
+    }
+
+    /// フッター中央の連続稼働時間テキストの枠(インライン編集フィールドもここへ重ねる)
+    public func continuousTimeFrame(projectCount: Int) -> PanelFrame {
+        let footerY = PanelLayout.clockSectionHeight + Double(projectCount) * PanelLayout.rowHeight
+        return .init(
+            x: (panelWidth - PanelLayout.headerLogoSize - PanelLayout.headerLogoTextGap
+                - PanelLayout.headerTimeWidth) / 2
+                + PanelLayout.headerLogoSize + PanelLayout.headerLogoTextGap,
+            y: footerY + 10, w: PanelLayout.headerTimeWidth, h: 28)
+    }
+
+    /// プロジェクト行の累積時間テキストの枠(同上)
+    public func accumulatedTimeFrame(rowOffset: Int) -> PanelFrame {
+        .init(
+            x: timeColumnX,
+            y: PanelLayout.clockSectionHeight + Double(rowOffset) * PanelLayout.rowHeight,
+            w: PanelLayout.timeColumnWidth, h: PanelLayout.rowHeight)
+    }
+}
+
 public enum PanelLayout {
-    public static let panelWidth = 420.0
+    /// パネル幅は最長プロジェクト名の実測幅に合わせてこの範囲で伸縮する(PanelMetrics.compute)
+    public static let minPanelWidth = 420.0
+    public static let maxPanelWidth = 480.0
     /// ヘッダー(現在時刻段: アナログ+デジタル時計)の高さ = プロジェクト行の開始位置。
     /// 時計(直径56px)の上下に14pxずつの余白を取り、下の記録エリアと視覚的に分離する
     public static let clockSectionHeight = 84.0
@@ -114,7 +184,10 @@ public enum PanelLayout {
     public static let footerHeight = 40.0
     public static let padding = 12.0
     public static let projectContentX = numberColumnX + 18
-    public static let projectNameRight = 232.0
+    /// プロジェクト名と累積時間列の間に確保する最小間隔
+    public static let nameTimeGap = 12.0
+    /// プロジェクト名の左端(行番号+アイコン列の右)
+    public static let projectNameX = projectContentX + iconSlotWidth + iconGap
     public static let iconTextWidth = 24.0
     public static let iconImageSize = 24.0
     public static let iconGap = 8.0
@@ -128,39 +201,14 @@ public enum PanelLayout {
     public static let capsuleInsetY = 3.0
     /// 行番号列の位置(カプセル輪郭の内側に収まるよう端から離す)
     public static let numberColumnX = 24.0
-    /// 累積時間列は右端を行番号列と対称の位置(パネル右端-18px)に揃え、
-    /// 行全体の左右バランスを保つ
     public static let timeColumnWidth = 100.0
-    public static let timeColumnX = panelWidth - numberColumnX - timeColumnWidth
     public static let colors = Colors.self
 
-    /// アナログ時計の文字盤半径と中心(ヘッダーの中でデジタルと合わせて中央寄せ)
+    /// アナログ時計の文字盤半径(中心位置はPanelMetricsが幅から決める)
     public static let clockRadius = 28.0
     public static let clockDigitalFontSize = 30.0
     public static let clockDigitalWidth = 150.0
     public static let clockDigitalGap = 12.0
-    public static let clockCenter = PanelPoint(
-        x: (panelWidth - clockRadius * 2 - clockDigitalGap - clockDigitalWidth) / 2 + clockRadius,
-        y: clockSectionHeight / 2)
-    public static let clockDigitalFrame = PanelFrame(
-        x: clockCenter.x + clockRadius + clockDigitalGap,
-        y: clockSectionHeight / 2 - 18, w: clockDigitalWidth, h: 36)
-
-    /// フッター中央の連続稼働時間テキストの枠(インライン編集フィールドもここへ重ねる)
-    public static func continuousTimeFrame(projectCount: Int) -> PanelFrame {
-        let footerY = clockSectionHeight + Double(projectCount) * rowHeight
-        return .init(
-            x: (panelWidth - headerLogoSize - headerLogoTextGap - headerTimeWidth) / 2
-                + headerLogoSize + headerLogoTextGap,
-            y: footerY + 10, w: headerTimeWidth, h: 28)
-    }
-
-    /// プロジェクト行の累積時間テキストの枠(同上)
-    public static func accumulatedTimeFrame(rowOffset: Int) -> PanelFrame {
-        .init(
-            x: timeColumnX, y: clockSectionHeight + Double(rowOffset) * rowHeight,
-            w: timeColumnWidth, h: rowHeight)
-    }
 
     public static func panelHeight(projectCount: Int) -> Double {
         clockSectionHeight + Double(projectCount) * rowHeight + footerHeight

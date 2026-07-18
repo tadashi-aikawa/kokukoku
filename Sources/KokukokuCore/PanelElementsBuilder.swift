@@ -42,19 +42,22 @@ public struct PanelElementsBuilder {
     private let measureTextHeight: (_ text: String, _ fontName: String, _ size: Double) -> Double
     private let resolveIcon: (String) -> IconResolution
     private let hasLogoImage: Bool
+    private let metrics: PanelMetrics
 
     public init(
         now: @escaping () -> Int,
         localTime: @escaping () -> ClockTime = { ClockTime(hour: 0, minute: 0, second: 0) },
         measureTextHeight: @escaping (_ text: String, _ fontName: String, _ size: Double) -> Double,
         resolveIcon: @escaping (String) -> IconResolution,
-        hasLogoImage: Bool
+        hasLogoImage: Bool,
+        metrics: PanelMetrics
     ) {
         self.now = now
         self.localTime = localTime
         self.measureTextHeight = measureTextHeight
         self.resolveIcon = resolveIcon
         self.hasLogoImage = hasLogoImage
+        self.metrics = metrics
     }
 
     public func build(_ inputs: Inputs) -> [PanelElement] {
@@ -64,21 +67,21 @@ public struct PanelElementsBuilder {
         var elements: [PanelElement] = []
 
         elements.append(.rectangle(
-            frame: .init(x: 0, y: 0, w: layout.panelWidth, h: panelHeight),
+            frame: .init(x: 0, y: 0, w: metrics.panelWidth, h: panelHeight),
             fillColor: colors.background,
             cornerRadius: 10))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: 0, w: layout.panelWidth, h: layout.clockSectionHeight),
+            frame: .init(x: 0, y: 0, w: metrics.panelWidth, h: layout.clockSectionHeight),
             fillColor: colors.headerBg,
             cornerRadius: 10))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: layout.clockSectionHeight - 10, w: layout.panelWidth, h: 10),
+            frame: .init(x: 0, y: layout.clockSectionHeight - 10, w: metrics.panelWidth, h: 10),
             fillColor: colors.headerBg))
 
         appendClock(inputs, to: &elements)
 
         elements.append(.rectangle(
-            frame: .init(x: 0, y: layout.clockSectionHeight, w: layout.panelWidth, h: 1),
+            frame: .init(x: 0, y: layout.clockSectionHeight, w: metrics.panelWidth, h: 1),
             fillColor: colors.separator))
 
         for (offset, project) in inputs.projects.enumerated() {
@@ -94,7 +97,7 @@ public struct PanelElementsBuilder {
                 rowColor = isHovered ? colors.rowHoverBg : colors.rowBg
             }
             elements.append(.rectangle(
-                frame: .init(x: 0, y: y, w: layout.panelWidth, h: layout.rowHeight),
+                frame: .init(x: 0, y: y, w: metrics.panelWidth, h: layout.rowHeight),
                 fillColor: rowColor,
                 id: "row_\(project.id)",
                 tracksMouse: true))
@@ -123,7 +126,7 @@ public struct PanelElementsBuilder {
             elements.append(.text(
                 frame: .init(
                     x: nameX, y: y + centeredOffset(layout.rowHeight, nameHeight),
-                    w: layout.projectNameRight - nameX, h: nameHeight),
+                    w: metrics.projectNameRight - nameX, h: nameHeight),
                 text: project.name,
                 fontName: inputs.ui.fontName,
                 fontSize: 16,
@@ -139,7 +142,7 @@ public struct PanelElementsBuilder {
                     accumulatedText, inputs.ui.monoFontName, 16)
                 elements.append(.text(
                     frame: .init(
-                        x: layout.timeColumnX,
+                        x: metrics.timeColumnX,
                         y: y + centeredOffset(layout.rowHeight, accumulatedHeight),
                         w: layout.timeColumnWidth, h: accumulatedHeight),
                     text: accumulatedText,
@@ -153,25 +156,25 @@ public struct PanelElementsBuilder {
                 elements.append(.rectangle(
                     frame: .init(
                         x: layout.padding, y: y + layout.rowHeight - 1,
-                        w: layout.panelWidth - layout.padding * 2, h: 1),
+                        w: metrics.panelWidth - layout.padding * 2, h: 1),
                     fillColor: colors.separator))
             }
         }
 
         let footerY = layout.clockSectionHeight + Double(inputs.projects.count) * layout.rowHeight
         elements.append(.rectangle(
-            frame: .init(x: 0, y: footerY, w: layout.panelWidth, h: 1),
+            frame: .init(x: 0, y: footerY, w: metrics.panelWidth, h: 1),
             fillColor: colors.separator))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: footerY, w: layout.panelWidth, h: layout.footerHeight),
+            frame: .init(x: 0, y: footerY, w: metrics.panelWidth, h: layout.footerHeight),
             fillColor: colors.footerBg,
             cornerRadius: 10))
         elements.append(.rectangle(
-            frame: .init(x: 0, y: footerY, w: layout.panelWidth, h: 10),
+            frame: .init(x: 0, y: footerY, w: metrics.panelWidth, h: 10),
             fillColor: colors.footerBg))
 
         // ロゴ+連続稼働時間(フッター中央)
-        let timeFrame = layout.continuousTimeFrame(projectCount: inputs.projects.count)
+        let timeFrame = metrics.continuousTimeFrame(projectCount: inputs.projects.count)
         if hasLogoImage {
             elements.append(.image(
                 frame: .init(
@@ -221,7 +224,7 @@ public struct PanelElementsBuilder {
         let resetColor = inputs.resetConfirming
             ? colors.resetConfirmBg : (resetSelected ? colors.footerHoverBg : colors.footerBg)
         elements.append(.rectangle(
-            frame: .init(x: layout.panelWidth - layout.padding - 114, y: footerY + 4, w: 118, h: 30),
+            frame: .init(x: metrics.panelWidth - layout.padding - 114, y: footerY + 4, w: 118, h: 30),
             fillColor: resetColor,
             cornerRadius: 6,
             id: "btn_reset",
@@ -230,7 +233,7 @@ public struct PanelElementsBuilder {
         let resetHeight = measureTextHeight(resetText, inputs.ui.fontName, 14)
         elements.append(.text(
             frame: .init(
-                x: layout.panelWidth - layout.padding - 110,
+                x: metrics.panelWidth - layout.padding - 110,
                 y: footerY + 4 + centeredOffset(30, resetHeight), w: 110, h: resetHeight),
             text: resetText,
             fontName: inputs.ui.fontName,
@@ -240,7 +243,7 @@ public struct PanelElementsBuilder {
 
         // 外周の縁取り(暗い背景でもパネルの輪郭が分かるように最前面へ)
         elements.append(.rectangle(
-            frame: .init(x: 0.5, y: 0.5, w: layout.panelWidth - 1, h: panelHeight - 1),
+            frame: .init(x: 0.5, y: 0.5, w: metrics.panelWidth - 1, h: panelHeight - 1),
             fillColor: PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 10,
             strokeColor: colors.panelBorder,
@@ -256,7 +259,7 @@ public struct PanelElementsBuilder {
             elements.append(.neonRectangle(
                 frame: .init(
                     x: layout.capsuleInsetX, y: y + layout.capsuleInsetY,
-                    w: layout.panelWidth - layout.capsuleInsetX * 2, h: height),
+                    w: metrics.panelWidth - layout.capsuleInsetX * 2, h: height),
                 cornerRadius: height / 2,
                 strokeWidth: 1,
                 topColor: colors.neonCoreTop,
@@ -278,7 +281,7 @@ public struct PanelElementsBuilder {
             let height = layout.rowHeight - insetY * 2
             elements.append(.rectangle(
                 frame: .init(
-                    x: insetX, y: y + insetY, w: layout.panelWidth - insetX * 2, h: height),
+                    x: insetX, y: y + insetY, w: metrics.panelWidth - insetX * 2, h: height),
                 fillColor: PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
                 cornerRadius: height / 2,
                 strokeColor: colors.selectionOutline,
@@ -292,7 +295,7 @@ public struct PanelElementsBuilder {
     private func appendClock(_ inputs: Inputs, to elements: inout [PanelElement]) {
         let layout = PanelLayout.self
         let colors = PanelLayout.Colors.self
-        let center = layout.clockCenter
+        let center = metrics.clockCenter
         let radius = layout.clockRadius
         let time = localTime()
 
@@ -326,7 +329,7 @@ public struct PanelElementsBuilder {
         elements.append(.circle(center: center, radius: 2.5, fillColor: colors.text))
 
         elements.append(.text(
-            frame: layout.clockDigitalFrame,
+            frame: metrics.clockDigitalFrame,
             text: String(format: "%02d:%02d:%02d", time.hour, time.minute, time.second),
             fontName: inputs.ui.monoFontName,
             fontSize: layout.clockDigitalFontSize,

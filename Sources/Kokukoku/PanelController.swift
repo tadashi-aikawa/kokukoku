@@ -31,7 +31,8 @@ final class PanelController {
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
     private(set) var visible = false
-    private var selectedIndex: Int?  // 1-origin (Luaと同じ)
+    /// キーボード選択の対象(予定行・トグル行・プロジェクト行の統一ループ)
+    private var selectedTarget: PanelSelectionTarget?
     private var hoveredId: String?
     private var resetConfirming = false
     private var inlineEditor: InlineTimeEditor?
@@ -93,10 +94,10 @@ final class PanelController {
 
         // カーソル初期位置をアクティブプロジェクトに設定(通知モードはカーソルなし)
         let state = callbacks.getState()
-        selectedIndex = notificationMode
+        selectedTarget = notificationMode
             ? nil
             : state.activeProjectId.flatMap { activeId in
-                projects.firstIndex { $0.id == activeId }.map { $0 + 1 }
+                projects.firstIndex { $0.id == activeId }.map { .project(index: $0 + 1) }
             }
 
         calendarRows = currentCalendarRows()
@@ -175,7 +176,7 @@ final class PanelController {
         window = nil
         panelView = nil
         visible = false
-        selectedIndex = nil
+        selectedTarget = nil
         hoveredId = nil
         resetConfirming = false
         calendarExpanded = false
@@ -234,6 +235,11 @@ final class PanelController {
         calendarRows = currentCalendarRows()
         resizeWindowIfNeeded()
 
+        // 予定の増減で選択対象の行が消えた場合は選択を外す(幽霊選択の防止)
+        if let target = selectedTarget, !selectionTargets().contains(target) {
+            selectedTarget = nil
+        }
+
         let builder = PanelElementsBuilder(
             now: now,
             localTime: {
@@ -261,7 +267,7 @@ final class PanelController {
             .init(
                 projects: projects,
                 state: callbacks.getState(),
-                selectedIndex: selectedIndex,
+                selectedTarget: selectedTarget,
                 hoveredId: hoveredId,
                 resetConfirming: resetConfirming,
                 editingTarget: editingTarget,
@@ -295,15 +301,41 @@ final class PanelController {
         rebuildPanel()
     }
 
-    /// キーボード選択はプロジェクト行のみ(休憩は再選択トグル、リセットはキー・クリックで行う)
+    /// 現在の表示内容から選択ループの巡回順を組み立てる(予定セクション→プロジェクト行)
+    private func selectionTargets() -> [PanelSelectionTarget] {
+        PanelSelection.targets(calendarRows: calendarRows, projectCount: projects.count)
+    }
+
+    /// Enterの確定動作は選択対象で分岐する。プロジェクト行=計測切替、
+    /// 予定行=詳細ページを開いてパネルを閉じる(クリックと同じ)、トグル行=展開/畳む
     private func executeSelectedAction() {
-        guard let selectedIndex, selectedIndex <= projects.count else { return }
-        selectProject(projects[selectedIndex - 1].id)
+        switch selectedTarget {
+        case .project(let index):
+            guard index <= projects.count else { return }
+            selectProject(projects[index - 1].id)
+        case .calendarEvent(let eventIndex):
+            openCalendarDetail(eventIndex: eventIndex)
+        case .calendarOverflow:
+            // キーボードで展開したときは、カーソルを展開で現れた先頭の予定へ進める
+            let shownEventCount = calendarRows.reduce(0) {
+                if case .event = $1 { return $0 + 1 } else { return $0 }
+            }
+            calendarExpanded = true
+            selectedTarget = .calendarEvent(eventIndex: shownEventCount)
+            rebuildPanel()
+        case .calendarCollapse:
+            // 畳んだ後もループ内の同じ場所(「他◯件」行)にカーソルを留める
+            calendarExpanded = false
+            selectedTarget = .calendarOverflow
+            rebuildPanel()
+        case nil:
+            break
+        }
     }
 
     private func editSelectedProjectTime() {
-        guard let selectedIndex, selectedIndex <= projects.count else { return }
-        let project = projects[selectedIndex - 1]
+        guard case .project(let index)? = selectedTarget, index <= projects.count else { return }
+        let project = projects[index - 1]
         let state = callbacks.getState()
 
         var currentAccumulated = state.accumulated[project.id] ?? 0
@@ -463,16 +495,14 @@ final class PanelController {
         case .dismiss:
             hide()
         case .confirm:
-            if selectedIndex != nil {
-                executeSelectedAction()
-            }
+            executeSelectedAction()
         case .moveDown:
-            selectedIndex = PanelSelection.nextIndex(
-                current: selectedIndex, projectCount: projects.count)
+            selectedTarget = PanelSelection.next(
+                current: selectedTarget, in: selectionTargets())
             rebuildPanel()
         case .moveUp:
-            selectedIndex = PanelSelection.previousIndex(
-                current: selectedIndex, projectCount: projects.count)
+            selectedTarget = PanelSelection.previous(
+                current: selectedTarget, in: selectionTargets())
             rebuildPanel()
         case .startBreak:
             resetConfirming = false
@@ -496,7 +526,9 @@ final class PanelController {
         return true
     }
 
-    /// 予定行クリックでカレンダーの詳細ページをブラウザで開く(初期仕様の操作はマウスのみ)
+    /// 予定行のクリック・Enterでカレンダーの詳細ページをブラウザで開く。
+    /// フォーカスがブラウザへ移るためパネルは閉じる(戻すよりホットキー再表示のほうが楽。
+    /// 2026-07-19 タダシ決定)
     private func openCalendarDetail(eventIndex: Int) {
         let eventRows: [CalendarEventRow] = calendarRows.compactMap {
             if case .event(let row) = $0 { return row } else { return nil }
@@ -505,6 +537,7 @@ final class PanelController {
             let url = eventRows[eventIndex].detailURL
         else { return }
         NSWorkspace.shared.open(url)
+        hide()
     }
 
     private func screenForMousePosition() -> NSScreen {

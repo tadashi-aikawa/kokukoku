@@ -9,7 +9,8 @@ public struct PanelElementsBuilder {
     public struct Inputs: Sendable {
         public var projects: [KokukokuConfig.Project]
         public var state: TimerState
-        public var selectedIndex: Int?
+        /// キーボード選択の対象(予定行・トグル行・プロジェクト行の統一ループ)
+        public var selectedTarget: PanelSelectionTarget?
         public var hoveredId: String?
         public var resetConfirming: Bool
         public var editingTarget: PanelEditingTarget?
@@ -24,7 +25,7 @@ public struct PanelElementsBuilder {
         public init(
             projects: [KokukokuConfig.Project],
             state: TimerState,
-            selectedIndex: Int? = nil,
+            selectedTarget: PanelSelectionTarget? = nil,
             hoveredId: String? = nil,
             resetConfirming: Bool = false,
             editingTarget: PanelEditingTarget? = nil,
@@ -35,7 +36,7 @@ public struct PanelElementsBuilder {
         ) {
             self.projects = projects
             self.state = state
-            self.selectedIndex = selectedIndex
+            self.selectedTarget = selectedTarget
             self.hoveredId = hoveredId
             self.resetConfirming = resetConfirming
             self.editingTarget = editingTarget
@@ -340,7 +341,7 @@ public struct PanelElementsBuilder {
 
         // キーボード選択はネオンと同形のカプセル輪郭(消灯版)。Enterの確定対象を示す。
         // 選択行が計測中(ネオンと重なる)場合は、ネオンの内側に細い輪として引っ込める
-        if let selected = inputs.selectedIndex,
+        if case .project(let selected)? = inputs.selectedTarget,
             selected >= 1, selected <= inputs.projects.count
         {
             let project = inputs.projects[selected - 1]
@@ -390,9 +391,16 @@ public struct PanelElementsBuilder {
         var dots: [(centerY: Double, gapStyle: CalendarGapStyle?)] = []
         // 参加者行は直前の予定行の強調に追随させる
         var lastEventHighlighted = false
+        // キーボード選択中の行の位置(輪郭はレールより手前に描くため後でまとめて構築)
+        var selectedRowFrame: (y: Double, height: Double)?
 
         for row in inputs.calendarRows {
             let rowHeight = layout.calendarRowHeight(row)
+            if Self.rowMatchesSelection(
+                row: row, eventIndex: eventIndex, target: inputs.selectedTarget)
+            {
+                selectedRowFrame = (y, rowHeight)
+            }
             switch row {
             case .event(let event):
                 let lineCenterY = y + rowHeight / 2
@@ -551,6 +559,36 @@ public struct PanelElementsBuilder {
         }
 
         appendCalendarRail(dots, ui: inputs.ui, to: &elements)
+
+        // キーボード選択の輪郭(プロジェクト行と同じ「消灯版カプセル」でEnterの対象を示す)。
+        // レールや文字に重なっても輪郭線だけなので最前面でよい
+        if let selected = selectedRowFrame {
+            let insetY = 2.0
+            let height = selected.height - insetY * 2
+            elements.append(.rectangle(
+                frame: .init(
+                    x: layout.capsuleInsetX, y: selected.y + insetY,
+                    w: metrics.panelWidth - layout.capsuleInsetX * 2, h: height),
+                fillColor: PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
+                cornerRadius: height / 2,
+                strokeColor: colors.selectionOutline,
+                strokeWidth: 1))
+        }
+    }
+
+    /// 予定セクションの行がキーボード選択中かどうか。
+    /// eventIndex はその行までに現れた予定行の数(=予定行なら自分の cal_event_N)
+    static func rowMatchesSelection(
+        row: CalendarSectionRow, eventIndex: Int, target: PanelSelectionTarget?
+    ) -> Bool {
+        switch (row, target) {
+        case (.event, .calendarEvent(let selected)):
+            return eventIndex == selected
+        case (.overflow, .calendarOverflow), (.collapse, .calendarCollapse):
+            return true
+        default:
+            return false
+        }
     }
 
     /// 「他◯件」「畳む」のクリック可能なトグル行(ホバーで背景が浮かぶ)

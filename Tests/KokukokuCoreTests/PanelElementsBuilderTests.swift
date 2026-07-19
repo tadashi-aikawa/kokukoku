@@ -131,7 +131,7 @@ struct PanelElementsBuilderTests {
 
     @Test("キーボード選択はカプセル輪郭で示し行背景は変えない")
     func selectionOutline() {
-        let selected = builder().build(inputs(selectedIndex: 1))
+        let selected = builder().build(inputs(selectedTarget: .project(index: 1)))
 
         #expect(selected[14] == .rectangle(
             frame: .init(x: 0, y: 84, w: 480, h: 40),
@@ -148,7 +148,7 @@ struct PanelElementsBuilderTests {
     func selectionOutlineOnActiveRow() {
         let elements = builder(now: 1_100).build(inputs(
             state: .init(activeProjectId: "work", activeStartedAt: 1_000),
-            selectedIndex: 1))
+            selectedTarget: .project(index: 1)))
 
         guard case .neonRectangle = elements[elements.count - 2] else {
             Issue.record("選択輪郭の直前にネオン縁取りがない")
@@ -160,6 +160,35 @@ struct PanelElementsBuilderTests {
             cornerRadius: 13,
             strokeColor: PanelLayout.Colors.selectionOutline,
             strokeWidth: 1))
+    }
+
+    @Test("予定行のキーボード選択もカプセル輪郭で示す")
+    func selectionOutlineOnCalendarRow() {
+        let rows: [CalendarSectionRow] = [
+            .event(.init(startText: "13:00", endText: "-14:00", title: "a", countdownText: "あと5分")),
+            .event(.init(startText: "14:10", endText: "-15:00", title: "b", gapStyle: .rail)),
+            .overflow(hiddenCount: 2),
+        ]
+        let selected = builder().build(inputs(
+            selectedTarget: .calendarEvent(eventIndex: 1), calendarRows: rows))
+
+        // 2件目の予定行(セクション上端84+余白6+1行分26)に輪郭が乗る
+        #expect(selected.contains(.rectangle(
+            frame: .init(x: 8, y: 118, w: 464, h: 22),
+            fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
+            cornerRadius: 11,
+            strokeColor: PanelLayout.Colors.selectionOutline,
+            strokeWidth: 1)))
+
+        // 「他◯件」行の選択にも輪郭が乗る(Enterで展開できる合図)
+        let overflowSelected = builder().build(inputs(
+            selectedTarget: .calendarOverflow, calendarRows: rows))
+        #expect(overflowSelected.contains(.rectangle(
+            frame: .init(x: 8, y: 144, w: 464, h: 14),
+            fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
+            cornerRadius: 7,
+            strokeColor: PanelLayout.Colors.selectionOutline,
+            strokeWidth: 1)))
     }
 
     @Test("計測中の行は炎色ネオン縁取りで示し文字ラベルは置かない")
@@ -497,7 +526,7 @@ struct PanelElementsBuilderTests {
     private func inputs(
         project: KokukokuConfig.Project = .init(id: "work", name: "Work", icon: "🔵"),
         state: TimerState = .init(),
-        selectedIndex: Int? = nil,
+        selectedTarget: PanelSelectionTarget? = nil,
         hoveredId: String? = nil,
         resetConfirming: Bool = false,
         editingTarget: PanelEditingTarget? = nil,
@@ -507,7 +536,7 @@ struct PanelElementsBuilderTests {
     ) -> PanelElementsBuilder.Inputs {
         .init(
             projects: [project], state: state,
-            selectedIndex: selectedIndex, hoveredId: hoveredId,
+            selectedTarget: selectedTarget, hoveredId: hoveredId,
             resetConfirming: resetConfirming,
             editingTarget: editingTarget,
             alertThresholds: alertThresholds,

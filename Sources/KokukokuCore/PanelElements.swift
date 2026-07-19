@@ -325,6 +325,13 @@ public enum PanelLayout {
         /// 連鎖は「危険」でも「いま」でもない構造情報のため炎色帯(金茶〜朱)を使わない。
         /// タイムライン内は「繋がりの強さ=明度、色相ジャンプ=異常(朱)」の一軸文法にする
         public static let calendarChain = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 1)
+        /// 進行中予定のリングstroke(橙の炎色)とその単層グロー。
+        /// 径3pxの点は色相変更だけでは一瞥で沈むため(実物確認)、淡い橙グローを添えて声量を足す。
+        /// アラートハロー(生成り)とは色相で声を分け、alphaはハローの内層(0.30)より明確に低くして
+        /// 常時状態の光が一時的な呼びかけを埋もれさせないようにする(2026-07-19 タダシ承認)
+        public static let calendarOngoing = PanelColor(red: 1.0, green: 0.66, blue: 0.28, alpha: 1)
+        public static let calendarOngoingGlow = PanelColor(
+            red: 1.0, green: 0.66, blue: 0.28, alpha: 0.18)
         /// 連続稼働ゲージ: 溝は沈めた無彩色、火は金茶から始まり閾値に近づくほど朱へ燃える
         public static let gaugeTrack = PanelColor(red: 0.20, green: 0.20, blue: 0.17, alpha: 1)
         public static let gaugeStart = PanelColor(red: 0.67, green: 0.54, blue: 0.33, alpha: 1)

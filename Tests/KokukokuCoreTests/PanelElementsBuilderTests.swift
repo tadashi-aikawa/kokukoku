@@ -539,9 +539,19 @@ struct PanelElementsBuilderTests {
             guard case .line(let from, let to, _, _) = element else { return false }
             return from.x == PanelLayout.calendarRailX && from.x == to.x
         })
+        // 進行中の点は橙の炎色の中抜きリング+単層の淡い橙グロー(色相と光で「いま消化中」を語る)
         #expect(elements.contains { element in
-            guard case .circle(let center, 3, _, _, _) = element else { return false }
+            guard case .circle(let center, 3, let fill, let stroke, 1.5) = element
+            else { return false }
             return center == PanelPoint(x: PanelLayout.calendarRailX, y: 103)
+                && fill == PanelLayout.Colors.headerBg
+                && stroke == PanelLayout.Colors.calendarOngoing
+        })
+        #expect(elements.contains { element in
+            guard case .circle(let center, 7.5, let fill, nil, _) = element
+            else { return false }
+            return center == PanelPoint(x: PanelLayout.calendarRailX, y: 103)
+                && fill == PanelLayout.Colors.calendarOngoingGlow
         })
     }
 

@@ -688,8 +688,9 @@ public struct PanelElementsBuilder {
         }
         // 点=予定そのもの(ノード)、レール=関係(エッジ)。間隔の意味はレールだけが背負い、
         // 点は全予定で同色に統一する(点の色が違うと予定の種類が違うように読めるため)。
-        // 進行中の予定だけ同色のまま中抜きリングにする(塗り=これから、抜き=いま消化中。
-        // 色相・サイズは変えないため予定の種類の違いには読めない。2026-07-19 3人検討)
+        // 進行中の予定だけ橙の炎色の中抜きリングにする(塗り=これから、抜き=いま消化中)。
+        // 進行中は「種類」やなく全予定が通る一時的な「状態」のため色相変更が種類には読めない。
+        // 同色リングでは一瞥で沈むため色相で語る(2026-07-19 第二ラウンド検討でタダシ承認)
         for dot in dots {
             // 開始前通知の対象は点の周りに生成りのハロー(入場パルスと同じ光の声)を灯して
             // 「この予定のアラートや」と指す。情報は行が既に語っているため文字は足さない
@@ -705,11 +706,17 @@ public struct PanelElementsBuilder {
                     fillColor: colors.alertHaloInner))
             }
             if dot.isInProgress {
+                // 単層の淡い橙グロー(色相変更だけでは径3pxの点は一瞥で沈むため。
+                // 二層のアラートハローより一段静かな光に留める)
+                elements.append(.circle(
+                    center: PanelPoint(x: railX, y: dot.centerY),
+                    radius: dotRadius + 4.5,
+                    fillColor: colors.calendarOngoingGlow))
                 elements.append(.circle(
                     center: PanelPoint(x: railX, y: dot.centerY),
                     radius: dotRadius,
                     fillColor: colors.headerBg,
-                    strokeColor: colors.calendarChain,
+                    strokeColor: colors.calendarOngoing,
                     strokeWidth: 1.5))
             } else {
                 elements.append(.circle(

@@ -106,7 +106,7 @@ struct CalendarSectionModelTests {
         #expect(eventRow(rows[0])?.countdownText == "あと1分")
     }
 
-    @Test("2件目以降は間隔を持ち、先頭はカウントダウンだけを持つ")
+    @Test("2件目以降は間隔表現を持ち、先頭はカウントダウンだけを持つ")
     func gapOnSecondEvent() {
         let events = [
             makeEvent(id: "a@google.com", start: at(hour: 13), end: at(hour: 14)),
@@ -119,29 +119,13 @@ struct CalendarSectionModelTests {
         let first = eventRow(rows[0])
         let second = eventRow(rows[1])
         #expect(first?.countdownText == "あと1時間")
-        #expect(first?.gapText == nil)
+        #expect(first?.gapStyle == nil)
         #expect(second?.countdownText == nil)
-        #expect(second?.gapText == "10分")
-        #expect(second?.gapIsWarning == false)
+        #expect(second?.gapStyle == .rail)
     }
 
-    @Test("間隔10分未満は警告になる(表示は切り捨て)")
-    func gapWarning() {
-        let events = [
-            makeEvent(id: "a@google.com", start: at(hour: 13), end: at(hour: 14)),
-            makeEvent(
-                id: "b@google.com", start: at(hour: 14, minute: 9, second: 59), end: at(hour: 15)),
-        ]
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: events), now: at(hour: 12), calendar: calendar)
-
-        #expect(eventRow(rows[1])?.gapText == "9分")
-        #expect(eventRow(rows[1])?.gapIsWarning == true)
-    }
-
-    @Test("back-to-backは「0分」として警告になる")
-    func backToBackGap() {
+    @Test("間隔が閾値未満(0分含む)はレールなしの接触表現になる")
+    func contactGap() {
         let events = [
             makeEvent(id: "a@google.com", start: at(hour: 13), end: at(hour: 14)),
             makeEvent(id: "b@google.com", start: at(hour: 14), end: at(hour: 15)),
@@ -150,11 +134,27 @@ struct CalendarSectionModelTests {
         let rows = CalendarSectionModel.rows(
             state: .init(events: events), now: at(hour: 12), calendar: calendar)
 
-        #expect(eventRow(rows[1])?.gapText == "0分")
-        #expect(eventRow(rows[1])?.gapIsWarning == true)
+        #expect(eventRow(rows[1])?.gapStyle == .contact)
     }
 
-    @Test("時間帯が重なる場合は「◯分重複」として警告になる(切り上げ)")
+    @Test("レール閾値は設定で広げられる(gapRailMinutes)")
+    func configurableRailThreshold() {
+        let events = [
+            makeEvent(id: "a@google.com", start: at(hour: 13), end: at(hour: 14)),
+            makeEvent(id: "b@google.com", start: at(hour: 14, minute: 9), end: at(hour: 15)),
+        ]
+
+        let normal = CalendarSectionModel.rows(
+            state: .init(events: events), now: at(hour: 12), calendar: calendar)
+        let widened = CalendarSectionModel.rows(
+            state: .init(events: events, gapRailMinutes: 10),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(eventRow(normal[1])?.gapStyle == .rail)
+        #expect(eventRow(widened[1])?.gapStyle == .contact)
+    }
+
+    @Test("時間帯が重なる場合は「◯分重複」の表現になる(切り上げ)")
     func overlappingGap() {
         let events = [
             makeEvent(id: "a@google.com", start: at(hour: 13), end: at(hour: 14, minute: 30)),
@@ -165,8 +165,7 @@ struct CalendarSectionModelTests {
         let rows = CalendarSectionModel.rows(
             state: .init(events: events), now: at(hour: 12), calendar: calendar)
 
-        #expect(eventRow(rows[1])?.gapText == "30分重複")
-        #expect(eventRow(rows[1])?.gapIsWarning == true)
+        #expect(eventRow(rows[1])?.gapStyle == .overlap(minutes: 30))
     }
 
     @Test("参加者は2行目になり、メールアドレスはローカル部だけ表示される")

@@ -91,7 +91,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         maxVisibleEvents: service.maxVisibleEvents,
                         lastSuccessAt: service.snapshot.lastSuccessAt,
                         notices: service.notices,
-                        selfEmail: service.selfEmail)
+                        selfEmail: service.selfEmail,
+                        gapRailMinutes: service.gapRailMinutes)
                 }))
 
         self.engine = engine

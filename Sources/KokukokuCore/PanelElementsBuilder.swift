@@ -386,8 +386,8 @@ public struct PanelElementsBuilder {
             if case .event(let event) = row { return event.locationText != nil }
             return false
         }) ? 110 : 0
-        // タイムラインの点の中心Yと、その予定の間隔情報(レール描画は行の後にまとめて行う)
-        var dots: [(centerY: Double, gapText: String?, gapIsWarning: Bool)] = []
+        // タイムラインの点の中心Yと、その予定の間隔表現(レール描画は行の後にまとめて行う)
+        var dots: [(centerY: Double, gapStyle: CalendarGapStyle?)] = []
         // 参加者行は直前の予定行の強調に追随させる
         var lastEventHighlighted = false
 
@@ -396,7 +396,7 @@ public struct PanelElementsBuilder {
             switch row {
             case .event(let event):
                 let lineCenterY = y + rowHeight / 2
-                dots.append((lineCenterY, event.gapText, event.gapIsWarning))
+                dots.append((lineCenterY, event.gapStyle))
                 lastEventHighlighted = event.isHighlighted
 
                 // 行背景: 通知の強調は計測中行と同じ暖色背景で示す。
@@ -589,10 +589,11 @@ public struct PanelElementsBuilder {
         return nil
     }
 
-    /// タイムラインのレール: 予定ごとの点を縦線でつなぎ、間隔の分数を線の中点に添える。
-    /// 警告間隔(10分未満・重複)は線も数字も朱にする
+    /// タイムラインのレール: 予定の間の空き時間をレール(縦線)の有無で表現する。
+    /// 間隔あり=レールでつなぐ(分数は出さない)/ 間隔なし=レールを消し朱の接触線 /
+    /// 重複=接触線+朱の「◯分重複」だけ数字を残す
     private func appendCalendarRail(
-        _ dots: [(centerY: Double, gapText: String?, gapIsWarning: Bool)],
+        _ dots: [(centerY: Double, gapStyle: CalendarGapStyle?)],
         ui: ResolvedUIConfig,
         to elements: inout [PanelElement]
     ) {
@@ -603,27 +604,43 @@ public struct PanelElementsBuilder {
         let dotRadius = 3.0
 
         for (previous, current) in zip(dots, dots.dropFirst()) {
-            let lineColor = current.gapIsWarning ? colors.clockSecondHand : colors.separator
-            elements.append(.line(
-                from: PanelPoint(x: railX, y: previous.centerY + dotRadius + 2),
-                to: PanelPoint(x: railX, y: current.centerY - dotRadius - 2),
-                color: lineColor,
-                width: 1))
-            if let gapText = current.gapText {
-                let midY = (previous.centerY + current.centerY) / 2
+            let midY = (previous.centerY + current.centerY) / 2
+            switch current.gapStyle {
+            case .rail, nil:
+                // 点との間に半径+2pxの隙間を空ける(タダシ確認で「隙間がある方が映える」)
+                elements.append(.line(
+                    from: PanelPoint(x: railX, y: previous.centerY + dotRadius + 2),
+                    to: PanelPoint(x: railX, y: current.centerY - dotRadius - 2),
+                    color: colors.subText,
+                    width: 1))
+            case .contact:
+                // 「間がない」連鎖の印: 明るい生成りの太めレール(連鎖は構造情報のため炎色を使わない)
+                elements.append(.line(
+                    from: PanelPoint(x: railX, y: previous.centerY + dotRadius + 2),
+                    to: PanelPoint(x: railX, y: current.centerY - dotRadius - 2),
+                    color: colors.calendarChain,
+                    width: 2))
+            case .overlap(let minutes):
+                elements.append(.line(
+                    from: PanelPoint(x: railX, y: previous.centerY + dotRadius + 2),
+                    to: PanelPoint(x: railX, y: current.centerY - dotRadius - 2),
+                    color: colors.clockSecondHand,
+                    width: 2))
                 elements.append(.text(
-                    frame: .init(x: railX + 7, y: midY - 7, w: 64, h: 14),
-                    text: gapText,
+                    frame: .init(x: railX + 9, y: midY - 7, w: 72, h: 14),
+                    text: "\(minutes)分重複",
                     fontName: ui.fontName,
                     fontSize: 10,
-                    color: current.gapIsWarning ? colors.clockSecondHand : colors.subText))
+                    color: colors.clockSecondHand))
             }
         }
-        for (index, dot) in dots.enumerated() {
+        // 点=予定そのもの(ノード)、レール=関係(エッジ)。間隔の意味はレールだけが背負い、
+        // 点は全予定で同色に統一する(点の色が違うと予定の種類が違うように読めるため)
+        for dot in dots {
             elements.append(.circle(
                 center: PanelPoint(x: railX, y: dot.centerY),
                 radius: dotRadius,
-                fillColor: index == 0 ? colors.activeText : colors.subText))
+                fillColor: colors.calendarChain))
         }
     }
 

@@ -294,6 +294,10 @@ public enum PanelLayout {
         public static let panelBorder = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 0.28)
         public static let clockSecondHand = PanelColor(
             red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
+        /// 予定タイムラインの連鎖(間なし)用の明るい生成り(テキストと同格のフル明度)。
+        /// 連鎖は「危険」でも「いま」でもない構造情報のため炎色帯(金茶〜朱)を使わない。
+        /// タイムライン内は「繋がりの強さ=明度、色相ジャンプ=異常(朱)」の一軸文法にする
+        public static let calendarChain = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 1)
         /// 連続稼働ゲージ: 溝は沈めた無彩色、火は金茶から始まり閾値に近づくほど朱へ燃える
         public static let gaugeTrack = PanelColor(red: 0.20, green: 0.20, blue: 0.17, alpha: 1)
         public static let gaugeStart = PanelColor(red: 0.67, green: 0.54, blue: 0.33, alpha: 1)

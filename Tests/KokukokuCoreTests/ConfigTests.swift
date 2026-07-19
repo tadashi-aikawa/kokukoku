@@ -323,6 +323,14 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.maxAttendees == 5)
         #expect(resolved.maxVisibleEvents == 3)
         #expect(resolved.selfEmail == nil)
+        #expect(resolved.gapRailMinutes == 1)
+    }
+
+    @Test("calendarのレール閾値が1未満ならinvalidエラーになる")
+    func parseCalendarInvalidGapRailMinutes() {
+        #expect(throws: ConfigError.invalid(description: "calendar.gapRailMinutes must be >= 1")) {
+            try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\ngapRailMinutes = 0")
+        }
     }
 
     @Test("calendarのselfEmailを読み込める(空文字はinvalidエラー)")

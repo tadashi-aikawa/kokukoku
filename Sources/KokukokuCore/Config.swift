@@ -63,6 +63,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         public var maxAttendees: Int?
         public var maxVisibleEvents: Int?
         public var selfEmail: String?
+        public var gapRailMinutes: Int?
 
         public init(
             name: String,
@@ -70,7 +71,8 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             notificationLeadMinutes: Int? = nil,
             maxAttendees: Int? = nil,
             maxVisibleEvents: Int? = nil,
-            selfEmail: String? = nil
+            selfEmail: String? = nil,
+            gapRailMinutes: Int? = nil
         ) {
             self.name = name
             self.refreshIntervalMinutes = refreshIntervalMinutes
@@ -78,6 +80,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             self.maxAttendees = maxAttendees
             self.maxVisibleEvents = maxVisibleEvents
             self.selfEmail = selfEmail
+            self.gapRailMinutes = gapRailMinutes
         }
     }
 
@@ -163,6 +166,8 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
     /// 自分自身のメールアドレス。参加者一覧から自分を除外する
     /// (EventKitのisCurrentUserはGoogleアカウント連携で効かないことを実測済みのため設定で指定)
     public var selfEmail: String?
+    /// タイムラインのレールを表示する最小間隔(分)。これ未満は「間隔なし」の接触表現になる
+    public var gapRailMinutes: Int
 
     public init(calendar: KokukokuConfig.Calendar) {
         self.name = calendar.name
@@ -171,6 +176,7 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
         self.maxAttendees = calendar.maxAttendees ?? 5
         self.maxVisibleEvents = calendar.maxVisibleEvents ?? 3
         self.selfEmail = calendar.selfEmail
+        self.gapRailMinutes = calendar.gapRailMinutes ?? 1
     }
 }
 
@@ -237,6 +243,9 @@ public enum ConfigLoader {
             if let selfEmail = calendar.selfEmail, selfEmail.isEmpty {
                 throw ConfigError.invalid(
                     description: "calendar.selfEmail must be a non-empty string")
+            }
+            if let rail = calendar.gapRailMinutes, rail < 1 {
+                throw ConfigError.invalid(description: "calendar.gapRailMinutes must be >= 1")
             }
         }
     }

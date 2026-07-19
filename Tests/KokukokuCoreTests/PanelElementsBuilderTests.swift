@@ -386,33 +386,51 @@ struct PanelElementsBuilderTests {
         })
     }
 
-    @Test("タイムラインのレールは点と線で描かれ、警告間隔は朱になる")
+    @Test("間隔ありはレール、間隔なしは朱の接触線、重複は接触線+朱の分数になる")
     func calendarRail() {
         let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "-14:00", title: "a", countdownText: "あと60分")),
+            .event(.init(startText: "13:00", endText: "-14:00", title: "a", countdownText: "あと5分")),
             .event(.init(
-                startText: "14:00", endText: "-15:00", title: "b",
-                gapText: "0分", gapIsWarning: true)),
+                startText: "14:10", endText: "-15:00", title: "b", gapStyle: .rail)),
+            .event(.init(
+                startText: "15:00", endText: "-16:00", title: "c", gapStyle: .contact)),
+            .event(.init(
+                startText: "15:30", endText: "-16:30", title: "d",
+                gapStyle: .overlap(minutes: 30))),
         ]
         let elements = builder().build(inputs(calendarRows: rows))
 
-        // 予定2件分の点(先頭は金茶、以降はsubText)
+        // 予定4件分の点は全予定で同色(明るい生成り)。間隔の意味はレールだけが背負う
         let dotColors = elements.compactMap { element -> PanelColor? in
             guard case .circle(_, let radius, let fill, _, _) = element, radius == 3 else {
                 return nil
             }
             return fill
         }
-        #expect(dotColors == [PanelLayout.Colors.activeText, PanelLayout.Colors.subText])
-        // 警告間隔のレール線と数字は朱
-        #expect(elements.contains { element in
-            guard case .line(_, _, let color, _) = element else { return false }
-            return color == PanelLayout.Colors.clockSecondHand
-        })
-        #expect(elements.contains { element in
-            guard case .text(_, "0分", _, _, let color, _) = element else { return false }
-            return color == PanelLayout.Colors.clockSecondHand
-        })
+        #expect(dotColors == Array(repeating: PanelLayout.Colors.calendarChain, count: 4))
+        // 通常レール(縦線・subText色)は間隔ありの1本だけ
+        // (時計の目盛もsubTextの縦線のため、レールのx座標で絞る)
+        let railLines = elements.filter { element in
+            guard case .line(let from, let to, let color, _) = element else { return false }
+            return from.x == PanelLayout.calendarRailX && from.x == to.x
+                && color == PanelLayout.Colors.subText
+        }
+        #expect(railLines.count == 1)
+        // 連鎖レール(燻し橙)と重複レール(朱)が1本ずつ
+        func verticalRailCount(of color: PanelColor) -> Int {
+            elements.filter { element in
+                guard case .line(let from, let to, let lineColor, _) = element else {
+                    return false
+                }
+                return from.x == PanelLayout.calendarRailX && from.x == to.x
+                    && lineColor == color
+            }.count
+        }
+        #expect(verticalRailCount(of: PanelLayout.Colors.calendarChain) == 1)
+        #expect(verticalRailCount(of: PanelLayout.Colors.clockSecondHand) == 1)
+        // 数字は重複だけに残る
+        #expect(containsText("30分重複", in: elements))
+        #expect(!containsText("0分", in: elements))
     }
 
     @Test("通知モードでは閉じるボタン・強調背景・鮮度表示を描く")

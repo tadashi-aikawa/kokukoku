@@ -117,6 +117,7 @@ notificationLeadMinutes = 5 # 予定開始の何分前に通知するか
 maxAttendees = 5            # 予定行に表示する参加者数の上限 (超過分は「他◯人」)
 maxVisibleEvents = 3        # 展開前に表示する予定数の上限 (超過分は「他◯件」。クリックで全件展開)
 selfEmail = "you@example.com" # 自分のメールアドレス (任意。参加者一覧から自分を除外)
+gapRailMinutes = 1          # タイムラインのレールを表示する最小間隔 (分)。未満は「間隔なし」の接触表現
 ```
 
 カレンダー連携は macOS のカレンダー (EventKit) を経由します。システム設定 > インターネットアカウントに Google アカウントを追加しておいてください。Google カレンダー側の変更が反映されるまで数分 (実測 3〜4 分) かかるため、`notificationLeadMinutes` を 5 分より短くすると直前の予定変更を拾えない可能性があります。

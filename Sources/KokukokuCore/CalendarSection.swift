@@ -11,6 +11,8 @@ public struct CalendarPanelState: Equatable, Sendable {
     public var maxVisibleEvents: Int
     /// 自分自身のメールアドレス(参加者一覧から除外する)
     public var selfEmail: String?
+    /// レールを表示する最小間隔(分)。これ未満は「間隔なし」として接触表現にする
+    public var gapRailMinutes: Int
     /// 最後に取得成功した時刻(通知パネルの鮮度表示に使う)
     public var lastSuccessAt: Date?
     /// 通知で強調する予定(通知モードのみ)
@@ -26,7 +28,8 @@ public struct CalendarPanelState: Equatable, Sendable {
         lastSuccessAt: Date? = nil,
         highlightedKeys: Set<CalendarEvent.EventKey> = [],
         notices: [String] = [],
-        selfEmail: String? = nil
+        selfEmail: String? = nil,
+        gapRailMinutes: Int = 1
     ) {
         self.events = events
         self.error = error
@@ -36,6 +39,7 @@ public struct CalendarPanelState: Equatable, Sendable {
         self.highlightedKeys = highlightedKeys
         self.notices = notices
         self.selfEmail = selfEmail
+        self.gapRailMinutes = gapRailMinutes
     }
 }
 
@@ -70,9 +74,8 @@ public struct CalendarEventRow: Equatable, Sendable {
     public var countdownText: String?
     /// カウントダウンの緊急度(色分けの入力)。countdownText とセットで入る
     public var countdownUrgency: CalendarCountdownUrgency?
-    /// 直前の予定との間隔(タイムラインのレール上に描く)。先頭は nil
-    public var gapText: String?
-    public var gapIsWarning: Bool
+    /// 直前の予定との間隔の表現。先頭は nil
+    public var gapStyle: CalendarGapStyle?
     /// 通知で強調中か(通知モードの該当予定)
     public var isHighlighted: Bool
 
@@ -84,8 +87,7 @@ public struct CalendarEventRow: Equatable, Sendable {
         detailURL: URL? = nil,
         countdownText: String? = nil,
         countdownUrgency: CalendarCountdownUrgency? = nil,
-        gapText: String? = nil,
-        gapIsWarning: Bool = false,
+        gapStyle: CalendarGapStyle? = nil,
         isHighlighted: Bool = false
     ) {
         self.startText = startText
@@ -95,10 +97,20 @@ public struct CalendarEventRow: Equatable, Sendable {
         self.detailURL = detailURL
         self.countdownText = countdownText
         self.countdownUrgency = countdownUrgency
-        self.gapText = gapText
-        self.gapIsWarning = gapIsWarning
+        self.gapStyle = gapStyle
         self.isHighlighted = isHighlighted
     }
+}
+
+/// 予定間の間隔の表現(2026-07-19 タダシ発案の「レールの有無」方式)。
+/// レール=空き時間がある印。数字は重複のときだけ出す
+public enum CalendarGapStyle: Equatable, Sendable {
+    /// 閾値(gapRailMinutes)以上の間隔: レールでつなぐ(分数は出さない)
+    case rail
+    /// 閾値未満(0分含む): レールを消して行を接触させ、朱の接触線で「間がない」危険を示す
+    case contact
+    /// 時間帯の重複: 接触+朱の「◯分重複」(食い込み量は判断材料のため数字を残す)
+    case overlap(minutes: Int)
 }
 
 /// カウントダウンの緊急度。遠いときは沈み色、近づくと強調、直前は警告色で描く
@@ -124,9 +136,6 @@ public struct CalendarAttendeesRow: Equatable, Sendable {
 }
 
 public enum CalendarSectionModel {
-    /// 間隔警告の固定閾値(秒)。R2: 10分未満は移動猶予が少ないため強調する
-    public static let gapWarningThresholdSeconds = 600
-
     /// 表示状態から予定セクションの行データ列を組み立てる。空配列はセクションごと非表示。
     /// includeFreshness は通知モードのみ true(「◯分前時点の情報」を末尾に付ける)。
     /// expanded は「他◯件」クリックでの全件展開中(末尾に「畳む」が付く)
@@ -154,9 +163,9 @@ public enum CalendarSectionModel {
                 row.countdownText = countdown.text
                 row.countdownUrgency = countdown.urgency
             } else {
-                let gap = gapLabel(from: shown[index - 1], to: event)
-                row.gapText = gap.text
-                row.gapIsWarning = gap.isWarning
+                row.gapStyle = gapStyle(
+                    from: shown[index - 1], to: event,
+                    railMinutes: state.gapRailMinutes)
             }
             rows.append(.event(row))
             // 参加者一覧は次の予定(先頭)だけ。移動後の場所把握に必要なのは次の予定だけで、
@@ -220,17 +229,15 @@ public enum CalendarSectionModel {
         return .distant
     }
 
-    /// 予定間の間隔ラベル。間隔は切り捨て(実際より長く見せない)、重複は切り上げ。
-    /// back-to-backは「0分」として強調する
-    static func gapLabel(from previous: CalendarEvent, to next: CalendarEvent)
-        -> (text: String, isWarning: Bool)
+    /// 予定間の間隔の表現を決める。重複の分数は切り上げ(実際より短く見せない)
+    static func gapStyle(from previous: CalendarEvent, to next: CalendarEvent, railMinutes: Int)
+        -> CalendarGapStyle
     {
         let gapSeconds = Int(next.start.timeIntervalSince(previous.end))
         if gapSeconds < 0 {
-            let minutes = Int((Double(-gapSeconds) / 60).rounded(.up))
-            return ("\(minutes)分重複", true)
+            return .overlap(minutes: Int((Double(-gapSeconds) / 60).rounded(.up)))
         }
-        return ("\(gapSeconds / 60)分", gapSeconds < gapWarningThresholdSeconds)
+        return gapSeconds >= railMinutes * 60 ? .rail : .contact
     }
 
     static func eventRow(for event: CalendarEvent, calendar: Foundation.Calendar)

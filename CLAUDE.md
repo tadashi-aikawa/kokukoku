@@ -31,6 +31,7 @@ Conventional Commits 形式で日本語で書く。
 - ユーザーから見て1つの対応は1コミットにまとめる (タダシとのやりとりで生じた調整・手直しは分けず統合する)
 - `scope`: `timer_engine`, `ui_panel`, `alert`, `persistence` など機能単位 (省略可)
 - `description`: ユーザー視点で何が変わったかを簡潔に書く
+- AI Agent (owlery) がコミットする場合は `--author="<名前> <slug@owlery.local>"` で author を自分の Agent 名にする (committer はデフォルトのまま)
 
 ### description の書き方
 

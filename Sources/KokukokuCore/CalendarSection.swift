@@ -13,6 +13,10 @@ public struct CalendarPanelState: Equatable, Sendable {
     public var selfEmail: String?
     /// レールを表示する最小間隔(分)。これ未満は「間隔なし」として接触表現にする
     public var gapRailMinutes: Int
+    /// 未開始の「あと◯◯」を表示する残り時間の上限(分)(ResolvedCalendarConfig.upcomingCountdownMaxMinutes)
+    public var upcomingCountdownMaxMinutes: Int
+    /// 進行中の「終了まで◯◯」を表示する残り時間の上限(分)(ResolvedCalendarConfig.ongoingCountdownMaxMinutes)
+    public var ongoingCountdownMaxMinutes: Int
     /// 最後に取得成功した時刻(通知パネルの鮮度表示に使う)
     public var lastSuccessAt: Date?
     /// 通知で強調する予定(通知モードのみ)
@@ -29,7 +33,9 @@ public struct CalendarPanelState: Equatable, Sendable {
         highlightedKeys: Set<CalendarEvent.EventKey> = [],
         notices: [String] = [],
         selfEmail: String? = nil,
-        gapRailMinutes: Int = 1
+        gapRailMinutes: Int = 1,
+        upcomingCountdownMaxMinutes: Int = 120,
+        ongoingCountdownMaxMinutes: Int = 30
     ) {
         self.events = events
         self.error = error
@@ -40,6 +46,8 @@ public struct CalendarPanelState: Equatable, Sendable {
         self.notices = notices
         self.selfEmail = selfEmail
         self.gapRailMinutes = gapRailMinutes
+        self.upcomingCountdownMaxMinutes = upcomingCountdownMaxMinutes
+        self.ongoingCountdownMaxMinutes = ongoingCountdownMaxMinutes
     }
 }
 
@@ -166,9 +174,14 @@ public enum CalendarSectionModel {
             // 表示対象は「終了が現在より後」なので、開始済み=進行中
             row.isInProgress = event.start <= now
             if index == 0 {
-                let countdown = countdown(for: event, now: now)
-                row.countdownText = countdown.text
-                row.countdownUrgency = countdown.urgency
+                if let countdown = countdown(
+                    for: event, now: now,
+                    upcomingMaxMinutes: state.upcomingCountdownMaxMinutes,
+                    ongoingMaxMinutes: state.ongoingCountdownMaxMinutes)
+                {
+                    row.countdownText = countdown.text
+                    row.countdownUrgency = countdown.urgency
+                }
             } else {
                 row.gapStyle = gapStyle(
                     from: shown[index - 1], to: event,
@@ -210,15 +223,22 @@ public enum CalendarSectionModel {
     }
 
     /// 先頭予定のカウントダウン。分は切り上げ(残30秒を「あと0分」と見せない)。
-    /// 緊急度は次の境界(未開始なら開始、進行中なら終了)までの残り時間で決める
-    static func countdown(for event: CalendarEvent, now: Date)
-        -> (text: String, urgency: CalendarCountdownUrgency)
+    /// 緊急度は次の境界(未開始なら開始、進行中なら終了)までの残り時間で決める。
+    /// 上限(分)を超える先の話は出さない(未開始は次の区切りが視界に入ってから、
+    /// 進行中は急ぐ判断が要るときだけ。2026-07-19 タダシ決定)
+    static func countdown(
+        for event: CalendarEvent, now: Date,
+        upcomingMaxMinutes: Int = 120, ongoingMaxMinutes: Int = 30
+    )
+        -> (text: String, urgency: CalendarCountdownUrgency)?
     {
         if event.start > now {
             let minutes = Int((event.start.timeIntervalSince(now) / 60).rounded(.up))
+            guard minutes <= upcomingMaxMinutes else { return nil }
             return ("あと\(durationText(minutes: minutes))", urgency(minutes: minutes))
         }
         let minutes = Int((event.end.timeIntervalSince(now) / 60).rounded(.up))
+        guard minutes <= ongoingMaxMinutes else { return nil }
         return ("終了まで\(durationText(minutes: minutes))", urgency(minutes: minutes))
     }
 

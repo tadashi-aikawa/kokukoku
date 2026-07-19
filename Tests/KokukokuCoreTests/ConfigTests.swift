@@ -324,12 +324,39 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.maxVisibleEvents == 3)
         #expect(resolved.selfEmail == nil)
         #expect(resolved.gapRailMinutes == 1)
+        #expect(resolved.upcomingCountdownMaxMinutes == 120)
+        #expect(resolved.ongoingCountdownMaxMinutes == 30)
     }
 
     @Test("calendarのレール閾値が1未満ならinvalidエラーになる")
     func parseCalendarInvalidGapRailMinutes() {
         #expect(throws: ConfigError.invalid(description: "calendar.gapRailMinutes must be >= 1")) {
             try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\ngapRailMinutes = 0")
+        }
+    }
+
+    @Test("calendarのカウントダウン表示上限を読み込める(1未満はinvalidエラー)")
+    func parseCalendarCountdownMaxMinutes() throws {
+        let config = try ConfigLoader.parse(
+            toml: "[calendar]\nname = \"一般\"\n"
+                + "upcomingCountdownMaxMinutes = 240\nongoingCountdownMaxMinutes = 15")
+        let resolved = ResolvedCalendarConfig(calendar: config.calendar!)
+
+        #expect(resolved.upcomingCountdownMaxMinutes == 240)
+        #expect(resolved.ongoingCountdownMaxMinutes == 15)
+        #expect(
+            throws: ConfigError.invalid(
+                description: "calendar.upcomingCountdownMaxMinutes must be >= 1")
+        ) {
+            try ConfigLoader.parse(
+                toml: "[calendar]\nname = \"一般\"\nupcomingCountdownMaxMinutes = 0")
+        }
+        #expect(
+            throws: ConfigError.invalid(
+                description: "calendar.ongoingCountdownMaxMinutes must be >= 1")
+        ) {
+            try ConfigLoader.parse(
+                toml: "[calendar]\nname = \"一般\"\nongoingCountdownMaxMinutes = 0")
         }
     }
 

@@ -64,6 +64,8 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         public var maxVisibleEvents: Int?
         public var selfEmail: String?
         public var gapRailMinutes: Int?
+        public var upcomingCountdownMaxMinutes: Int?
+        public var ongoingCountdownMaxMinutes: Int?
 
         public init(
             name: String,
@@ -72,7 +74,9 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             maxAttendees: Int? = nil,
             maxVisibleEvents: Int? = nil,
             selfEmail: String? = nil,
-            gapRailMinutes: Int? = nil
+            gapRailMinutes: Int? = nil,
+            upcomingCountdownMaxMinutes: Int? = nil,
+            ongoingCountdownMaxMinutes: Int? = nil
         ) {
             self.name = name
             self.refreshIntervalMinutes = refreshIntervalMinutes
@@ -81,6 +85,8 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             self.maxVisibleEvents = maxVisibleEvents
             self.selfEmail = selfEmail
             self.gapRailMinutes = gapRailMinutes
+            self.upcomingCountdownMaxMinutes = upcomingCountdownMaxMinutes
+            self.ongoingCountdownMaxMinutes = ongoingCountdownMaxMinutes
         }
     }
 
@@ -168,6 +174,12 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
     public var selfEmail: String?
     /// タイムラインのレールを表示する最小間隔(分)。これ未満は「間隔なし」の接触表現になる
     public var gapRailMinutes: Int
+    /// 未開始予定の「あと◯◯」を表示する残り時間の上限(分)。
+    /// 既定120: 集中力の一区切り(60〜90分)の手前で見えれば「あとどれだけ作業してよいか」の判断に足りる
+    public var upcomingCountdownMaxMinutes: Int
+    /// 進行中予定の「終了まで◯◯」を表示する残り時間の上限(分)。
+    /// 既定30: 終わりが迫って急ぐ判断が要るときだけ出す
+    public var ongoingCountdownMaxMinutes: Int
 
     public init(calendar: KokukokuConfig.Calendar) {
         self.name = calendar.name
@@ -177,6 +189,8 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
         self.maxVisibleEvents = calendar.maxVisibleEvents ?? 3
         self.selfEmail = calendar.selfEmail
         self.gapRailMinutes = calendar.gapRailMinutes ?? 1
+        self.upcomingCountdownMaxMinutes = calendar.upcomingCountdownMaxMinutes ?? 120
+        self.ongoingCountdownMaxMinutes = calendar.ongoingCountdownMaxMinutes ?? 30
     }
 }
 
@@ -246,6 +260,14 @@ public enum ConfigLoader {
             }
             if let rail = calendar.gapRailMinutes, rail < 1 {
                 throw ConfigError.invalid(description: "calendar.gapRailMinutes must be >= 1")
+            }
+            if let max = calendar.upcomingCountdownMaxMinutes, max < 1 {
+                throw ConfigError.invalid(
+                    description: "calendar.upcomingCountdownMaxMinutes must be >= 1")
+            }
+            if let max = calendar.ongoingCountdownMaxMinutes, max < 1 {
+                throw ConfigError.invalid(
+                    description: "calendar.ongoingCountdownMaxMinutes must be >= 1")
             }
         }
     }

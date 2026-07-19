@@ -88,12 +88,12 @@ struct CalendarSectionModelTests {
 
     @Test("進行中の先頭予定は「終了まで◯分」になる(切り上げ)")
     func countdownOngoing() {
-        let event = makeEvent(start: at(hour: 11), end: at(hour: 12, minute: 30, second: 30))
+        let event = makeEvent(start: at(hour: 11), end: at(hour: 12, minute: 29, second: 30))
 
         let rows = CalendarSectionModel.rows(
             state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
 
-        #expect(eventRow(rows[0])?.countdownText == "終了まで31分")
+        #expect(eventRow(rows[0])?.countdownText == "終了まで30分")
     }
 
     @Test("未開始の先頭予定は「あと◯分」になる(切り上げ)")
@@ -104,6 +104,46 @@ struct CalendarSectionModelTests {
             state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
 
         #expect(eventRow(rows[0])?.countdownText == "あと1分")
+    }
+
+    @Test("進行中は終了まで既定30分を超えるとカウントダウンを出さない")
+    func countdownOngoingHiddenBeyondMax() {
+        let event = makeEvent(start: at(hour: 11), end: at(hour: 12, minute: 30, second: 30))
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
+
+        #expect(eventRow(rows[0])?.countdownText == nil)
+        #expect(eventRow(rows[0])?.countdownUrgency == nil)
+    }
+
+    @Test("未開始は開始まで既定2時間を超えるとカウントダウンを出さない(ちょうどは出す)")
+    func countdownUpcomingHiddenBeyondMax() {
+        func countdownAt(start: Date) -> String? {
+            let event = makeEvent(start: start, end: start.addingTimeInterval(3600))
+            let rows = CalendarSectionModel.rows(
+                state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
+            return eventRow(rows[0])?.countdownText
+        }
+
+        #expect(countdownAt(start: at(hour: 14)) == "あと2時間")
+        #expect(countdownAt(start: at(hour: 14, second: 30)) == nil)
+    }
+
+    @Test("カウントダウンの表示上限は設定値で変えられる")
+    func countdownMaxConfigurable() {
+        let ongoing = makeEvent(start: at(hour: 11), end: at(hour: 13))
+        let upcoming = makeEvent(start: at(hour: 15), end: at(hour: 16))
+
+        let ongoingRows = CalendarSectionModel.rows(
+            state: .init(events: [ongoing], ongoingCountdownMaxMinutes: 60),
+            now: at(hour: 12), calendar: calendar)
+        let upcomingRows = CalendarSectionModel.rows(
+            state: .init(events: [upcoming], upcomingCountdownMaxMinutes: 180),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(eventRow(ongoingRows[0])?.countdownText == "終了まで1時間")
+        #expect(eventRow(upcomingRows[0])?.countdownText == "あと3時間")
     }
 
     @Test("進行中(開始済み)の判定は先頭に限らず各行に付く(重複時は複数行が進行中)")

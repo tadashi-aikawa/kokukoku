@@ -30,6 +30,8 @@ final class CalendarService {
     var maxVisibleEvents: Int { config.maxVisibleEvents }
     var selfEmail: String? { config.selfEmail }
     var gapRailMinutes: Int { config.gapRailMinutes }
+    var upcomingCountdownMaxMinutes: Int { config.upcomingCountdownMaxMinutes }
+    var ongoingCountdownMaxMinutes: Int { config.ongoingCountdownMaxMinutes }
 
     init(config: ResolvedCalendarConfig) {
         self.config = config

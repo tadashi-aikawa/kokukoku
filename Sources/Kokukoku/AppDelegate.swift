@@ -92,7 +92,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         lastSuccessAt: service.snapshot.lastSuccessAt,
                         notices: service.notices,
                         selfEmail: service.selfEmail,
-                        gapRailMinutes: service.gapRailMinutes)
+                        gapRailMinutes: service.gapRailMinutes,
+                        upcomingCountdownMaxMinutes: service.upcomingCountdownMaxMinutes,
+                        ongoingCountdownMaxMinutes: service.ongoingCountdownMaxMinutes)
                 }))
 
         self.engine = engine

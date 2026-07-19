@@ -321,7 +321,7 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.refreshIntervalMinutes == 5)
         #expect(resolved.notificationLeadMinutes == 5)
         #expect(resolved.maxAttendees == 5)
-        #expect(resolved.maxVisibleEvents == 3)
+        #expect(resolved.maxVisibleEvents == 2)
         #expect(resolved.selfEmail == nil)
         #expect(resolved.gapRailMinutes == 1)
         #expect(resolved.upcomingCountdownMaxMinutes == 120)

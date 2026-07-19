@@ -155,7 +155,8 @@ struct CalendarSectionModelTests {
         ]
 
         let rows = CalendarSectionModel.rows(
-            state: .init(events: events), now: at(hour: 12), calendar: calendar)
+            state: .init(events: events, maxVisibleEvents: 3),
+            now: at(hour: 12), calendar: calendar)
 
         #expect(eventRow(rows[0])?.isInProgress == true)
         #expect(eventRow(rows[1])?.isInProgress == true)
@@ -367,7 +368,7 @@ struct CalendarSectionModelTests {
         #expect(rows.count == 1)
     }
 
-    @Test("上限(既定3件)超過分は「他◯件」に畳まれる")
+    @Test("上限(既定2件)超過分は「他◯件」に畳まれる")
     func overflowRow() {
         let events = (0..<7).map { i in
             makeEvent(
@@ -379,8 +380,8 @@ struct CalendarSectionModelTests {
             state: .init(events: events), now: at(hour: 12), calendar: calendar)
 
         let eventCount = rows.filter { eventRow($0) != nil }.count
-        #expect(eventCount == 3)
-        #expect(rows.last == .overflow(hiddenCount: 4))
+        #expect(eventCount == 2)
+        #expect(rows.last == .overflow(hiddenCount: 5))
     }
 
     @Test("表示上限はmaxVisibleEventsで変えられる")
@@ -392,12 +393,12 @@ struct CalendarSectionModelTests {
         }
 
         let rows = CalendarSectionModel.rows(
-            state: .init(events: events, maxVisibleEvents: 2),
+            state: .init(events: events, maxVisibleEvents: 3),
             now: at(hour: 12), calendar: calendar)
 
         let eventCount = rows.filter { eventRow($0) != nil }.count
-        #expect(eventCount == 2)
-        #expect(rows.last == .overflow(hiddenCount: 2))
+        #expect(eventCount == 3)
+        #expect(rows.last == .overflow(hiddenCount: 1))
     }
 
     @Test("展開中は全件表示され末尾が「畳む」になる")

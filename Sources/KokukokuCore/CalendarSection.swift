@@ -28,7 +28,7 @@ public struct CalendarPanelState: Equatable, Sendable {
         events: [CalendarEvent],
         error: CalendarFetchError? = nil,
         maxAttendees: Int = 5,
-        maxVisibleEvents: Int = 3,
+        maxVisibleEvents: Int = 2,
         lastSuccessAt: Date? = nil,
         highlightedKeys: Set<CalendarEvent.EventKey> = [],
         notices: [String] = [],

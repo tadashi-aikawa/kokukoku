@@ -186,7 +186,7 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
         self.refreshIntervalMinutes = calendar.refreshIntervalMinutes ?? 5
         self.notificationLeadMinutes = calendar.notificationLeadMinutes ?? 5
         self.maxAttendees = calendar.maxAttendees ?? 5
-        self.maxVisibleEvents = calendar.maxVisibleEvents ?? 3
+        self.maxVisibleEvents = calendar.maxVisibleEvents ?? 2
         self.selfEmail = calendar.selfEmail
         self.gapRailMinutes = calendar.gapRailMinutes ?? 1
         self.upcomingCountdownMaxMinutes = calendar.upcomingCountdownMaxMinutes ?? 120

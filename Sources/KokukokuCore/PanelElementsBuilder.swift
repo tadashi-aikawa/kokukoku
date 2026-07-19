@@ -46,7 +46,7 @@ public struct PanelElementsBuilder {
     private let now: () -> Int
     private let localTime: () -> ClockTime
     private let measureTextHeight: (_ text: String, _ fontName: String, _ size: Double) -> Double
-    /// 参加者一覧の主催者強調(色分け連結)に使う実測幅。未指定時は文字数からの概算
+    /// 参加者一覧の主催者強調(色分け連結)と予定名の省略判定に使う実測幅。未指定時は文字数からの概算
     private let measureTextWidth: (_ text: String, _ fontName: String, _ size: Double) -> Double
     private let resolveIcon: (String) -> IconResolution
     private let metrics: PanelMetrics
@@ -468,6 +468,13 @@ public struct PanelElementsBuilder {
                     fontName: inputs.ui.fontName,
                     fontSize: 13,
                     color: colors.text))
+                // 枠に収まらず「…」で省略される予定名だけ、ホバーで全文を見せる
+                // (収まっている名前にまで出すとノイズになるため)
+                if measureTextWidth(event.title, inputs.ui.fontName, 13) > titleRight - titleX {
+                    elements.append(.tooltip(
+                        frame: .init(x: titleX, y: y, w: titleRight - titleX, h: rowHeight),
+                        text: event.title))
+                }
                 eventIndex += 1
 
             case .attendees(let attendees):

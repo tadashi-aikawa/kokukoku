@@ -309,6 +309,12 @@ public enum PanelLayout {
         public static let panelBorder = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 0.28)
         public static let clockSecondHand = PanelColor(
             red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
+        /// 開始前通知の対象の点のハロー(生成りの光。入場パルスと同じ「アラートの声」)。
+        /// 予告であって警告ではないため朱を使わない。外側ほど淡い二層で光のにじみを描く
+        public static let alertHaloOuter = PanelColor(
+            red: 0.95, green: 0.91, blue: 0.83, alpha: 0.12)
+        public static let alertHaloInner = PanelColor(
+            red: 0.95, green: 0.91, blue: 0.83, alpha: 0.30)
         /// 予定タイムラインの連鎖(間なし)用の明るい生成り(テキストと同格のフル明度)。
         /// 連鎖は「危険」でも「いま」でもない構造情報のため炎色帯(金茶〜朱)を使わない。
         /// タイムライン内は「繋がりの強さ=明度、色相ジャンプ=異常(朱)」の一軸文法にする

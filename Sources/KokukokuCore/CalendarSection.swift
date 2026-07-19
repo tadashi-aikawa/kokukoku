@@ -19,7 +19,7 @@ public struct CalendarPanelState: Equatable, Sendable {
     public var ongoingCountdownMaxMinutes: Int
     /// 最後に取得成功した時刻(通知パネルの鮮度表示に使う)
     public var lastSuccessAt: Date?
-    /// 通知で強調する予定(通知モードのみ)
+    /// 通知の対象予定(通知モードのみ。タイムラインの点のハロー表示に使う)
     public var highlightedKeys: Set<CalendarEvent.EventKey>
     /// 中止(または確認不能)になった予定の告知(通知予約済み・表示中の予定のみ対象)
     public var notices: [String]
@@ -85,8 +85,11 @@ public struct CalendarEventRow: Equatable, Sendable {
     public var countdownUrgency: CalendarCountdownUrgency?
     /// 直前の予定との間隔の表現。先頭は nil
     public var gapStyle: CalendarGapStyle?
-    /// 通知で強調中か(通知モードの該当予定)
-    public var isHighlighted: Bool
+    /// 開始前通知の対象か(通知モードの未開始予定のみ)。
+    /// 情報は行が既に語っているため文字は足さず、タイムラインの点のハローで「指す」だけにする
+    /// (バナー帯は行とほぼ同内容の二度言いになり不採用。2026-07-19 タダシ決定)。
+    /// 開始後はハローを消して進行中表示へ引き継ぐ
+    public var isAlertTarget: Bool
     /// 進行中か(開始済みで終了前)。重複時は先頭以外も進行中になり得るため各行で判定する。
     /// 描画は点のリング化+時刻の明暗反転で静かに区別する(色相は増やさない。2026-07-19 3人検討)
     public var isInProgress: Bool
@@ -100,7 +103,7 @@ public struct CalendarEventRow: Equatable, Sendable {
         countdownText: String? = nil,
         countdownUrgency: CalendarCountdownUrgency? = nil,
         gapStyle: CalendarGapStyle? = nil,
-        isHighlighted: Bool = false,
+        isAlertTarget: Bool = false,
         isInProgress: Bool = false
     ) {
         self.startText = startText
@@ -111,7 +114,7 @@ public struct CalendarEventRow: Equatable, Sendable {
         self.countdownText = countdownText
         self.countdownUrgency = countdownUrgency
         self.gapStyle = gapStyle
-        self.isHighlighted = isHighlighted
+        self.isAlertTarget = isAlertTarget
         self.isInProgress = isInProgress
     }
 }
@@ -171,7 +174,7 @@ public enum CalendarSectionModel {
             ? state.events : Array(state.events.prefix(state.maxVisibleEvents))
         for (index, event) in shown.enumerated() {
             var row = eventRow(for: event, calendar: calendar)
-            row.isHighlighted = state.highlightedKeys.contains(event.key)
+            row.isAlertTarget = state.highlightedKeys.contains(event.key) && event.start > now
             // 表示対象は「終了が現在より後」なので、開始済み=進行中
             row.isInProgress = event.start <= now
             if index == 0 {

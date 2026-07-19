@@ -111,6 +111,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.onNotificationClosed = { [weak service] in service?.clearNotices() }
             service.start()
             calendarService = service
+
+            // --test-calendar-notification: 次の未開始予定で開始前通知の見た目
+            // (対象の点のハロー・入場パルス)を実際の通知時刻を待たずに確認する
+            if CommandLine.arguments.contains("--test-calendar-notification") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    guard let self, let service = self.calendarService else { return }
+                    let upcoming = service.snapshot.visibleEvents(now: Date())
+                        .filter { $0.start > Date() }
+                    guard let first = upcoming.first else { return }
+                    self.panel?.showCalendarNotification(keys: [first.key])
+                }
+            }
         }
 
         if let hotkeyConfig = config.hotkey {

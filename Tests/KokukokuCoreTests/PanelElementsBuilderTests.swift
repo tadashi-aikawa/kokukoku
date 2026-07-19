@@ -545,13 +545,13 @@ struct PanelElementsBuilderTests {
         })
     }
 
-    @Test("通知モードでは強調背景・鮮度表示を描く(閉じるボタンは置かない)")
+    @Test("通知モードでは対象の点のハロー・告知・鮮度表示を描く(閉じるボタンは置かない)")
     func calendarNotificationMode() {
         let rows: [CalendarSectionRow] = [
             .notice(text: "『定例』は中止になりました"),
             .event(.init(
                 startText: "13:00", endText: "-14:00", title: "a",
-                countdownText: "あと5分", isHighlighted: true)),
+                countdownText: "あと5分", isAlertTarget: true)),
             .attendees(.init(othersText: "x, y")),
             .freshness(text: "3分前時点の情報"),
         ]
@@ -559,15 +559,24 @@ struct PanelElementsBuilderTests {
 
         #expect(containsText("『定例』は中止になりました", in: elements))
         #expect(containsText("3分前時点の情報", in: elements))
+        // 通知対象の点には生成りの二層ハローが灯る(点の位置はレール上)
+        #expect(elements.contains { element in
+            guard case .circle(let center, 8, let fill, _, _) = element else { return false }
+            return center.x == PanelLayout.calendarRailX
+                && fill == PanelLayout.Colors.alertHaloOuter
+        })
+        #expect(elements.contains { element in
+            guard case .circle(_, 5.5, let fill, _, _) = element else { return false }
+            return fill == PanelLayout.Colors.alertHaloInner
+        })
         // 閉じるボタンは廃止(フォーカス非奪取のため1クリック目が届かず2クリック要る体験になる。
         // 閉じるのはパネルクリック後のEscかホットキー。2026-07-19 タダシ決定)
         #expect(!containsText("✕ 閉じる", in: elements))
-        // 強調行と参加者行に暖色背景が敷かれる(2枚)
-        let highlightCount = elements.filter { element in
+        // 行の暖色強調は廃止(名指しは点のハローが担い「暖色=計測中」の単義を守る)
+        #expect(!elements.contains { element in
             guard case .rectangle(_, let fill, _, _, _, _, _) = element else { return false }
             return fill == PanelLayout.Colors.activeRowBg
-        }.count
-        #expect(highlightCount == 2)
+        })
     }
 
     @Test("エラー行は朱のメッセージだけを描く")

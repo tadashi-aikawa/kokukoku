@@ -79,6 +79,8 @@ final class PanelController {
         if visible, notificationMode {
             highlightedKeys.formUnion(keys)
             rebuildPanel()
+            // 表示中のパネルへの合流も新しい通知の到着なので、署名をもう一撃打つ
+            playNotificationPulse()
             return
         }
         if visible { hide() }
@@ -137,6 +139,7 @@ final class PanelController {
             // (閉じるのはパネルをクリックしてキーにした後のEscか、既存のパネルトグルホットキー。
             // 閉じるボタンは1クリック目がキー化に消費されて2クリック要る体験になるため廃止)
             window.orderFrontRegardless()
+            playNotificationPulse()
             return
         }
         window.makeKeyAndOrderFront(nil)
@@ -151,6 +154,38 @@ final class PanelController {
             self?.hideIfClickedOutside()
             return event
         }
+    }
+
+    /// 登場の署名: 通知としての自動表示の瞬間だけ、パネル輪郭を生成りのグローで
+    /// 3回明滅させて静止する(周辺視野は動きに反応するため、音を使わずに気づかせる。
+    /// 常時脈動はしない。2026-07-19 タダシ決定: 音・macOS通知併送は不採用で演出一本)
+    private func playNotificationPulse() {
+        guard let panelView else { return }
+        panelView.wantsLayer = true
+        guard let hostLayer = panelView.layer else { return }
+
+        let cream = NSColor(srgbRed: 0.95, green: 0.91, blue: 0.83, alpha: 1).cgColor
+        let pulse = CAShapeLayer()
+        pulse.path = CGPath(
+            roundedRect: panelView.bounds.insetBy(dx: 1, dy: 1),
+            cornerWidth: 10, cornerHeight: 10, transform: nil)
+        pulse.fillColor = nil
+        pulse.strokeColor = cream
+        pulse.lineWidth = 2.5
+        pulse.shadowColor = cream
+        pulse.shadowOpacity = 0.9
+        pulse.shadowRadius = 10
+        pulse.shadowOffset = .zero
+        pulse.opacity = 0
+        hostLayer.addSublayer(pulse)
+
+        let animation = CAKeyframeAnimation(keyPath: "opacity")
+        animation.values = [0, 1, 0.1, 1, 0.1, 1, 0]
+        animation.duration = 1.6
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak pulse] in pulse?.removeFromSuperlayer() }
+        pulse.add(animation, forKey: "notificationPulse")
+        CATransaction.commit()
     }
 
     private func hideIfClickedOutside() {

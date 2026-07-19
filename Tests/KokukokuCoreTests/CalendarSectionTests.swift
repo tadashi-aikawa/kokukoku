@@ -449,15 +449,44 @@ struct CalendarSectionModelTests {
         #expect(rows == [.error(message: "カレンダー『一般』が見つかりません")])
     }
 
-    @Test("強調キーに一致する予定行はisHighlightedになる")
-    func highlightedEvent() {
-        let event = makeEvent(start: at(hour: 14), end: at(hour: 15))
+    @Test("通知対象の未開始予定はisAlertTargetになる(合流時は複数)")
+    func alertTargetRows() {
+        let first = makeEvent(id: "a@google.com", title: "朝会", start: at(hour: 14), end: at(hour: 15))
+        let second = makeEvent(
+            id: "b@google.com", title: "定例", start: at(hour: 14, minute: 5), end: at(hour: 15))
 
         let rows = CalendarSectionModel.rows(
-            state: .init(events: [event], highlightedKeys: [event.key]),
+            state: .init(events: [first, second], highlightedKeys: [first.key, second.key]),
             now: at(hour: 12), calendar: calendar)
 
-        #expect(eventRow(rows[0])?.isHighlighted == true)
+        #expect(eventRow(rows[0])?.isAlertTarget == true)
+        #expect(eventRow(rows[1])?.isAlertTarget == true)
+    }
+
+    @Test("通知対象でも開始済みの予定はisAlertTargetにしない(進行中表示へ引き継ぐ)")
+    func alertTargetExcludesStartedEvents() {
+        let started = makeEvent(id: "a@google.com", title: "朝会", start: at(hour: 12), end: at(hour: 15))
+        let upcoming = makeEvent(
+            id: "b@google.com", title: "定例", start: at(hour: 14), end: at(hour: 15))
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(
+                events: [started, upcoming],
+                highlightedKeys: [started.key, upcoming.key]),
+            now: at(hour: 13), calendar: calendar)
+
+        #expect(eventRow(rows[0])?.isAlertTarget == false)
+        #expect(eventRow(rows[0])?.isInProgress == true)
+        #expect(eventRow(rows[1])?.isAlertTarget == true)
+    }
+
+    @Test("通知対象なし(通常表示)はisAlertTargetが付かない")
+    func noAlertTargetWithoutHighlightedKeys() {
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [makeEvent(start: at(hour: 14), end: at(hour: 15))]),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(eventRow(rows[0])?.isAlertTarget == false)
     }
 
     @Test("中止告知は先頭にnotice行として並ぶ")

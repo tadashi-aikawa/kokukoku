@@ -344,11 +344,13 @@ public struct PanelElementsBuilder {
                 || (event.isInProgress && event.countdownText != nil)
         }) ? 110 : 0
         // タイムラインの点の中心Yと、その予定の間隔表現(レール描画は行の後にまとめて行う)
-        var dots: [(centerY: Double, gapStyle: CalendarGapStyle?, isInProgress: Bool)] = []
+        var dots:
+            [(
+                centerY: Double, gapStyle: CalendarGapStyle?,
+                isInProgress: Bool, isAlertTarget: Bool
+            )] = []
         // nowマーカー帯の中心Yと、未開始カウントダウン(帯は先頭予定行の直上に置く)
         var nowMarker: (centerY: Double, countdown: (text: String, urgency: CalendarCountdownUrgency?)?)?
-        // 参加者行は直前の予定行の強調に追随させる
-        var lastEventHighlighted = false
         // キーボード選択中の行の位置(輪郭はレールより手前に描くため後でまとめて構築)
         var selectedRowFrame: (y: Double, height: Double)?
 
@@ -376,20 +378,17 @@ public struct PanelElementsBuilder {
             switch row {
             case .event(let event):
                 let lineCenterY = y + rowHeight / 2
-                dots.append((lineCenterY, event.gapStyle, event.isInProgress))
-                lastEventHighlighted = event.isHighlighted
+                dots.append(
+                    (lineCenterY, event.gapStyle, event.isInProgress, event.isAlertTarget))
 
-                // 行背景: 通知の強調は計測中行と同じ暖色背景で示す。
-                // クリックで詳細ページを開けるようホバー追跡も兼ねる
+                // 行背景はホバー追跡のみ(クリックで詳細ページを開ける)。
+                // 通知対象は点のハローが指し、行の暖色強調は置かない
+                // (「暖色=計測中」の単義を守る。2026-07-19 タダシ決定)
                 let id = "cal_event_\(eventIndex)"
                 let isHovered = inputs.hoveredId == id
-                let rowFill: PanelColor
-                if event.isHighlighted {
-                    rowFill = isHovered ? colors.activeRowHoverBg : colors.activeRowBg
-                } else {
-                    rowFill = isHovered
-                        ? colors.rowHoverBg : PanelColor(red: 0, green: 0, blue: 0, alpha: 0)
-                }
+                let rowFill =
+                    isHovered
+                    ? colors.rowHoverBg : PanelColor(red: 0, green: 0, blue: 0, alpha: 0)
                 elements.append(.rectangle(
                     frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
                     fillColor: rowFill,
@@ -469,12 +468,6 @@ public struct PanelElementsBuilder {
                 eventIndex += 1
 
             case .attendees(let attendees):
-                // 直前の予定行が強調中なら参加者行も同じ背景でつなげる
-                if lastEventHighlighted {
-                    elements.append(.rectangle(
-                        frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
-                        fillColor: colors.activeRowBg))
-                }
                 // 予定名の列に揃えたインデントで参加者一覧を小さく添える。主催者は明色で強調
                 var x = layout.calendarContentX + layout.calendarTimeWidth + 8
                 let height = measureTextHeight("参加者", inputs.ui.fontName, 11)
@@ -614,7 +607,10 @@ public struct PanelElementsBuilder {
     /// レールはセクション上端(=時計ヘッダーとの境界。上は「いま」の面)から先頭の点へ
     /// 直接降ろし、未開始の「あと◯分」はこの区間のラベルとして帯に描く
     private func appendCalendarRail(
-        _ dots: [(centerY: Double, gapStyle: CalendarGapStyle?, isInProgress: Bool)],
+        _ dots: [(
+            centerY: Double, gapStyle: CalendarGapStyle?,
+            isInProgress: Bool, isAlertTarget: Bool
+        )],
         nowMarker: (centerY: Double, countdown: (text: String, urgency: CalendarCountdownUrgency?)?)?,
         sectionTopY: Double,
         ui: ResolvedUIConfig,
@@ -692,6 +688,19 @@ public struct PanelElementsBuilder {
         // 進行中の予定だけ同色のまま中抜きリングにする(塗り=これから、抜き=いま消化中。
         // 色相・サイズは変えないため予定の種類の違いには読めない。2026-07-19 3人検討)
         for dot in dots {
+            // 開始前通知の対象は点の周りに生成りのハロー(入場パルスと同じ光の声)を灯して
+            // 「この予定のアラートや」と指す。情報は行が既に語っているため文字は足さない
+            // (バナー帯は行との二度言いになり不採用。2026-07-19 タダシ決定)
+            if dot.isAlertTarget {
+                elements.append(.circle(
+                    center: PanelPoint(x: railX, y: dot.centerY),
+                    radius: dotRadius + 5,
+                    fillColor: colors.alertHaloOuter))
+                elements.append(.circle(
+                    center: PanelPoint(x: railX, y: dot.centerY),
+                    radius: dotRadius + 2.5,
+                    fillColor: colors.alertHaloInner))
+            }
             if dot.isInProgress {
                 elements.append(.circle(
                     center: PanelPoint(x: railX, y: dot.centerY),

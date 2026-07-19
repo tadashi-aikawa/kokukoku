@@ -158,8 +158,8 @@ struct PanelElementsBuilderTests {
     @Test("予定行のキーボード選択もカプセル輪郭で示す")
     func selectionOutlineOnCalendarRow() {
         let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "-14:00", title: "a", countdownText: "あと5分")),
-            .event(.init(startText: "14:10", endText: "-15:00", title: "b", gapStyle: .rail)),
+            .event(.init(startText: "13:00", endText: "14:00", title: "a", countdownText: "あと5分")),
+            .event(.init(startText: "14:10", endText: "15:00", title: "b", gapStyle: .rail)),
             .overflow(hiddenCount: 2),
         ]
         let selected = builder().build(inputs(
@@ -405,7 +405,7 @@ struct PanelElementsBuilderTests {
     func calendarSectionShiftsRowsAndFooter() {
         let rows: [CalendarSectionRow] = [
             .event(.init(
-                startText: "13:00", endText: "-14:00", title: "定例",
+                startText: "13:00", endText: "14:00", title: "定例",
                 locationText: "会議室A",
                 detailURL: URL(string: "https://calendar.google.com/calendar/event?eid=x"),
                 countdownText: "あと30分")),
@@ -422,7 +422,7 @@ struct PanelElementsBuilderTests {
         #expect(bgFrame.h == 164 + sectionHeight)
         // セクションの中身(時刻分離・カウントダウン・主催者強調)と行クリックのホバー追跡
         #expect(containsText("13:00", in: elements))
-        #expect(containsText("-14:00", in: elements))
+        #expect(containsText("14:00", in: elements))
         #expect(containsText("定例", in: elements))
         #expect(containsText("会議室A", in: elements))
         #expect(containsText("あと30分", in: elements))
@@ -449,13 +449,13 @@ struct PanelElementsBuilderTests {
     @Test("間隔ありはレール、間隔なしは朱の接触線、重複は接触線+朱の分数になる")
     func calendarRail() {
         let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "-14:00", title: "a", countdownText: "あと5分")),
+            .event(.init(startText: "13:00", endText: "14:00", title: "a", countdownText: "あと5分")),
             .event(.init(
-                startText: "14:10", endText: "-15:00", title: "b", gapStyle: .rail)),
+                startText: "14:10", endText: "15:00", title: "b", gapStyle: .rail)),
             .event(.init(
-                startText: "15:00", endText: "-16:00", title: "c", gapStyle: .contact)),
+                startText: "15:00", endText: "16:00", title: "c", gapStyle: .contact)),
             .event(.init(
-                startText: "15:30", endText: "-16:30", title: "d",
+                startText: "15:30", endText: "16:30", title: "d",
                 gapStyle: .overlap(minutes: 30))),
         ]
         let elements = builder().build(inputs(calendarRows: rows))
@@ -497,7 +497,7 @@ struct PanelElementsBuilderTests {
     func nowMarkerWithUpcomingCountdown() {
         let rows: [CalendarSectionRow] = [
             .event(.init(
-                startText: "13:00", endText: "-14:00", title: "a",
+                startText: "13:00", endText: "14:00", title: "a",
                 countdownText: "あと38分", countdownUrgency: .distant)),
         ]
         let elements = builder().build(inputs(calendarRows: rows))
@@ -519,7 +519,7 @@ struct PanelElementsBuilderTests {
     func ongoingCountdownInRow() {
         let rows: [CalendarSectionRow] = [
             .event(.init(
-                startText: "13:00", endText: "-14:00", title: "a",
+                startText: "13:00", endText: "14:00", title: "a",
                 locationText: "会議室A",
                 countdownText: "終了まで8分", countdownUrgency: .imminent,
                 isInProgress: true)),
@@ -560,7 +560,7 @@ struct PanelElementsBuilderTests {
         let rows: [CalendarSectionRow] = [
             .notice(text: "『定例』は中止になりました"),
             .event(.init(
-                startText: "13:00", endText: "-14:00", title: "a",
+                startText: "13:00", endText: "14:00", title: "a",
                 countdownText: "あと5分", isAlertTarget: true)),
             .attendees(.init(othersText: "x, y")),
             .freshness(text: "3分前時点の情報"),
@@ -593,8 +593,8 @@ struct PanelElementsBuilderTests {
     func calendarTitleTooltip() {
         let longTitle = String(repeating: "長", count: 45)
         let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "-14:00", title: longTitle)),
-            .event(.init(startText: "14:00", endText: "-15:00", title: "短い名前", gapStyle: .rail)),
+            .event(.init(startText: "13:00", endText: "14:00", title: longTitle)),
+            .event(.init(startText: "14:00", endText: "15:00", title: "短い名前", gapStyle: .rail)),
         ]
         let elements = builder().build(inputs(calendarRows: rows))
 

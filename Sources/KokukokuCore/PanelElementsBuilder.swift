@@ -401,25 +401,41 @@ public struct PanelElementsBuilder {
                 // 「明るい時刻=次に来る境界」: 未開始は開始を明色・終了を沈み色、
                 // 進行中は反転して終了だけ明るくする(進行中の一瞥区別。カウントダウンの判定と同型)
                 let startHeight = measureTextHeight(event.startText, inputs.ui.monoFontName, 13)
+                let startY = y + centeredOffset(rowHeight, startHeight)
                 elements.append(.text(
                     frame: .init(
-                        x: layout.calendarContentX,
-                        y: y + centeredOffset(rowHeight, startHeight),
+                        x: layout.calendarContentX, y: startY,
                         w: 42, h: startHeight),
                     text: event.startText,
                     fontName: inputs.ui.monoFontName,
                     fontSize: 13,
                     color: event.isInProgress ? colors.subText : colors.text))
+                // 開始-終了の区切り「-」と終了時刻は開始と別要素で描き、余白をレイアウトで管理する
+                // (テキストに空白を混ぜると等幅1文字分の広すぎる隙間になるため)。
+                // 12ptを自身の高さで中央寄せすると13ptの開始とベースラインが揃わず上に浮くため、
+                // 枠の下端を開始側に合わせてベースラインを揃える
+                let endColor = event.isInProgress ? colors.text : colors.subText
                 let endHeight = measureTextHeight(event.endText, inputs.ui.monoFontName, 12)
+                let endY = startY + (startHeight - endHeight)
+                let hyphenX = layout.calendarContentX
+                    + measureTextWidth(event.startText, inputs.ui.monoFontName, 13)
+                    + layout.calendarTimeSeparatorPad
+                let hyphenWidth = measureTextWidth("-", inputs.ui.monoFontName, 12)
+                elements.append(.text(
+                    frame: .init(x: hyphenX, y: endY, w: hyphenWidth, h: endHeight),
+                    text: "-",
+                    fontName: inputs.ui.monoFontName,
+                    fontSize: 12,
+                    color: endColor))
+                let endX = hyphenX + hyphenWidth + layout.calendarTimeSeparatorPad
                 elements.append(.text(
                     frame: .init(
-                        x: layout.calendarContentX + 42,
-                        y: y + centeredOffset(rowHeight, endHeight),
-                        w: layout.calendarTimeWidth - 42, h: endHeight),
+                        x: endX, y: endY,
+                        w: layout.calendarContentX + layout.calendarTimeWidth - endX, h: endHeight),
                     text: event.endText,
                     fontName: inputs.ui.monoFontName,
                     fontSize: 12,
-                    color: event.isInProgress ? colors.text : colors.subText))
+                    color: endColor))
 
                 // 進行中の「終了まで◯分」は行内(右端スロット)で完結させる。
                 // 独立行にすると残30分を切った瞬間にリスト中程へ行が挿入されて縦ずれするため。
@@ -685,8 +701,10 @@ public struct PanelElementsBuilder {
                     to: PanelPoint(x: railX, y: current.centerY - dotRadius - 2),
                     color: colors.clockSecondHand,
                     width: 2))
+                // 文字インクは枠の上寄りに乗るため、枠中央(midY-7)だと上の行の時刻に接する。
+                // 2px下げて上下の抜けを揃える
                 elements.append(.text(
-                    frame: .init(x: railX + 9, y: midY - 7, w: 72, h: 14),
+                    frame: .init(x: railX + 9, y: midY - 5, w: 72, h: 14),
                     text: "\(minutes)分重複",
                     fontName: ui.fontName,
                     fontSize: 10,

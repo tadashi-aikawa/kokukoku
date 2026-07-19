@@ -60,7 +60,7 @@ struct CalendarSectionModelTests {
                 .event(
                     .init(
                         startText: "14:00",
-                        endText: "-15:30",
+                        endText: "15:30",
                         title: "定例",
                         locationText: "会議室A",
                         detailURL: URL(
@@ -583,7 +583,7 @@ struct PanelLayoutCalendarTests {
     @Test("セクション高は行種別ごとの高さ+nowマーカー帯+上下パディング+谷になる")
     func sectionHeight() {
         let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "-14:00", title: "a")),
+            .event(.init(startText: "13:00", endText: "14:00", title: "a")),
             .attendees(.init(othersText: "x, y")),
             .overflow(hiddenCount: 2),
         ]
@@ -614,8 +614,8 @@ struct PanelLayoutCalendarTests {
         // 先頭が進行中: 帯ごと詰める(nowレールもラベルも無い空の帯が残るだけのため)
         let ongoingFirst: [CalendarSectionRow] = [
             .event(.init(
-                startText: "16:45", endText: "-17:15", title: "a", isInProgress: true)),
-            .event(.init(startText: "17:15", endText: "-18:00", title: "b", gapStyle: .rail)),
+                startText: "16:45", endText: "17:15", title: "a", isInProgress: true)),
+            .event(.init(startText: "17:15", endText: "18:00", title: "b", gapStyle: .rail)),
         ]
         #expect(!PanelLayout.hasNowMarkerBand(rows: ongoingFirst))
         #expect(

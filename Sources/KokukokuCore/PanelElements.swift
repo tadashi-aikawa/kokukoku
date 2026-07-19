@@ -255,8 +255,10 @@ public enum PanelLayout {
     public static let calendarRailX = 20.0
     /// 予定行の内容(開始時刻)の左端
     public static let calendarContentX = 32.0
-    /// 時刻ブロック("01:00" + "-02:00")の幅
+    /// 時刻ブロック("01:00" - "02:00")の幅
     public static let calendarTimeWidth = 96.0
+    /// 開始-終了の区切り「-」の左右の余白(等幅空白1文字では広すぎるため要素分解して詰める)
+    public static let calendarTimeSeparatorPad = 3.0
 
     public static func calendarRowHeight(_ row: CalendarSectionRow) -> Double {
         switch row {

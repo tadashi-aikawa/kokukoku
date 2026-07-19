@@ -4,7 +4,7 @@ import Testing
 
 @Suite("PanelSelection")
 struct PanelSelectionTests {
-    private let eventRow = CalendarEventRow(startText: "01:00", endText: "-02:00", title: "MTG")
+    private let eventRow = CalendarEventRow(startText: "01:00", endText: "02:00", title: "MTG")
 
     @Test("巡回順は予定行→トグル行→プロジェクト行(選択できない行は含めない)")
     func targets() {

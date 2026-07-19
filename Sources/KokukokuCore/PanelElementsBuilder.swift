@@ -443,7 +443,7 @@ public struct PanelElementsBuilder {
                 if event.isInProgress, let countdown = event.countdownText {
                     let color: PanelColor
                     switch event.countdownUrgency {
-                    case .imminent: color = colors.clockSecondHand
+                    case .imminent: color = colors.countdownImminent
                     case .near: color = colors.activeText
                     case .distant, nil: color = colors.subText
                     }
@@ -662,7 +662,7 @@ public struct PanelElementsBuilder {
             if let countdown = nowMarker.countdown {
                 let color: PanelColor
                 switch countdown.urgency {
-                case .imminent: color = colors.clockSecondHand
+                case .imminent: color = colors.countdownImminent
                 case .near: color = colors.activeText
                 case .distant, nil: color = colors.subText
                 }

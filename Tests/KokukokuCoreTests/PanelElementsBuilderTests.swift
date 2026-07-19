@@ -530,7 +530,7 @@ struct PanelElementsBuilderTests {
         #expect(elements.contains { element in
             guard case .text(let frame, "終了まで8分", _, 12, let color, .right) = element
             else { return false }
-            return frame.x == 358 && color == PanelLayout.Colors.clockSecondHand
+            return frame.x == 358 && color == PanelLayout.Colors.countdownImminent
         })
         #expect(!containsText("会議室A", in: elements))
         // 帯は置かず(高さごと詰める)、nowレールも出さない(「いま」はリングが語る)。

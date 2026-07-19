@@ -320,6 +320,11 @@ public enum PanelLayout {
         public static let panelBorder = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 0.28)
         public static let clockSecondHand = PanelColor(
             red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
+        /// カウントダウン直前 (imminent) 用の明るい朱。
+        /// 秒針の朱は暗背景上で activeText (橙) より輝度が低く、テキストに使うと
+        /// 緊急度と目立ち度が逆転するため、色相は朱のまま輝度を橙と同格以上に上げた版
+        public static let countdownImminent = PanelColor(
+            red: 1.0, green: 0.42, blue: 0.25, alpha: 1)
         /// 開始前通知の対象の点のハロー(生成りの光。入場パルスと同じ「アラートの声」)。
         /// 予告であって警告ではないため朱を使わない。外側ほど淡い二層で光のにじみを描く
         public static let alertHaloOuter = PanelColor(

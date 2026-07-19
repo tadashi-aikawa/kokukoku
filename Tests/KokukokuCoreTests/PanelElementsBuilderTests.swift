@@ -27,7 +27,7 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 0, y: 84, w: 480, h: 40),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
         #expect(elements[15] == .text(
-            frame: .init(x: 24, y: 93, w: 14, h: 21), text: "1",
+            frame: .init(x: 24, y: 94, w: 14, h: 21), text: "1",
             fontName: "Menlo", fontSize: 13, color: PanelLayout.Colors.subText))
         #expect(elements[17] == .text(
             frame: .init(x: 74, y: 92, w: 270, h: 24), text: "Work",
@@ -58,7 +58,7 @@ struct PanelElementsBuilderTests {
         }).build(inputs())
 
         #expect(elements[16] == .text(
-            frame: .init(x: 42, y: 91, w: 24, h: 25), text: "🔵",
+            frame: .init(x: 42, y: 92, w: 24, h: 25), text: "🔵",
             fontName: ".AppleSystemUIFont", fontSize: 17,
             color: PanelLayout.Colors.text, alignment: .center))
     }

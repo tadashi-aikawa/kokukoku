@@ -868,6 +868,7 @@ public struct PanelElementsBuilder {
     }
 
     private func centeredOffset(_ containerHeight: Double, _ contentHeight: Double) -> Double {
-        floor((containerHeight - contentHeight) / 2)
+        // floorだと余りの1pxが常に下側に付いて上寄りに見えるため四捨五入で振り分ける
+        ((containerHeight - contentHeight) / 2).rounded()
     }
 }

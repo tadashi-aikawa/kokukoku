@@ -78,6 +78,9 @@ public struct CalendarEventRow: Equatable, Sendable {
     public var gapStyle: CalendarGapStyle?
     /// 通知で強調中か(通知モードの該当予定)
     public var isHighlighted: Bool
+    /// 進行中か(開始済みで終了前)。重複時は先頭以外も進行中になり得るため各行で判定する。
+    /// 描画は点のリング化+時刻の明暗反転で静かに区別する(色相は増やさない。2026-07-19 3人検討)
+    public var isInProgress: Bool
 
     public init(
         startText: String,
@@ -88,7 +91,8 @@ public struct CalendarEventRow: Equatable, Sendable {
         countdownText: String? = nil,
         countdownUrgency: CalendarCountdownUrgency? = nil,
         gapStyle: CalendarGapStyle? = nil,
-        isHighlighted: Bool = false
+        isHighlighted: Bool = false,
+        isInProgress: Bool = false
     ) {
         self.startText = startText
         self.endText = endText
@@ -99,6 +103,7 @@ public struct CalendarEventRow: Equatable, Sendable {
         self.countdownUrgency = countdownUrgency
         self.gapStyle = gapStyle
         self.isHighlighted = isHighlighted
+        self.isInProgress = isInProgress
     }
 }
 
@@ -158,6 +163,8 @@ public enum CalendarSectionModel {
         for (index, event) in shown.enumerated() {
             var row = eventRow(for: event, calendar: calendar)
             row.isHighlighted = state.highlightedKeys.contains(event.key)
+            // 表示対象は「終了が現在より後」なので、開始済み=進行中
+            row.isInProgress = event.start <= now
             if index == 0 {
                 let countdown = countdown(for: event, now: now)
                 row.countdownText = countdown.text

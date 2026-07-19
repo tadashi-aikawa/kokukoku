@@ -388,7 +388,7 @@ public struct PanelElementsBuilder {
             return false
         }) ? 110 : 0
         // タイムラインの点の中心Yと、その予定の間隔表現(レール描画は行の後にまとめて行う)
-        var dots: [(centerY: Double, gapStyle: CalendarGapStyle?)] = []
+        var dots: [(centerY: Double, gapStyle: CalendarGapStyle?, isInProgress: Bool)] = []
         // 参加者行は直前の予定行の強調に追随させる
         var lastEventHighlighted = false
         // キーボード選択中の行の位置(輪郭はレールより手前に描くため後でまとめて構築)
@@ -404,7 +404,7 @@ public struct PanelElementsBuilder {
             switch row {
             case .event(let event):
                 let lineCenterY = y + rowHeight / 2
-                dots.append((lineCenterY, event.gapStyle))
+                dots.append((lineCenterY, event.gapStyle, event.isInProgress))
                 lastEventHighlighted = event.isHighlighted
 
                 // 行背景: 通知の強調は計測中行と同じ暖色背景で示す。
@@ -424,7 +424,8 @@ public struct PanelElementsBuilder {
                     id: event.detailURL != nil ? id : nil,
                     tracksMouse: event.detailURL != nil))
 
-                // 開始は明色・終了は沈み色で一目で区別する
+                // 「明るい時刻=次に来る境界」: 未開始は開始を明色・終了を沈み色、
+                // 進行中は反転して終了だけ明るくする(進行中の一瞥区別。カウントダウンの判定と同型)
                 let startHeight = measureTextHeight(event.startText, inputs.ui.monoFontName, 13)
                 elements.append(.text(
                     frame: .init(
@@ -434,7 +435,7 @@ public struct PanelElementsBuilder {
                     text: event.startText,
                     fontName: inputs.ui.monoFontName,
                     fontSize: 13,
-                    color: colors.text))
+                    color: event.isInProgress ? colors.subText : colors.text))
                 let endHeight = measureTextHeight(event.endText, inputs.ui.monoFontName, 12)
                 elements.append(.text(
                     frame: .init(
@@ -444,7 +445,7 @@ public struct PanelElementsBuilder {
                     text: event.endText,
                     fontName: inputs.ui.monoFontName,
                     fontSize: 12,
-                    color: colors.subText))
+                    color: event.isInProgress ? colors.text : colors.subText))
 
                 // グリッドは全行共通にし、タイトルの折り返し位置を揃える
                 // (場所列はセクション内に場所を持つ予定が1件でもあれば全行分を確保する)
@@ -631,7 +632,7 @@ public struct PanelElementsBuilder {
     /// 間隔あり=レールでつなぐ(分数は出さない)/ 間隔なし=レールを消し朱の接触線 /
     /// 重複=接触線+朱の「◯分重複」だけ数字を残す
     private func appendCalendarRail(
-        _ dots: [(centerY: Double, gapStyle: CalendarGapStyle?)],
+        _ dots: [(centerY: Double, gapStyle: CalendarGapStyle?, isInProgress: Bool)],
         ui: ResolvedUIConfig,
         to elements: inout [PanelElement]
     ) {
@@ -673,12 +674,23 @@ public struct PanelElementsBuilder {
             }
         }
         // 点=予定そのもの(ノード)、レール=関係(エッジ)。間隔の意味はレールだけが背負い、
-        // 点は全予定で同色に統一する(点の色が違うと予定の種類が違うように読めるため)
+        // 点は全予定で同色に統一する(点の色が違うと予定の種類が違うように読めるため)。
+        // 進行中の予定だけ同色のまま中抜きリングにする(塗り=これから、抜き=いま消化中。
+        // 色相・サイズは変えないため予定の種類の違いには読めない。2026-07-19 3人検討)
         for dot in dots {
-            elements.append(.circle(
-                center: PanelPoint(x: railX, y: dot.centerY),
-                radius: dotRadius,
-                fillColor: colors.calendarChain))
+            if dot.isInProgress {
+                elements.append(.circle(
+                    center: PanelPoint(x: railX, y: dot.centerY),
+                    radius: dotRadius,
+                    fillColor: colors.headerBg,
+                    strokeColor: colors.calendarChain,
+                    strokeWidth: 1.5))
+            } else {
+                elements.append(.circle(
+                    center: PanelPoint(x: railX, y: dot.centerY),
+                    radius: dotRadius,
+                    fillColor: colors.calendarChain))
+            }
         }
     }
 

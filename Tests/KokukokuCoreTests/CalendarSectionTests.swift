@@ -106,6 +106,32 @@ struct CalendarSectionModelTests {
         #expect(eventRow(rows[0])?.countdownText == "あと1分")
     }
 
+    @Test("進行中(開始済み)の判定は先頭に限らず各行に付く(重複時は複数行が進行中)")
+    func inProgressPerRow() {
+        let events = [
+            makeEvent(id: "a@google.com", start: at(hour: 11), end: at(hour: 13)),
+            makeEvent(id: "b@google.com", start: at(hour: 11, minute: 30), end: at(hour: 12, minute: 30)),
+            makeEvent(id: "c@google.com", start: at(hour: 14), end: at(hour: 15)),
+        ]
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: events), now: at(hour: 12), calendar: calendar)
+
+        #expect(eventRow(rows[0])?.isInProgress == true)
+        #expect(eventRow(rows[1])?.isInProgress == true)
+        #expect(eventRow(rows[2])?.isInProgress == false)
+    }
+
+    @Test("開始時刻ちょうどは進行中になる")
+    func inProgressAtExactStart() {
+        let event = makeEvent(start: at(hour: 12), end: at(hour: 13))
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
+
+        #expect(eventRow(rows[0])?.isInProgress == true)
+    }
+
     @Test("2件目以降は間隔表現を持ち、先頭はカウントダウンだけを持つ")
     func gapOnSecondEvent() {
         let events = [

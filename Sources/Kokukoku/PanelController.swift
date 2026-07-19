@@ -261,7 +261,6 @@ final class PanelController {
                 return Double((text as NSString).size(withAttributes: [.font: font]).width)
             },
             resolveIcon: { [iconStore] icon in iconStore.resolve(icon) },
-            hasLogoImage: iconStore.logoImage != nil,
             metrics: metrics
         )
         panelView.elements = builder.build(
@@ -400,7 +399,15 @@ final class PanelController {
         // ±3はセル内側余白+枠線の分で、フィールド内の文字を元の描画位置に揃える補正
         editor.field.sizeToFit()
         let editorWidth = editor.field.frame.width.rounded(.up)
-        let editorX = alignment == .right ? frame.x + frame.w - editorWidth + 3 : frame.x - 3
+        // 連続稼働はラベルが実測幅の中央寄せ描画になったため、編集フィールドも枠中央へ置く
+        let editorX: Double
+        if case .continuous = target {
+            editorX = frame.x + (frame.w - editorWidth) / 2
+        } else if alignment == .right {
+            editorX = frame.x + frame.w - editorWidth + 3
+        } else {
+            editorX = frame.x - 3
+        }
         editor.field.frame = NSRect(
             x: editorX, y: centerY - editorHeight / 2,
             width: editorWidth, height: editorHeight)

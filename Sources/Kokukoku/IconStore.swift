@@ -14,12 +14,10 @@ final class IconStore {
     private var cache: [String: Entry] = [:]
     var onLoad: (() -> Void)?
 
-    /// ロゴ画像(SwiftPMリソースのkokukoku.webp)。
+    /// ロゴ画像(SwiftPMリソースのkokukoku.webp)。メニューバーアイコンで使う。
     /// Bundle.moduleは「実行体と同じディレクトリ」か「ビルドマシンのbuildパス」しか
     /// 探さず、.appのContents/Resourcesを見つけられずfatalErrorするため自前で解決する
     /// (アプリ: Contents/Resources直下 / swift run: 実行体と同じ.buildディレクトリ)
-    let logoImage: NSImage? = IconStore.loadLogoImage()
-
     static func loadLogoImage() -> NSImage? {
         let candidates = [Bundle.main.resourceURL, Bundle.main.bundleURL]
         for base in candidates {
@@ -35,7 +33,6 @@ final class IconStore {
     }
 
     func image(forKey key: String) -> NSImage? {
-        if key == "logo" { return logoImage }
         if case .loaded(let image)? = cache[key] { return image }
         return nil
     }

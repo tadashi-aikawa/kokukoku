@@ -158,17 +158,16 @@ public struct PanelMetrics: Equatable, Sendable {
             w: PanelLayout.clockDigitalWidth, h: 36)
     }
 
-    /// フッター中央の連続稼働時間テキストの枠(インライン編集フィールドもここへ重ねる)
+    /// フッター中央の連続稼働時間のインライン編集フィールド枠
+    /// (ラベル自体は実測幅で中央寄せ描画するため、この枠は編集時にだけ使う)
     public func continuousTimeFrame(projectCount: Int, calendarSectionHeight: Double = 0)
         -> PanelFrame
     {
         let footerY = PanelLayout.clockSectionHeight + Double(projectCount) * PanelLayout.rowHeight
             + calendarSectionHeight
         return .init(
-            x: (panelWidth - PanelLayout.headerLogoSize - PanelLayout.headerLogoTextGap
-                - PanelLayout.headerTimeWidth) / 2
-                + PanelLayout.headerLogoSize + PanelLayout.headerLogoTextGap,
-            y: footerY + 10, w: PanelLayout.headerTimeWidth, h: 28)
+            x: (panelWidth - PanelLayout.continuousTimeWidth) / 2,
+            y: footerY + 10, w: PanelLayout.continuousTimeWidth, h: 28)
     }
 
     /// プロジェクト行の累積時間テキストの枠(同上)。
@@ -205,9 +204,10 @@ public enum PanelLayout {
     public static let iconSlotWidth = 24.0
     /// 画像アイコンの角丸半径。行カプセルの文法に合わせて円形に切り抜く
     public static let iconImageCornerRadius = iconImageSize / 2
-    public static let headerLogoSize = 28.0
-    public static let headerLogoTextGap = 6.0
-    public static let headerTimeWidth = 90.0
+    /// フッター中央の連続稼働時間の編集フィールド幅(HH:MM:SS入力が収まる幅)
+    public static let continuousTimeWidth = 90.0
+    /// 連続稼働ゲージの全幅。中央寄せで敷く
+    public static let gaugeWidth = 180.0
     /// 行カプセル(ネオン・選択輪郭)のパネル端・行境界からのマージン。
     /// 端に密着させると窮屈に見えるため左右に余白を取る
     public static let capsuleInsetX = 8.0

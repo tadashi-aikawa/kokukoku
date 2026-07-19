@@ -35,9 +35,11 @@ struct PanelElementsBuilderTests {
         #expect(elements[19] == .rectangle(
             frame: .init(x: 0, y: 124, w: 480, h: 1),
             fillColor: PanelLayout.Colors.separator))
+        let labelWidth = 7.0 * 14 * 0.62  // 「連続稼働 0分」の概算幅
         #expect(elements[22] == .text(
-            frame: .init(x: 212, y: 134, w: 90, h: 28), text: "00:00:00",
-            fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
+            frame: .init(x: (480 - labelWidth) / 2, y: 129, w: labelWidth, h: 22),
+            text: "連続稼働 0分",
+            fontName: ".AppleSystemUIFont", fontSize: 14, color: PanelLayout.Colors.subText))
         #expect(elements[23] == .rectangle(
             frame: .init(x: 372, y: 131, w: 96, h: 26),
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 13,
@@ -46,19 +48,6 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 0.5, y: 0.5, w: 479, h: 163),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 10,
             strokeColor: PanelLayout.Colors.panelBorder, strokeWidth: 1))
-    }
-
-    @Test("ロゴがある場合だけロゴ画像を追加する")
-    func logo() {
-        let withoutLogo = builder(hasLogoImage: false).build(inputs())
-        let withLogo = builder(hasLogoImage: true).build(inputs())
-
-        #expect(!withoutLogo.contains(.image(
-            frame: .init(x: 178, y: 130, w: 28, h: 28),
-            iconKey: "logo", scaling: .shrinkToFit)))
-        #expect(withLogo[22] == .image(
-            frame: .init(x: 178, y: 130, w: 28, h: 28),
-            iconKey: "logo", scaling: .shrinkToFit))
     }
 
     @Test("絵文字アイコンをテキストとして描画する")
@@ -95,18 +84,22 @@ struct PanelElementsBuilderTests {
         #expect(containsText("Work", in: elements))
     }
 
-    @Test("ヘッダーは停止中の基準時間と稼働中の経過時間を表示する")
+    @Test("フッターは停止中の基準時間と稼働中の経過時間を分単位ラベルで表示する")
     func continuousElapsed() {
         let stopped = builder().build(inputs(state: .init(continuousElapsedBase: 600)))
         let running = builder(now: 1_100).build(inputs(state: .init(
             continuousElapsedBase: 600, continuousStartedAt: 1_000)))
 
+        let labelWidth = 8.0 * 14 * 0.62  // 「連続稼働 10分」の概算幅
         #expect(stopped[22] == .text(
-            frame: .init(x: 212, y: 134, w: 90, h: 28), text: "00:10:00",
-            fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.subText))
+            frame: .init(x: (480 - labelWidth) / 2, y: 129, w: labelWidth, h: 22),
+            text: "連続稼働 10分",
+            fontName: ".AppleSystemUIFont", fontSize: 14, color: PanelLayout.Colors.subText))
+        // 計測中でも色は沈み生成りのまま(計測中は行のカプセルが語る。朱は超過時のみ)
         #expect(running[22] == .text(
-            frame: .init(x: 212, y: 134, w: 90, h: 28), text: "00:11:40",
-            fontName: "Menlo", fontSize: 16, color: PanelLayout.Colors.text))
+            frame: .init(x: (480 - labelWidth) / 2, y: 129, w: labelWidth, h: 22),
+            text: "連続稼働 11分",
+            fontName: ".AppleSystemUIFont", fontSize: 14, color: PanelLayout.Colors.subText))
     }
 
     @Test("選択・ホバー・リセット確認の色を反映する")
@@ -238,40 +231,59 @@ struct PanelElementsBuilderTests {
 
         #expect(containsText("00:01:30", in: normal))
         #expect(!containsText("00:01:30", in: editing))
-        #expect(containsText("00:00:00", in: editing))  // ヘッダーの連続稼働時間は残る
+        #expect(containsText("連続稼働 0分", in: editing))  // フッターの連続稼働ラベルは残る
     }
 
-    @Test("連続稼働時間の編集中はヘッダーの時刻テキストを描画しない")
-    func editingContinuousHidesHeaderText() {
+    @Test("連続稼働時間の編集中はフッターのラベルを描画しない")
+    func editingContinuousHidesFooterLabel() {
         let editing = builder().build(inputs(
             state: .init(continuousElapsedBase: 600),
             editingTarget: .continuous))
 
-        #expect(!containsText("00:10:00", in: editing))
+        #expect(!containsText("連続稼働 10分", in: editing))
         #expect(containsText("00:00:00", in: editing))  // プロジェクト行の時刻は残る
     }
 
     @Test("編集フィールドの枠は時刻テキストの列位置と一致する")
     func editingFrames() {
         #expect(metrics.continuousTimeFrame(projectCount: 1)
-            == .init(x: 212, y: 134, w: 90, h: 28))
+            == .init(x: 195, y: 134, w: 90, h: 28))
         #expect(metrics.accumulatedTimeFrame(rowOffset: 0)
             == .init(x: 356, y: 84, w: 100, h: 40))
         #expect(metrics.accumulatedTimeFrame(rowOffset: 2)
             == .init(x: 356, y: 164, w: 100, h: 40))
     }
 
-    @Test("連続稼働ゲージの進行率は次の閾値まで基準で閾値なしなら非表示")
-    func gaugeFraction() {
-        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 1800, thresholds: [3600]) == 0.5)
-        // 閾値を1つ超えたら次の閾値基準に切り替わる
+    @Test("連続稼働ゲージの進行率は最大閾値までの全行程基準で閾値なしなら非表示")
+    func gaugeProgress() {
+        #expect(PanelElementsBuilder.gaugeProgress(continuousElapsed: 1800, thresholds: [3600]) == 0.5)
+        // 複数閾値でも最大閾値までの全行程で進む(区切りがセグメントを示す)
         #expect(
-            PanelElementsBuilder.gaugeFraction(continuousElapsed: 2700, thresholds: [1800, 3600])
-                == 0.5)
-        // 全閾値超過後は満タン
-        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 4000, thresholds: [3600]) == 1)
-        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 100, thresholds: []) == nil)
-        #expect(PanelElementsBuilder.gaugeFraction(continuousElapsed: 100, thresholds: [0]) == nil)
+            PanelElementsBuilder.gaugeProgress(continuousElapsed: 2700, thresholds: [1800, 3600])
+                == 0.75)
+        // 超過後は満タン(朱)に張り付く
+        #expect(PanelElementsBuilder.gaugeProgress(continuousElapsed: 4000, thresholds: [3600]) == 1)
+        #expect(PanelElementsBuilder.gaugeProgress(continuousElapsed: 100, thresholds: []) == nil)
+        #expect(PanelElementsBuilder.gaugeProgress(continuousElapsed: 100, thresholds: [0]) == nil)
+    }
+
+    @Test("ゲージの区切りは閾値2本以上のとき中間閾値の位置だけに入る")
+    func gaugeSeparators() {
+        #expect(PanelElementsBuilder.gaugeSeparatorPositions(thresholds: [3600]) == [])
+        #expect(PanelElementsBuilder.gaugeSeparatorPositions(thresholds: [3600, 1800]) == [0.5])
+        #expect(
+            PanelElementsBuilder.gaugeSeparatorPositions(thresholds: [1800, 1800, 3600]) == [0.5])
+        #expect(PanelElementsBuilder.gaugeSeparatorPositions(thresholds: []) == [])
+    }
+
+    @Test("連続稼働ラベルは分単位表記で最大閾値の超過判定は閾値ちょうどから立つ")
+    func minuteDurationAndOverThreshold() {
+        #expect(PanelElementsBuilder.minuteDuration(13_560) == "3時間46分")
+        #expect(PanelElementsBuilder.minuteDuration(59) == "0分")
+        #expect(PanelElementsBuilder.minuteDuration(3_630) == "1時間0分")
+        #expect(!PanelElementsBuilder.isOverThreshold(elapsed: 3_599, thresholds: [3600]))
+        #expect(PanelElementsBuilder.isOverThreshold(elapsed: 3_600, thresholds: [1800, 3600]))
+        #expect(!PanelElementsBuilder.isOverThreshold(elapsed: 10_000, thresholds: []))
     }
 
     @Test("閾値があればフッター下端に連続稼働ゲージの溝と火を描く")
@@ -281,15 +293,34 @@ struct PanelElementsBuilderTests {
             state: .init(continuousElapsedBase: 0, continuousStartedAt: 1_000),
             alertThresholds: [3_600]))
 
-        // 溝はロゴ+連続稼働時間の中央ブロック全体の直下・同じ幅
-        let track = PanelFrame(x: 178, y: 159, w: 124, h: 3)
+        // 溝はフッター中央の固定幅
+        let track = PanelFrame(x: 150, y: 159, w: 180, h: 3)
         #expect(!none.contains(.rectangle(
             frame: track, fillColor: PanelLayout.Colors.gaugeTrack, cornerRadius: 1.5)))
         #expect(elements.contains(.rectangle(
             frame: track, fillColor: PanelLayout.Colors.gaugeTrack, cornerRadius: 1.5)))
         #expect(elements.contains(.rectangle(
-            frame: .init(x: 178, y: 159, w: 62, h: 3),
+            frame: .init(x: 150, y: 159, w: 90, h: 3),
             fillColor: PanelElementsBuilder.gaugeColor(fraction: 0.5), cornerRadius: 1.5)))
+    }
+
+    @Test("閾値が複数なら中間閾値の位置に区切りを描き超過中はラベルが朱になる")
+    func segmentedGaugeAndOverColor() {
+        let elements = builder(now: 4_700).build(inputs(
+            state: .init(continuousElapsedBase: 0, continuousStartedAt: 1_000),
+            alertThresholds: [1_800, 3_600]))
+
+        // 経過3700秒 = 最大閾値3600を超過 → 満タンの朱+中間区切り+朱ラベル
+        #expect(elements.contains(.rectangle(
+            frame: .init(x: 150, y: 159, w: 180, h: 3),
+            fillColor: PanelElementsBuilder.gaugeColor(fraction: 1), cornerRadius: 1.5)))
+        #expect(elements.contains(.rectangle(
+            frame: .init(x: 239, y: 159, w: 2, h: 3),
+            fillColor: PanelLayout.Colors.footerBg)))
+        #expect(elements.contains { element in
+            guard case .text(_, let text, _, _, let color, _) = element else { return false }
+            return text == "連続稼働 1時間1分" && color == PanelLayout.Colors.gaugeEnd
+        })
     }
 
     @Test("パネル幅は最長プロジェクト名の幅に連動し下限420・上限480で頭打ちする")
@@ -558,15 +589,13 @@ struct PanelElementsBuilderTests {
     private func builder(
         now: Int = 1_000,
         localTime: ClockTime = .init(hour: 0, minute: 0, second: 0),
-        resolveIcon: @escaping (String) -> IconResolution = { _ in .none },
-        hasLogoImage: Bool = false
+        resolveIcon: @escaping (String) -> IconResolution = { _ in .none }
     ) -> PanelElementsBuilder {
         PanelElementsBuilder(
             now: { now },
             localTime: { localTime },
             measureTextHeight: { _, _, size in size + 8 },
             resolveIcon: resolveIcon,
-            hasLogoImage: hasLogoImage,
             metrics: metrics)
     }
 

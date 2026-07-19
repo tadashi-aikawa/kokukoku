@@ -462,7 +462,7 @@ struct PanelElementsBuilderTests {
         #expect(!containsText("0分", in: elements))
     }
 
-    @Test("通知モードでは閉じるボタン・強調背景・鮮度表示を描く")
+    @Test("通知モードでは強調背景・鮮度表示を描く(閉じるボタンは置かない)")
     func calendarNotificationMode() {
         let rows: [CalendarSectionRow] = [
             .notice(text: "『定例』は中止になりました"),
@@ -472,18 +472,13 @@ struct PanelElementsBuilderTests {
             .attendees(.init(othersText: "x, y")),
             .freshness(text: "3分前時点の情報"),
         ]
-        let elements = builder().build(
-            inputs(calendarRows: rows, showsCalendarCloseButton: true))
+        let elements = builder().build(inputs(calendarRows: rows))
 
-        #expect(containsText("✕ 閉じる", in: elements))
         #expect(containsText("『定例』は中止になりました", in: elements))
         #expect(containsText("3分前時点の情報", in: elements))
-        #expect(elements.contains { element in
-            guard case .rectangle(_, _, _, _, _, let id, let tracksMouse) = element else {
-                return false
-            }
-            return id == "btn_cal_close" && tracksMouse
-        })
+        // 閉じるボタンは廃止(フォーカス非奪取のため1クリック目が届かず2クリック要る体験になる。
+        // 閉じるのはパネルクリック後のEscかホットキー。2026-07-19 タダシ決定)
+        #expect(!containsText("✕ 閉じる", in: elements))
         // 強調行と参加者行に暖色背景が敷かれる(2枚)
         let highlightCount = elements.filter { element in
             guard case .rectangle(_, let fill, _, _, _, _, _) = element else { return false }
@@ -531,8 +526,7 @@ struct PanelElementsBuilderTests {
         resetConfirming: Bool = false,
         editingTarget: PanelEditingTarget? = nil,
         alertThresholds: [Int] = [],
-        calendarRows: [CalendarSectionRow] = [],
-        showsCalendarCloseButton: Bool = false
+        calendarRows: [CalendarSectionRow] = []
     ) -> PanelElementsBuilder.Inputs {
         .init(
             projects: [project], state: state,
@@ -540,8 +534,7 @@ struct PanelElementsBuilderTests {
             resetConfirming: resetConfirming,
             editingTarget: editingTarget,
             alertThresholds: alertThresholds,
-            calendarRows: calendarRows,
-            showsCalendarCloseButton: showsCalendarCloseButton, ui: ui)
+            calendarRows: calendarRows, ui: ui)
     }
 
     private func containsText(_ text: String, in elements: [PanelElement]) -> Bool {

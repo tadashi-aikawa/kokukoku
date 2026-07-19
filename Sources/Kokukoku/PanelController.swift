@@ -134,7 +134,8 @@ final class PanelController {
 
         if notificationMode {
             // 通知パネルはキーボードフォーカスも奪わず、外クリックでは閉じない
-            // (閉じるのはパネル上の閉じるボタンか既存のパネルトグルホットキー)
+            // (閉じるのはパネルをクリックしてキーにした後のEscか、既存のパネルトグルホットキー。
+            // 閉じるボタンは1クリック目がキー化に消費されて2クリック要る体験になるため廃止)
             window.orderFrontRegardless()
             return
         }
@@ -273,7 +274,6 @@ final class PanelController {
                 editingTarget: editingTarget,
                 alertThresholds: alertThresholds,
                 calendarRows: calendarRows,
-                showsCalendarCloseButton: notificationMode,
                 ui: ui))
     }
 
@@ -462,9 +462,6 @@ final class PanelController {
             return
         } else if elementId == "btn_reset" {
             handleResetAction()
-            return
-        } else if elementId == "btn_cal_close" {
-            hide()
             return
         } else if elementId == "cal_overflow" {
             calendarExpanded = true

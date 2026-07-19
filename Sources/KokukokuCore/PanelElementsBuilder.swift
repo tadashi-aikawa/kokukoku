@@ -18,8 +18,6 @@ public struct PanelElementsBuilder {
         public var alertThresholds: [Int]
         /// 本日の残予定セクションの行データ列(CalendarSectionModel.rows)。空ならセクション非表示
         public var calendarRows: [CalendarSectionRow]
-        /// 通知モード: 閉じるボタンをヘッダー右上に出す(通知パネルは外クリックで閉じないため)
-        public var showsCalendarCloseButton: Bool
         public var ui: ResolvedUIConfig
 
         public init(
@@ -31,7 +29,6 @@ public struct PanelElementsBuilder {
             editingTarget: PanelEditingTarget? = nil,
             alertThresholds: [Int] = [],
             calendarRows: [CalendarSectionRow] = [],
-            showsCalendarCloseButton: Bool = false,
             ui: ResolvedUIConfig
         ) {
             self.projects = projects
@@ -42,7 +39,6 @@ public struct PanelElementsBuilder {
             self.editingTarget = editingTarget
             self.alertThresholds = alertThresholds
             self.calendarRows = calendarRows
-            self.showsCalendarCloseButton = showsCalendarCloseButton
             self.ui = ui
         }
     }
@@ -118,30 +114,6 @@ public struct PanelElementsBuilder {
                 fontSize: 12,
                 color: color,
                 alignment: .right))
-        }
-
-        // 通知パネルは外クリックで閉じないため、常時表示の閉じるボタンを右上に置く
-        if inputs.showsCalendarCloseButton {
-            let closeText = "✕ 閉じる"
-            let closeHovered = inputs.hoveredId == "btn_cal_close"
-            let closeFrame = PanelFrame(
-                x: metrics.panelWidth - layout.padding - 76, y: 8, w: 76, h: 22)
-            elements.append(.rectangle(
-                frame: closeFrame,
-                fillColor: closeHovered ? colors.footerHoverBg : colors.headerBg,
-                cornerRadius: 11,
-                id: "btn_cal_close",
-                tracksMouse: true))
-            let closeHeight = measureTextHeight(closeText, inputs.ui.fontName, 11)
-            elements.append(.text(
-                frame: .init(
-                    x: closeFrame.x, y: closeFrame.y + centeredOffset(closeFrame.h, closeHeight),
-                    w: closeFrame.w, h: closeHeight),
-                text: closeText,
-                fontName: inputs.ui.fontName,
-                fontSize: 11,
-                color: colors.subText,
-                alignment: .center))
         }
 
         // 予定セクションは時計と同じ「時間の世界」ゾーンとしてヘッダー直下に置く

@@ -239,6 +239,11 @@ public enum PanelLayout {
     public static let calendarFreshnessRowHeight = 14.0
     public static let calendarSectionPaddingTop = 6.0
     public static let calendarSectionPaddingBottom = 8.0
+    /// nowマーカー帯(ヘッダーから降りるnowレール+未開始カウントダウン)の高さ。
+    /// 行ではなく帯にする: カウントダウンの出没(表示閾値)で行が挿入・削除されると
+    /// リスト全体が縦にずれるため、先頭予定が未開始の間は高さを確保し続ける。
+    /// 進行中はnowレールもラベルも無い(リングが「いま」を語る)ため帯ごと詰める
+    public static let calendarNowMarkerHeight = 18.0
     /// タイムラインのレール(縦線+予定ごとの点)のx座標
     public static let calendarRailX = 20.0
     /// 予定行の内容(開始時刻)の左端
@@ -257,11 +262,21 @@ public enum PanelLayout {
         }
     }
 
-    /// 予定セクションの高さ。行が無ければ0(セクションごと非表示)
+    /// 予定セクションの高さ。行が無ければ0(セクションごと非表示)。
+    /// 先頭の予定が未開始のときだけnowマーカー帯の分を含める
     public static func calendarSectionHeight(rows: [CalendarSectionRow]) -> Double {
         guard !rows.isEmpty else { return 0 }
         return rows.map(calendarRowHeight).reduce(0, +)
+            + (hasNowMarkerBand(rows: rows) ? calendarNowMarkerHeight : 0)
             + calendarSectionPaddingTop + calendarSectionPaddingBottom
+    }
+
+    /// nowマーカー帯を置くか: 先頭の予定行が未開始のときだけ
+    public static func hasNowMarkerBand(rows: [CalendarSectionRow]) -> Bool {
+        for row in rows {
+            if case .event(let event) = row { return !event.isInProgress }
+        }
+        return false
     }
 
     /// アイコン(墨絵の時計)由来のパレット:

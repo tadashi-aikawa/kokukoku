@@ -78,7 +78,8 @@ public struct CalendarEventRow: Equatable, Sendable {
     public var locationText: String?
     /// 行クリックで開くカレンダー詳細ページ(組み立て不能なら日ビュー)
     public var detailURL: URL?
-    /// 先頭予定のみ: 「あと◯分」(未開始)/「終了まで◯分」(進行中)。時計セクションの右端に描く
+    /// 先頭予定のみ: 「あと◯分」(未開始)/「終了まで◯分」(進行中)。
+    /// 未開始はnowマーカー帯(now→先頭の点の区間ラベル)、進行中は行内の右端スロットに描く
     public var countdownText: String?
     /// カウントダウンの緊急度(色分けの入力)。countdownText とセットで入る
     public var countdownUrgency: CalendarCountdownUrgency?

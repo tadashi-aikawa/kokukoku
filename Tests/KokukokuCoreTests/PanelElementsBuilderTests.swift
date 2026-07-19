@@ -172,9 +172,9 @@ struct PanelElementsBuilderTests {
         let selected = builder().build(inputs(
             selectedTarget: .calendarEvent(eventIndex: 1), calendarRows: rows))
 
-        // 2件目の予定行(セクション上端84+余白6+1行分26)に輪郭が乗る
+        // 2件目の予定行(セクション上端84+余白6+nowマーカー帯18+1行分26)に輪郭が乗る
         #expect(selected.contains(.rectangle(
-            frame: .init(x: 8, y: 118, w: 464, h: 22),
+            frame: .init(x: 8, y: 136, w: 464, h: 22),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 11,
             strokeColor: PanelLayout.Colors.selectionOutline,
@@ -184,7 +184,7 @@ struct PanelElementsBuilderTests {
         let overflowSelected = builder().build(inputs(
             selectedTarget: .calendarOverflow, calendarRows: rows))
         #expect(overflowSelected.contains(.rectangle(
-            frame: .init(x: 8, y: 144, w: 464, h: 14),
+            frame: .init(x: 8, y: 162, w: 464, h: 14),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 7,
             strokeColor: PanelLayout.Colors.selectionOutline,
@@ -437,14 +437,14 @@ struct PanelElementsBuilderTests {
             return fill
         }
         #expect(dotColors == Array(repeating: PanelLayout.Colors.calendarChain, count: 4))
-        // 通常レール(縦線・subText色)は間隔ありの1本だけ
+        // 通常レール(縦線・subText色)はnow→先頭と間隔ありの2本だけ
         // (時計の目盛もsubTextの縦線のため、レールのx座標で絞る)
         let railLines = elements.filter { element in
             guard case .line(let from, let to, let color, _) = element else { return false }
             return from.x == PanelLayout.calendarRailX && from.x == to.x
                 && color == PanelLayout.Colors.subText
         }
-        #expect(railLines.count == 1)
+        #expect(railLines.count == 2)
         // 連鎖レール(燻し橙)と重複レール(朱)が1本ずつ
         func verticalRailCount(of color: PanelColor) -> Int {
             elements.filter { element in
@@ -460,6 +460,58 @@ struct PanelElementsBuilderTests {
         // 数字は重複だけに残る
         #expect(containsText("30分重複", in: elements))
         #expect(!containsText("0分", in: elements))
+    }
+
+    @Test("nowマーカー帯: レールをヘッダー境界から降ろし、未開始の「あと◯分」は区間ラベルとして描く")
+    func nowMarkerWithUpcomingCountdown() {
+        let rows: [CalendarSectionRow] = [
+            .event(.init(
+                startText: "13:00", endText: "-14:00", title: "a",
+                countdownText: "あと38分", countdownUrgency: .distant)),
+        ]
+        let elements = builder().build(inputs(calendarRows: rows))
+        let railX = PanelLayout.calendarRailX
+
+        // セクション上端84(時計=いまの面との境界)から先頭の点(中心 84+6+18+13=121)へ通常レール
+        #expect(elements.contains(.line(
+            from: .init(x: railX, y: 84), to: .init(x: railX, y: 116),
+            color: PanelLayout.Colors.subText, width: 1)))
+        // 「あと38分」は区間ラベルとして帯(中心 84+6+9=99)に出る(ヘッダー右端には出ない)
+        let labelFrames = elements.compactMap { element -> PanelFrame? in
+            guard case .text(let frame, "あと38分", _, _, _, _) = element else { return nil }
+            return frame
+        }
+        #expect(labelFrames.map(\.x) == [railX + 9])
+    }
+
+    @Test("進行中の「終了まで◯分」は行内右端に出て場所より優先される")
+    func ongoingCountdownInRow() {
+        let rows: [CalendarSectionRow] = [
+            .event(.init(
+                startText: "13:00", endText: "-14:00", title: "a",
+                locationText: "会議室A",
+                countdownText: "終了まで8分", countdownUrgency: .imminent,
+                isInProgress: true)),
+        ]
+        let elements = builder().build(inputs(calendarRows: rows))
+
+        // 行内右端スロット(右寄せ・警告色)。表示中は場所を出さない
+        #expect(elements.contains { element in
+            guard case .text(let frame, "終了まで8分", _, 12, let color, .right) = element
+            else { return false }
+            return frame.x == 358 && color == PanelLayout.Colors.clockSecondHand
+        })
+        #expect(!containsText("会議室A", in: elements))
+        // 帯は置かず(高さごと詰める)、nowレールも出さない(「いま」はリングが語る)。
+        // 行はセクション上端84+余白6から始まる
+        #expect(!elements.contains { element in
+            guard case .line(let from, let to, _, _) = element else { return false }
+            return from.x == PanelLayout.calendarRailX && from.x == to.x
+        })
+        #expect(elements.contains { element in
+            guard case .circle(let center, 3, _, _, _) = element else { return false }
+            return center == PanelPoint(x: PanelLayout.calendarRailX, y: 103)
+        })
     }
 
     @Test("通知モードでは強調背景・鮮度表示を描く(閉じるボタンは置かない)")

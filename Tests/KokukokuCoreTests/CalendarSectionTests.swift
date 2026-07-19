@@ -550,7 +550,7 @@ struct PanelLayoutCalendarTests {
                 == PanelLayout.panelHeight(projectCount: 3, calendarSectionHeight: 0))
     }
 
-    @Test("セクション高は行種別ごとの高さ+上下パディングになる")
+    @Test("セクション高は行種別ごとの高さ+nowマーカー帯+上下パディングになる")
     func sectionHeight() {
         let rows: [CalendarSectionRow] = [
             .event(.init(startText: "13:00", endText: "-14:00", title: "a")),
@@ -561,11 +561,35 @@ struct PanelLayoutCalendarTests {
         let expected = PanelLayout.calendarEventRowHeight
             + PanelLayout.calendarAttendeeRowHeight
             + PanelLayout.calendarOverflowRowHeight
+            + PanelLayout.calendarNowMarkerHeight
             + PanelLayout.calendarSectionPaddingTop
             + PanelLayout.calendarSectionPaddingBottom
         #expect(PanelLayout.calendarSectionHeight(rows: rows) == expected)
         #expect(
             PanelLayout.panelHeight(projectCount: 2, calendarSectionHeight: expected)
                 == PanelLayout.panelHeight(projectCount: 2) + expected)
+    }
+
+    @Test("nowマーカー帯は先頭予定が未開始のときだけ確保する")
+    func nowMarkerHeightOnlyWithUpcomingFirstEvent() {
+        // エラー行のみ: 帯なし
+        let errorOnly: [CalendarSectionRow] = [.error(message: "x")]
+        #expect(
+            PanelLayout.calendarSectionHeight(rows: errorOnly)
+                == PanelLayout.calendarErrorRowHeight
+                + PanelLayout.calendarSectionPaddingTop
+                + PanelLayout.calendarSectionPaddingBottom)
+        // 先頭が進行中: 帯ごと詰める(nowレールもラベルも無い空の帯が残るだけのため)
+        let ongoingFirst: [CalendarSectionRow] = [
+            .event(.init(
+                startText: "16:45", endText: "-17:15", title: "a", isInProgress: true)),
+            .event(.init(startText: "17:15", endText: "-18:00", title: "b", gapStyle: .rail)),
+        ]
+        #expect(!PanelLayout.hasNowMarkerBand(rows: ongoingFirst))
+        #expect(
+            PanelLayout.calendarSectionHeight(rows: ongoingFirst)
+                == PanelLayout.calendarEventRowHeight * 2
+                + PanelLayout.calendarSectionPaddingTop
+                + PanelLayout.calendarSectionPaddingBottom)
     }
 }

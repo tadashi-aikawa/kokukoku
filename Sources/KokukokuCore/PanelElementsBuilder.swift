@@ -93,29 +93,6 @@ public struct PanelElementsBuilder {
 
         appendClock(inputs, to: &elements)
 
-        // 先頭予定のカウントダウンは「いま」の情報として時計セクションの右端に置く
-        // (予定行に置くと先頭行だけタイトル幅が縮んで折り返し位置が揃わないため)。
-        // 色は緊急度連動: 遠いときは沈めて主張させず、近づいたときだけ光らせる
-        if let countdown = Self.firstCountdown(in: inputs.calendarRows) {
-            let color: PanelColor
-            switch countdown.urgency {
-            case .imminent: color = colors.clockSecondHand
-            case .near: color = colors.activeText
-            case .distant, nil: color = colors.subText
-            }
-            let height = measureTextHeight(countdown.text, inputs.ui.fontName, 12)
-            elements.append(.text(
-                frame: .init(
-                    x: metrics.panelWidth - layout.padding - 110,
-                    y: layout.clockSectionHeight / 2 - height / 2,
-                    w: 110, h: height),
-                text: countdown.text,
-                fontName: inputs.ui.fontName,
-                fontSize: 12,
-                color: color,
-                alignment: .right))
-        }
-
         // 予定セクションは時計と同じ「時間の世界」ゾーンとしてヘッダー直下に置く
         appendCalendarSection(inputs, startY: layout.clockSectionHeight, to: &elements)
         let rowsStartY = layout.clockSectionHeight + calendarHeight
@@ -355,18 +332,37 @@ public struct PanelElementsBuilder {
 
         var y = startY + layout.calendarSectionPaddingTop
         var eventIndex = 0
+        // 右端の列は場所と進行中カウントダウンが同じスロットを使う。
+        // どちらか1つでも表示があれば全行分を確保し、タイトルの折り返し位置を揃える
         let locationColumnWidth: Double = inputs.calendarRows.contains(where: { row in
-            if case .event(let event) = row { return event.locationText != nil }
-            return false
+            guard case .event(let event) = row else { return false }
+            return event.locationText != nil
+                || (event.isInProgress && event.countdownText != nil)
         }) ? 110 : 0
         // タイムラインの点の中心Yと、その予定の間隔表現(レール描画は行の後にまとめて行う)
         var dots: [(centerY: Double, gapStyle: CalendarGapStyle?, isInProgress: Bool)] = []
+        // nowマーカー帯の中心Yと、未開始カウントダウン(帯は先頭予定行の直上に置く)
+        var nowMarker: (centerY: Double, countdown: (text: String, urgency: CalendarCountdownUrgency?)?)?
         // 参加者行は直前の予定行の強調に追随させる
         var lastEventHighlighted = false
         // キーボード選択中の行の位置(輪郭はレールより手前に描くため後でまとめて構築)
         var selectedRowFrame: (y: Double, height: Double)?
 
+        let hasNowMarkerBand = layout.hasNowMarkerBand(rows: inputs.calendarRows)
         for row in inputs.calendarRows {
+            // 「いま」はタイムラインの先頭予定より前(順序の事実)なので、
+            // nowマーカー帯を先頭予定行の直上に差し込む。帯の高さはカウントダウンの
+            // 表示閾値では出没させない(リストが縦ずれしないように)。
+            // 先頭が進行中のときは帯ごと詰める(nowはリングが語るため空の帯が残るだけ)
+            if hasNowMarkerBand, case .event(let event) = row, nowMarker == nil {
+                let centerY = y + layout.calendarNowMarkerHeight / 2
+                let countdown: (text: String, urgency: CalendarCountdownUrgency?)? =
+                    if let text = event.countdownText {
+                        (text, event.countdownUrgency)
+                    } else { nil }
+                nowMarker = (centerY, countdown)
+                y += layout.calendarNowMarkerHeight
+            }
             let rowHeight = layout.calendarRowHeight(row)
             if Self.rowMatchesSelection(
                 row: row, eventIndex: eventIndex, target: inputs.selectedTarget)
@@ -419,9 +415,28 @@ public struct PanelElementsBuilder {
                     fontSize: 12,
                     color: event.isInProgress ? colors.text : colors.subText))
 
-                // グリッドは全行共通にし、タイトルの折り返し位置を揃える
-                // (場所列はセクション内に場所を持つ予定が1件でもあれば全行分を確保する)
-                if let locationText = event.locationText {
+                // 進行中の「終了まで◯分」は行内(右端スロット)で完結させる。
+                // 独立行にすると残30分を切った瞬間にリスト中程へ行が挿入されて縦ずれするため。
+                // 表示中は場所より優先する(進行中=もう現地に居るので場所の価値が下がっている)
+                if event.isInProgress, let countdown = event.countdownText {
+                    let color: PanelColor
+                    switch event.countdownUrgency {
+                    case .imminent: color = colors.clockSecondHand
+                    case .near: color = colors.activeText
+                    case .distant, nil: color = colors.subText
+                    }
+                    let height = measureTextHeight(countdown, inputs.ui.fontName, 12)
+                    elements.append(.text(
+                        frame: .init(
+                            x: metrics.panelWidth - layout.padding - locationColumnWidth,
+                            y: y + centeredOffset(rowHeight, height),
+                            w: locationColumnWidth, h: height),
+                        text: countdown,
+                        fontName: inputs.ui.fontName,
+                        fontSize: 12,
+                        color: color,
+                        alignment: .right))
+                } else if let locationText = event.locationText {
                     let height = measureTextHeight(locationText, inputs.ui.fontName, 12)
                     elements.append(.text(
                         frame: .init(
@@ -531,7 +546,8 @@ public struct PanelElementsBuilder {
             y += rowHeight
         }
 
-        appendCalendarRail(dots, ui: inputs.ui, to: &elements)
+        appendCalendarRail(
+            dots, nowMarker: nowMarker, sectionTopY: startY, ui: inputs.ui, to: &elements)
 
         // キーボード選択の輪郭(プロジェクト行と同じ「消灯版カプセル」でEnterの対象を示す)。
         // レールや文字に重なっても輪郭線だけなので最前面でよい
@@ -588,23 +604,15 @@ public struct PanelElementsBuilder {
             color: colors.subText))
     }
 
-    /// 先頭予定のカウントダウン(行データ列に1つだけ入っている)
-    static func firstCountdown(in rows: [CalendarSectionRow])
-        -> (text: String, urgency: CalendarCountdownUrgency?)?
-    {
-        for row in rows {
-            if case .event(let event) = row, let countdown = event.countdownText {
-                return (countdown, event.countdownUrgency)
-            }
-        }
-        return nil
-    }
-
     /// タイムラインのレール: 予定の間の空き時間をレール(縦線)の有無で表現する。
     /// 間隔あり=レールでつなぐ(分数は出さない)/ 間隔なし=レールを消し朱の接触線 /
-    /// 重複=接触線+朱の「◯分重複」だけ数字を残す
+    /// 重複=接触線+朱の「◯分重複」だけ数字を残す。
+    /// レールはセクション上端(=時計ヘッダーとの境界。上は「いま」の面)から先頭の点へ
+    /// 直接降ろし、未開始の「あと◯分」はこの区間のラベルとして帯に描く
     private func appendCalendarRail(
         _ dots: [(centerY: Double, gapStyle: CalendarGapStyle?, isInProgress: Bool)],
+        nowMarker: (centerY: Double, countdown: (text: String, urgency: CalendarCountdownUrgency?)?)?,
+        sectionTopY: Double,
         ui: ResolvedUIConfig,
         to elements: inout [PanelElement]
     ) {
@@ -613,6 +621,36 @@ public struct PanelElementsBuilder {
         let colors = PanelLayout.Colors.self
         let railX = layout.calendarRailX
         let dotRadius = 3.0
+
+        // nowマーカー帯(先頭が未開始のときだけ存在する。進行中の「いま」はリングが語る)
+        if let nowMarker, let firstDot = dots.first {
+            // いま→先頭予定のレール: 上端をヘッダー境界に接続して「時計(いま)から
+            // 降りてくる」時系列を示す(「いま」専用の印は増やさない)
+            elements.append(.line(
+                from: PanelPoint(x: railX, y: sectionTopY),
+                to: PanelPoint(x: railX, y: firstDot.centerY - dotRadius - 2),
+                color: colors.subText,
+                width: 1))
+            // 未開始の「あと◯分」はこの区間のラベル。色は緊急度連動:
+            // 遠いときは沈めて主張させず、近づいたときだけ光らせる
+            if let countdown = nowMarker.countdown {
+                let color: PanelColor
+                switch countdown.urgency {
+                case .imminent: color = colors.clockSecondHand
+                case .near: color = colors.activeText
+                case .distant, nil: color = colors.subText
+                }
+                let height = measureTextHeight(countdown.text, ui.fontName, 12)
+                elements.append(.text(
+                    frame: .init(
+                        x: railX + 9, y: nowMarker.centerY - height / 2,
+                        w: 130, h: height),
+                    text: countdown.text,
+                    fontName: ui.fontName,
+                    fontSize: 12,
+                    color: color))
+            }
+        }
 
         for (previous, current) in zip(dots, dots.dropFirst()) {
             let midY = (previous.centerY + current.centerY) / 2

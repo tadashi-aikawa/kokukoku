@@ -579,7 +579,7 @@ struct PanelLayoutCalendarTests {
                 == PanelLayout.panelHeight(projectCount: 3, calendarSectionHeight: 0))
     }
 
-    @Test("セクション高は行種別ごとの高さ+nowマーカー帯+上下パディングになる")
+    @Test("セクション高は行種別ごとの高さ+nowマーカー帯+上下パディング+谷になる")
     func sectionHeight() {
         let rows: [CalendarSectionRow] = [
             .event(.init(startText: "13:00", endText: "-14:00", title: "a")),
@@ -593,6 +593,7 @@ struct PanelLayoutCalendarTests {
             + PanelLayout.calendarNowMarkerHeight
             + PanelLayout.calendarSectionPaddingTop
             + PanelLayout.calendarSectionPaddingBottom
+            + PanelLayout.calendarSectionGap
         #expect(PanelLayout.calendarSectionHeight(rows: rows) == expected)
         #expect(
             PanelLayout.panelHeight(projectCount: 2, calendarSectionHeight: expected)
@@ -607,7 +608,8 @@ struct PanelLayoutCalendarTests {
             PanelLayout.calendarSectionHeight(rows: errorOnly)
                 == PanelLayout.calendarErrorRowHeight
                 + PanelLayout.calendarSectionPaddingTop
-                + PanelLayout.calendarSectionPaddingBottom)
+                + PanelLayout.calendarSectionPaddingBottom
+                + PanelLayout.calendarSectionGap)
         // 先頭が進行中: 帯ごと詰める(nowレールもラベルも無い空の帯が残るだけのため)
         let ongoingFirst: [CalendarSectionRow] = [
             .event(.init(
@@ -619,6 +621,7 @@ struct PanelLayoutCalendarTests {
             PanelLayout.calendarSectionHeight(rows: ongoingFirst)
                 == PanelLayout.calendarEventRowHeight * 2
                 + PanelLayout.calendarSectionPaddingTop
-                + PanelLayout.calendarSectionPaddingBottom)
+                + PanelLayout.calendarSectionPaddingBottom
+                + PanelLayout.calendarSectionGap)
     }
 }

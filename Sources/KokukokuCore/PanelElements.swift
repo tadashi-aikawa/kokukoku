@@ -239,6 +239,10 @@ public enum PanelLayout {
     public static let calendarFreshnessRowHeight = 14.0
     public static let calendarSectionPaddingTop = 6.0
     public static let calendarSectionPaddingBottom = 8.0
+    /// 予定ゾーンと計測行の間の「谷」: パネル地色を見せるゾーン間余白。
+    /// ゾーン間の余白がゾーン内の行間と同格だと近接の原理で1つのリストに読まれるため、
+    /// 行間より太い余白で世界の切れ目を作る(色・記号・ラベルは増やさない。2026-07-19 3人検討)
+    public static let calendarSectionGap = 8.0
     /// nowマーカー帯(ヘッダーから降りるnowレール+未開始カウントダウン)の高さ。
     /// 行ではなく帯にする: カウントダウンの出没(表示閾値)で行が挿入・削除されると
     /// リスト全体が縦にずれるため、先頭予定が未開始の間は高さを確保し続ける。
@@ -262,13 +266,15 @@ public enum PanelLayout {
         }
     }
 
-    /// 予定セクションの高さ。行が無ければ0(セクションごと非表示)。
-    /// 先頭の予定が未開始のときだけnowマーカー帯の分を含める
+    /// 予定セクションが行エリアを押し下げる高さ。行が無ければ0(セクションごと非表示)。
+    /// 先頭の予定が未開始のときだけnowマーカー帯の分を含める。
+    /// 末尾の「谷」(計測行とのゾーン間余白)も含む(ゾーン背景の塗りは谷の手前で止める)
     public static func calendarSectionHeight(rows: [CalendarSectionRow]) -> Double {
         guard !rows.isEmpty else { return 0 }
         return rows.map(calendarRowHeight).reduce(0, +)
             + (hasNowMarkerBand(rows: rows) ? calendarNowMarkerHeight : 0)
             + calendarSectionPaddingTop + calendarSectionPaddingBottom
+            + calendarSectionGap
     }
 
     /// nowマーカー帯を置くか: 先頭の予定行が未開始のときだけ

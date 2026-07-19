@@ -325,9 +325,12 @@ public struct PanelElementsBuilder {
         let colors = PanelLayout.Colors.self
         let sectionHeight = layout.calendarSectionHeight(rows: inputs.calendarRows)
 
-        // 時計と同じヘッダー色で「時間の世界」ゾーンとしてまとめ、時計との間に控えめな区切りを入れる
+        // 時計と同じヘッダー色で「時間の世界」ゾーンとしてまとめ、時計との間に控えめな区切りを入れる。
+        // 塗りは末尾の谷(ゾーン間余白)の手前で止め、パネル地色を見せて計測行との世界の切れ目を作る
         elements.append(.rectangle(
-            frame: .init(x: 0, y: startY, w: metrics.panelWidth, h: sectionHeight),
+            frame: .init(
+                x: 0, y: startY, w: metrics.panelWidth,
+                h: sectionHeight - layout.calendarSectionGap),
             fillColor: colors.headerBg))
         elements.append(.rectangle(
             frame: .init(

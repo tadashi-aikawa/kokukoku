@@ -412,29 +412,28 @@ public struct PanelElementsBuilder {
                     color: event.isInProgress ? colors.subText : colors.text))
                 // 開始-終了の区切り「-」と終了時刻は開始と別要素で描き、余白をレイアウトで管理する
                 // (テキストに空白を混ぜると等幅1文字分の広すぎる隙間になるため)。
-                // 12ptを自身の高さで中央寄せすると13ptの開始とベースラインが揃わず上に浮くため、
-                // 枠の下端を開始側に合わせてベースラインを揃える
+                // サイズは開始と同じ13pt: 階層は明暗が担っており、進行中は終了側が
+                // 「次に来る境界」として主役になるため、サイズ差の固定階層は置かない
                 let endColor = event.isInProgress ? colors.text : colors.subText
-                let endHeight = measureTextHeight(event.endText, inputs.ui.monoFontName, 12)
-                let endY = startY + (startHeight - endHeight)
                 let hyphenX = layout.calendarContentX
                     + measureTextWidth(event.startText, inputs.ui.monoFontName, 13)
                     + layout.calendarTimeSeparatorPad
-                let hyphenWidth = measureTextWidth("-", inputs.ui.monoFontName, 12)
+                let hyphenWidth = measureTextWidth("-", inputs.ui.monoFontName, 13)
                 elements.append(.text(
-                    frame: .init(x: hyphenX, y: endY, w: hyphenWidth, h: endHeight),
+                    frame: .init(x: hyphenX, y: startY, w: hyphenWidth, h: startHeight),
                     text: "-",
                     fontName: inputs.ui.monoFontName,
-                    fontSize: 12,
+                    fontSize: 13,
                     color: endColor))
                 let endX = hyphenX + hyphenWidth + layout.calendarTimeSeparatorPad
                 elements.append(.text(
                     frame: .init(
-                        x: endX, y: endY,
-                        w: layout.calendarContentX + layout.calendarTimeWidth - endX, h: endHeight),
+                        x: endX, y: startY,
+                        w: layout.calendarContentX + layout.calendarTimeWidth - endX,
+                        h: startHeight),
                     text: event.endText,
                     fontName: inputs.ui.monoFontName,
-                    fontSize: 12,
+                    fontSize: 13,
                     color: endColor))
 
                 // 進行中の「終了まで◯分」は行内(右端スロット)で完結させる。

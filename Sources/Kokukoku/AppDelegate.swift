@@ -90,7 +90,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         maxAttendees: service.maxAttendees,
                         maxVisibleEvents: service.maxVisibleEvents,
                         lastSuccessAt: service.snapshot.lastSuccessAt,
-                        notices: service.notices)
+                        notices: service.notices,
+                        selfEmail: service.selfEmail)
                 }))
 
         self.engine = engine

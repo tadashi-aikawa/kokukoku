@@ -97,18 +97,25 @@ public struct PanelElementsBuilder {
         appendClock(inputs, to: &elements)
 
         // 先頭予定のカウントダウンは「いま」の情報として時計セクションの右端に置く
-        // (予定行に置くと先頭行だけタイトル幅が縮んで折り返し位置が揃わないため)
+        // (予定行に置くと先頭行だけタイトル幅が縮んで折り返し位置が揃わないため)。
+        // 色は緊急度連動: 遠いときは沈めて主張させず、近づいたときだけ光らせる
         if let countdown = Self.firstCountdown(in: inputs.calendarRows) {
-            let height = measureTextHeight(countdown, inputs.ui.fontName, 12)
+            let color: PanelColor
+            switch countdown.urgency {
+            case .imminent: color = colors.clockSecondHand
+            case .near: color = colors.activeText
+            case .distant, nil: color = colors.subText
+            }
+            let height = measureTextHeight(countdown.text, inputs.ui.fontName, 12)
             elements.append(.text(
                 frame: .init(
                     x: metrics.panelWidth - layout.padding - 110,
                     y: layout.clockSectionHeight / 2 - height / 2,
                     w: 110, h: height),
-                text: countdown,
+                text: countdown.text,
                 fontName: inputs.ui.fontName,
                 fontSize: 12,
-                color: colors.activeText,
+                color: color,
                 alignment: .right))
         }
 
@@ -571,10 +578,12 @@ public struct PanelElementsBuilder {
     }
 
     /// 先頭予定のカウントダウン(行データ列に1つだけ入っている)
-    static func firstCountdown(in rows: [CalendarSectionRow]) -> String? {
+    static func firstCountdown(in rows: [CalendarSectionRow])
+        -> (text: String, urgency: CalendarCountdownUrgency?)?
+    {
         for row in rows {
             if case .event(let event) = row, let countdown = event.countdownText {
-                return countdown
+                return (countdown, event.countdownUrgency)
             }
         }
         return nil

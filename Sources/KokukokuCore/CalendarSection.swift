@@ -9,6 +9,8 @@ public struct CalendarPanelState: Equatable, Sendable {
     public var maxAttendees: Int
     /// 展開前に表示する予定数の上限(ResolvedCalendarConfig.maxVisibleEvents)
     public var maxVisibleEvents: Int
+    /// 自分自身のメールアドレス(参加者一覧から除外する)
+    public var selfEmail: String?
     /// 最後に取得成功した時刻(通知パネルの鮮度表示に使う)
     public var lastSuccessAt: Date?
     /// 通知で強調する予定(通知モードのみ)
@@ -20,10 +22,11 @@ public struct CalendarPanelState: Equatable, Sendable {
         events: [CalendarEvent],
         error: CalendarFetchError? = nil,
         maxAttendees: Int = 5,
-        maxVisibleEvents: Int = 5,
+        maxVisibleEvents: Int = 3,
         lastSuccessAt: Date? = nil,
         highlightedKeys: Set<CalendarEvent.EventKey> = [],
-        notices: [String] = []
+        notices: [String] = [],
+        selfEmail: String? = nil
     ) {
         self.events = events
         self.error = error
@@ -32,6 +35,7 @@ public struct CalendarPanelState: Equatable, Sendable {
         self.lastSuccessAt = lastSuccessAt
         self.highlightedKeys = highlightedKeys
         self.notices = notices
+        self.selfEmail = selfEmail
     }
 }
 
@@ -62,8 +66,10 @@ public struct CalendarEventRow: Equatable, Sendable {
     public var locationText: String?
     /// 行クリックで開くカレンダー詳細ページ(組み立て不能なら日ビュー)
     public var detailURL: URL?
-    /// 先頭予定のみ: 「あと◯分」(未開始)/「終了まで◯分」(進行中)。行の右端に描く
+    /// 先頭予定のみ: 「あと◯分」(未開始)/「終了まで◯分」(進行中)。時計セクションの右端に描く
     public var countdownText: String?
+    /// カウントダウンの緊急度(色分けの入力)。countdownText とセットで入る
+    public var countdownUrgency: CalendarCountdownUrgency?
     /// 直前の予定との間隔(タイムラインのレール上に描く)。先頭は nil
     public var gapText: String?
     public var gapIsWarning: Bool
@@ -77,6 +83,7 @@ public struct CalendarEventRow: Equatable, Sendable {
         locationText: String? = nil,
         detailURL: URL? = nil,
         countdownText: String? = nil,
+        countdownUrgency: CalendarCountdownUrgency? = nil,
         gapText: String? = nil,
         gapIsWarning: Bool = false,
         isHighlighted: Bool = false
@@ -87,10 +94,21 @@ public struct CalendarEventRow: Equatable, Sendable {
         self.locationText = locationText
         self.detailURL = detailURL
         self.countdownText = countdownText
+        self.countdownUrgency = countdownUrgency
         self.gapText = gapText
         self.gapIsWarning = gapIsWarning
         self.isHighlighted = isHighlighted
     }
+}
+
+/// カウントダウンの緊急度。遠いときは沈み色、近づくと強調、直前は警告色で描く
+public enum CalendarCountdownUrgency: Equatable, Sendable {
+    /// 30分超: 沈み色(情報はあるが主張しない)
+    case distant
+    /// 30分以内: 強調色
+    case near
+    /// 10分以内: 警告色(間隔警告と同じ閾値)
+    case imminent
 }
 
 /// 参加者一覧行。主催者(招待されたMTGでのみ特定できる)は強調して先頭に置く
@@ -132,14 +150,21 @@ public enum CalendarSectionModel {
             var row = eventRow(for: event, calendar: calendar)
             row.isHighlighted = state.highlightedKeys.contains(event.key)
             if index == 0 {
-                row.countdownText = countdownText(for: event, now: now)
+                let countdown = countdown(for: event, now: now)
+                row.countdownText = countdown.text
+                row.countdownUrgency = countdown.urgency
             } else {
                 let gap = gapLabel(from: shown[index - 1], to: event)
                 row.gapText = gap.text
                 row.gapIsWarning = gap.isWarning
             }
             rows.append(.event(row))
-            if let attendees = attendeesRow(for: event, maxAttendees: state.maxAttendees) {
+            // 参加者一覧は次の予定(先頭)だけ。移動後の場所把握に必要なのは次の予定だけで、
+            // それ以外は行クリックの詳細ページで足りる(2026-07-19 タダシ決定)
+            if index == 0,
+                let attendees = attendeesRow(
+                    for: event, maxAttendees: state.maxAttendees, selfEmail: state.selfEmail)
+            {
                 rows.append(.attendees(attendees))
             }
         }
@@ -156,21 +181,43 @@ public enum CalendarSectionModel {
         return rows
     }
 
+    /// 鮮度表示が要る閾値(秒)。新鮮なうちは出さず「古いかもしれない」ときだけ警告する
+    /// (常時表示だと視線が慣れて肝心のときに読まれないため。2026-07-19 タダシ決定)
+    public static let freshnessThresholdSeconds = 300
+
     /// 鮮度表示。最終取得時刻(Googleとの同期完了時刻は把握できないため、それより新しく見せない)
     static func freshnessText(lastSuccessAt: Date?, now: Date) -> String? {
         guard let lastSuccessAt else { return nil }
-        let minutes = Int(now.timeIntervalSince(lastSuccessAt) / 60)
-        return minutes < 1 ? "1分以内に取得した情報" : "\(minutes)分前時点の情報"
+        let seconds = Int(now.timeIntervalSince(lastSuccessAt))
+        guard seconds >= freshnessThresholdSeconds else { return nil }
+        return "\(seconds / 60)分前時点の情報"
     }
 
-    /// 先頭予定のカウントダウン。分は切り上げ(残30秒を「あと0分」と見せない)
-    static func countdownText(for event: CalendarEvent, now: Date) -> String {
+    /// 先頭予定のカウントダウン。分は切り上げ(残30秒を「あと0分」と見せない)。
+    /// 緊急度は次の境界(未開始なら開始、進行中なら終了)までの残り時間で決める
+    static func countdown(for event: CalendarEvent, now: Date)
+        -> (text: String, urgency: CalendarCountdownUrgency)
+    {
         if event.start > now {
             let minutes = Int((event.start.timeIntervalSince(now) / 60).rounded(.up))
-            return "あと\(minutes)分"
+            return ("あと\(durationText(minutes: minutes))", urgency(minutes: minutes))
         }
         let minutes = Int((event.end.timeIntervalSince(now) / 60).rounded(.up))
-        return "終了まで\(minutes)分"
+        return ("終了まで\(durationText(minutes: minutes))", urgency(minutes: minutes))
+    }
+
+    /// 60分超は「1時間10分」表記で瞬読しやすくする
+    static func durationText(minutes: Int) -> String {
+        guard minutes >= 60 else { return "\(minutes)分" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours)時間" : "\(hours)時間\(remainder)分"
+    }
+
+    static func urgency(minutes: Int) -> CalendarCountdownUrgency {
+        if minutes <= 10 { return .imminent }
+        if minutes <= 30 { return .near }
+        return .distant
     }
 
     /// 予定間の間隔ラベル。間隔は切り捨て(実際より長く見せない)、重複は切り上げ。
@@ -223,14 +270,18 @@ public enum CalendarSectionModel {
     }
 
     /// 参加者一覧行。主催者を特定できたら強調用に分離して先頭に置き、
-    /// 残りを maxAttendees(主催者込み)まで表示して超過分は「他◯人」に畳む
-    static func attendeesRow(for event: CalendarEvent, maxAttendees: Int)
+    /// 残りを maxAttendees(主催者込み)まで表示して超過分は「他◯人」に畳む。
+    /// 自分自身(selfEmail)は純ノイズのため除外する
+    static func attendeesRow(for event: CalendarEvent, maxAttendees: Int, selfEmail: String? = nil)
         -> CalendarAttendeesRow?
     {
-        // 自分で作った予定はorganizerがカレンダー自身になるため「主催者」として扱わない
+        let selfEmail = selfEmail?.lowercased()
+        // 自分で作った予定はorganizerがカレンダー自身になるため「主催者」として扱わない。
+        // 自分が主催者の場合も強調不要
         let organizerEmail: String? = {
             guard let email = event.organizerEmail?.lowercased(),
-                !email.hasSuffix("@group.calendar.google.com")
+                !email.hasSuffix("@group.calendar.google.com"),
+                email != selfEmail
             else { return nil }
             return email
         }()
@@ -238,6 +289,7 @@ public enum CalendarSectionModel {
         var organizerName: String?
         var others: [String] = []
         for attendee in event.attendees {
+            if let selfEmail, attendee.email?.lowercased() == selfEmail { continue }
             guard let name = displayName(for: attendee) else { continue }
             if organizerName == nil, let organizerEmail,
                 attendee.email?.lowercased() == organizerEmail

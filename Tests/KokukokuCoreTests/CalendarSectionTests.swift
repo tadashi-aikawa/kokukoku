@@ -65,7 +65,8 @@ struct CalendarSectionModelTests {
                         locationText: "会議室A",
                         detailURL: URL(
                             string: "https://calendar.google.com/calendar/event?eid=\(expectedEid)"),
-                        countdownText: "あと120分"))
+                        countdownText: "あと2時間",
+                        countdownUrgency: .distant))
             ])
     }
 
@@ -117,7 +118,7 @@ struct CalendarSectionModelTests {
 
         let first = eventRow(rows[0])
         let second = eventRow(rows[1])
-        #expect(first?.countdownText == "あと60分")
+        #expect(first?.countdownText == "あと1時間")
         #expect(first?.gapText == nil)
         #expect(second?.countdownText == nil)
         #expect(second?.gapText == "10分")
@@ -230,6 +231,67 @@ struct CalendarSectionModelTests {
                 == .attendees(.init(organizerName: "user3", othersText: "user1, user2 他2人")))
     }
 
+    @Test("参加者一覧は次の予定(先頭)だけに付く")
+    func attendeesOnlyOnFirstEvent() {
+        let attendees: [CalendarEvent.Attendee] = [.init(name: "alice", status: .accepted)]
+        let events = [
+            makeEvent(id: "a@google.com", start: at(hour: 13), end: at(hour: 14), attendees: attendees),
+            makeEvent(id: "b@google.com", start: at(hour: 15), end: at(hour: 16), attendees: attendees),
+        ]
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: events), now: at(hour: 12), calendar: calendar)
+
+        let attendeeRowCount = rows.filter {
+            if case .attendees = $0 { return true } else { return false }
+        }.count
+        #expect(attendeeRowCount == 1)
+        #expect(rows[1] == .attendees(.init(othersText: "alice")))
+    }
+
+    @Test("自分自身(selfEmail)は参加者一覧から除外される")
+    func selfIsExcludedFromAttendees() {
+        let event = makeEvent(
+            start: at(hour: 14), end: at(hour: 15),
+            attendees: [
+                .init(name: nil, email: "me@example.com", status: .pending),
+                .init(name: nil, email: "alice@example.com", status: .accepted),
+            ])
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [event], selfEmail: "Me@example.com"),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(rows[1] == .attendees(.init(othersText: "alice")))
+    }
+
+    @Test("自分しか参加者が居ない予定には2行目が付かない")
+    func selfOnlyAttendeesYieldsNoRow() {
+        let event = makeEvent(
+            start: at(hour: 14), end: at(hour: 15),
+            attendees: [.init(name: nil, email: "me@example.com", status: .pending)])
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [event], selfEmail: "me@example.com"),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(rows.count == 1)
+    }
+
+    @Test("自分が主催者の場合は主催者強調をしない")
+    func selfOrganizerIsNotEmphasized() {
+        let event = makeEvent(
+            start: at(hour: 14), end: at(hour: 15),
+            attendees: [.init(name: nil, email: "alice@example.com", status: .accepted)],
+            organizerEmail: "me@example.com")
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(events: [event], selfEmail: "me@example.com"),
+            now: at(hour: 12), calendar: calendar)
+
+        #expect(rows[1] == .attendees(.init(organizerName: nil, othersText: "alice")))
+    }
+
     @Test("参加者情報が無い予定には2行目が付かない")
     func noAttendeesRow() {
         let event = makeEvent(start: at(hour: 14), end: at(hour: 15))
@@ -240,7 +302,7 @@ struct CalendarSectionModelTests {
         #expect(rows.count == 1)
     }
 
-    @Test("6件以上は5件+「他◯件」に畳まれる")
+    @Test("上限(既定3件)超過分は「他◯件」に畳まれる")
     func overflowRow() {
         let events = (0..<7).map { i in
             makeEvent(
@@ -252,8 +314,8 @@ struct CalendarSectionModelTests {
             state: .init(events: events), now: at(hour: 12), calendar: calendar)
 
         let eventCount = rows.filter { eventRow($0) != nil }.count
-        #expect(eventCount == 5)
-        #expect(rows.last == .overflow(hiddenCount: 2))
+        #expect(eventCount == 3)
+        #expect(rows.last == .overflow(hiddenCount: 4))
     }
 
     @Test("表示上限はmaxVisibleEventsで変えられる")
@@ -354,8 +416,8 @@ struct CalendarSectionModelTests {
         #expect(rows == [.notice(text: "『定例』は中止になりました")])
     }
 
-    @Test("通知モードでは鮮度表示が末尾に付く")
-    func freshnessRow() {
+    @Test("通知モードでも取得から5分未満なら鮮度表示は出ない")
+    func freshnessHiddenWhenFresh() {
         let rows = CalendarSectionModel.rows(
             state: .init(
                 events: [makeEvent(start: at(hour: 14), end: at(hour: 15))],
@@ -363,16 +425,45 @@ struct CalendarSectionModelTests {
             now: at(hour: 12), calendar: calendar,
             includeFreshness: true)
 
-        #expect(rows.last == .freshness(text: "3分前時点の情報"))
+        #expect(rows.last != .freshness(text: "3分前時点の情報"))
+        #expect(eventRow(rows[0]) != nil)
     }
 
-    @Test("取得直後の鮮度表示は「1分以内」になる")
-    func freshnessJustNow() {
-        #expect(
-            CalendarSectionModel.freshnessText(
-                lastSuccessAt: at(hour: 12), now: at(hour: 12, minute: 0, second: 30))
-                == "1分以内に取得した情報")
+    @Test("取得から5分以上経つと鮮度表示が末尾に付く")
+    func freshnessShownWhenStale() {
+        let rows = CalendarSectionModel.rows(
+            state: .init(
+                events: [makeEvent(start: at(hour: 14), end: at(hour: 15))],
+                lastSuccessAt: at(hour: 11, minute: 53)),
+            now: at(hour: 12), calendar: calendar,
+            includeFreshness: true)
+
+        #expect(rows.last == .freshness(text: "7分前時点の情報"))
         #expect(CalendarSectionModel.freshnessText(lastSuccessAt: nil, now: at(hour: 12)) == nil)
+    }
+
+    @Test("カウントダウンの緊急度は10分/30分の閾値で切り替わる")
+    func countdownUrgencyThresholds() {
+        func urgencyAt(minute: Int, second: Int = 0) -> CalendarCountdownUrgency? {
+            let event = makeEvent(
+                start: at(hour: 12, minute: minute, second: second), end: at(hour: 13))
+            let rows = CalendarSectionModel.rows(
+                state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
+            return eventRow(rows[0])?.countdownUrgency
+        }
+
+        #expect(urgencyAt(minute: 10) == .imminent)
+        #expect(urgencyAt(minute: 10, second: 30) == .near)
+        #expect(urgencyAt(minute: 30) == .near)
+        #expect(urgencyAt(minute: 30, second: 30) == .distant)
+    }
+
+    @Test("60分超のカウントダウンは時間表記になる")
+    func countdownHourFormat() {
+        #expect(CalendarSectionModel.durationText(minutes: 59) == "59分")
+        #expect(CalendarSectionModel.durationText(minutes: 60) == "1時間")
+        #expect(CalendarSectionModel.durationText(minutes: 70) == "1時間10分")
+        #expect(CalendarSectionModel.durationText(minutes: 135) == "2時間15分")
     }
 
     @Test("複数一致エラーは候補一覧を含む")

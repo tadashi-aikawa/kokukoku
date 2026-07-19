@@ -62,19 +62,22 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         public var notificationLeadMinutes: Int?
         public var maxAttendees: Int?
         public var maxVisibleEvents: Int?
+        public var selfEmail: String?
 
         public init(
             name: String,
             refreshIntervalMinutes: Int? = nil,
             notificationLeadMinutes: Int? = nil,
             maxAttendees: Int? = nil,
-            maxVisibleEvents: Int? = nil
+            maxVisibleEvents: Int? = nil,
+            selfEmail: String? = nil
         ) {
             self.name = name
             self.refreshIntervalMinutes = refreshIntervalMinutes
             self.notificationLeadMinutes = notificationLeadMinutes
             self.maxAttendees = maxAttendees
             self.maxVisibleEvents = maxVisibleEvents
+            self.selfEmail = selfEmail
         }
     }
 
@@ -154,15 +157,20 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
     public var notificationLeadMinutes: Int
     /// パネルの予定行に表示する参加者数の上限(超過分は「他◯人」)
     public var maxAttendees: Int
-    /// 展開前に表示する予定数の上限(超過分は「他◯件」に畳む)
+    /// 展開前に表示する予定数の上限(超過分は「他◯件」に畳む)。
+    /// パネルの本業は計測操作のため既定は控えめの3
     public var maxVisibleEvents: Int
+    /// 自分自身のメールアドレス。参加者一覧から自分を除外する
+    /// (EventKitのisCurrentUserはGoogleアカウント連携で効かないことを実測済みのため設定で指定)
+    public var selfEmail: String?
 
     public init(calendar: KokukokuConfig.Calendar) {
         self.name = calendar.name
         self.refreshIntervalMinutes = calendar.refreshIntervalMinutes ?? 5
         self.notificationLeadMinutes = calendar.notificationLeadMinutes ?? 5
         self.maxAttendees = calendar.maxAttendees ?? 5
-        self.maxVisibleEvents = calendar.maxVisibleEvents ?? 5
+        self.maxVisibleEvents = calendar.maxVisibleEvents ?? 3
+        self.selfEmail = calendar.selfEmail
     }
 }
 
@@ -225,6 +233,10 @@ public enum ConfigLoader {
             }
             if let max = calendar.maxVisibleEvents, max < 1 {
                 throw ConfigError.invalid(description: "calendar.maxVisibleEvents must be >= 1")
+            }
+            if let selfEmail = calendar.selfEmail, selfEmail.isEmpty {
+                throw ConfigError.invalid(
+                    description: "calendar.selfEmail must be a non-empty string")
             }
         }
     }

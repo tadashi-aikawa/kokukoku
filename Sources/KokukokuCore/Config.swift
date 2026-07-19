@@ -93,13 +93,16 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
     public struct Keymap: Codable, Equatable, Sendable {
         public var startBreak: String?
         public var reset: String?
+        public var toggleCalendar: String?
 
         public init(
             startBreak: String? = nil,
-            reset: String? = nil
+            reset: String? = nil,
+            toggleCalendar: String? = nil
         ) {
             self.startBreak = startBreak
             self.reset = reset
+            self.toggleCalendar = toggleCalendar
         }
     }
 
@@ -152,10 +155,12 @@ public struct ResolvedUIConfig: Equatable, Sendable {
 public struct ResolvedKeymap: Equatable, Sendable {
     public var startBreak: String
     public var reset: String
+    public var toggleCalendar: String
 
     public init(keymap: KokukokuConfig.Keymap?) {
         self.startBreak = keymap?.startBreak ?? "0"
         self.reset = keymap?.reset ?? "r"
+        self.toggleCalendar = keymap?.toggleCalendar ?? "o"
     }
 }
 

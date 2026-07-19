@@ -367,6 +367,18 @@ final class PanelController {
         }
     }
 
+    /// 予定の展開/畳むをキー1発でトグルする。「他◯件/畳む」行がない(全件表示済み)ときは何もしない
+    private func toggleCalendarExpansion() {
+        let hasToggleRow = calendarRows.contains {
+            if case .overflow = $0 { return true }
+            if case .collapse = $0 { return true }
+            return false
+        }
+        guard hasToggleRow else { return }
+        calendarExpanded.toggle()
+        rebuildPanel()
+    }
+
     private func editSelectedProjectTime() {
         guard case .project(let index)? = selectedTarget, index <= projects.count else { return }
         let project = projects[index - 1]
@@ -555,6 +567,8 @@ final class PanelController {
             editContinuousTime()
         case .copyToClipboard:
             copyToClipboard()
+        case .toggleCalendar:
+            toggleCalendarExpansion()
         case .selectProject(let index):
             if index <= projects.count {
                 selectProject(projects[index - 1].id)

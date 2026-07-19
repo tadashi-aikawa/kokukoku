@@ -101,8 +101,9 @@ copyTextFormat = "- {name}: {hh}:{mm}:{ss}" # クリップボードコピーの�
 
 # パネルのキーマップ設定 (任意)
 [keymap]
-startBreak = "0" # 休憩開始
-reset = "r"      # リセット確認
+startBreak = "0"     # 休憩開始
+reset = "r"          # リセット確認
+toggleCalendar = "o" # 予定の展開/畳むトグル
 
 # アラート設定 (任意)
 [alert.continuousWork]
@@ -173,6 +174,7 @@ ongoingCountdownMaxMinutes = 30   # 進行中予定の「終了まで◯◯」�
 |------------------|----------|------|
 | `0` | `startBreak` | 休憩 |
 | `r` | `reset` | リセット確認へ。もう一度押すと全タイマーをリセット |
+| `o` | `toggleCalendar` | 予定の展開/畳むをトグル（「他◯件」がないときは何もしない） |
 
 計測中のプロジェクトを再選択（数字キー・`Enter`・クリックのいずれでも）すると、トグルとして休憩に入ります。
 

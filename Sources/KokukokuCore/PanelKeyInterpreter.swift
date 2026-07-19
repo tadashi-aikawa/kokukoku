@@ -8,6 +8,7 @@ public enum PanelKeyAction: Equatable, Sendable {
     case editTime
     case editContinuousTime
     case copyToClipboard
+    case toggleCalendar
     case selectProject(index: Int)
     case passthrough
 }
@@ -22,6 +23,7 @@ public enum PanelKeyInterpreter {
         if characters == "k" || keyCode == 126 { return .moveUp }
         if characters == keymap.startBreak { return .startBreak }
         if characters == keymap.reset { return .reset }
+        if characters == keymap.toggleCalendar { return .toggleCalendar }
         if characters == "e" { return .editTime }
         if characters == "c" { return .copyToClipboard }
         if characters == "E" { return .editContinuousTime }

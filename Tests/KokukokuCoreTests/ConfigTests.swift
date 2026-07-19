@@ -164,12 +164,13 @@ struct ConfigLoaderTests {
             [keymap]
             startBreak = "b"
             reset = "R"
+            toggleCalendar = "t"
             """
 
         let config = try ConfigLoader.parse(toml: toml)
 
         #expect(config.ui == .init(fontName: "Helvetica", copyTextFormat: "{name}: {h}"))
-        #expect(config.keymap == .init(startBreak: "b", reset: "R"))
+        #expect(config.keymap == .init(startBreak: "b", reset: "R", toggleCalendar: "t"))
     }
 
     @Test("断捨離済みの旧設定キーは無視される")
@@ -311,6 +312,7 @@ struct ResolvedPanelConfigTests {
 
         #expect(resolved.startBreak == "0")
         #expect(resolved.reset == "r")
+        #expect(resolved.toggleCalendar == "o")
     }
 
     @Test("calendar設定の既定値を解決する")

@@ -9,6 +9,7 @@ final class PanelWindow: NSPanel {
     override var canBecomeKey: Bool { true }
 
     var onKeyDown: ((NSEvent) -> Bool)?
+    var onBecomeKey: (() -> Void)?
 
     init(contentRect: NSRect) {
         super.init(
@@ -27,6 +28,11 @@ final class PanelWindow: NSPanel {
         acceptsMouseMovedEvents = true
         // AppKit標準の表示アニメーションを無効化(Spoon版と同じ瞬間表示にする)
         animationBehavior = .none
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        onBecomeKey?()
     }
 
     override func keyDown(with event: NSEvent) {

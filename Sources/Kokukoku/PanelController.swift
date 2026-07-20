@@ -47,6 +47,8 @@ final class PanelController {
     var onNotificationClosed: (() -> Void)?
     /// 「他◯件」クリックでの全件展開中(パネルを閉じると畳んだ状態に戻る)
     private var calendarExpanded = false
+    /// 通知モードでループ再生中のパルスレイヤー(キー化で停止・除去する)
+    private var notificationPulseLayer: CAShapeLayer?
 
     init(
         projects: [KokukokuConfig.Project],
@@ -135,16 +137,22 @@ final class PanelController {
         rebuildPanel()
 
         if notificationMode {
-            // 通知パネルはキーボードフォーカスも奪わず、外クリックでは閉じない
-            // (閉じるのはパネルをクリックしてキーにした後のEscか、既存のパネルトグルホットキー。
-            // 閉じるボタンは1クリック目がキー化に消費されて2クリック要る体験になるため廃止)
+            // 通知パネルはキーボードフォーカスを奪わず、キー化前は外クリックでも閉じない
+            // (気づく前に誤クリックで消えるのを防ぐ。パネルをクリックしてキーにした後は
+            // 通常パネルと同じく外クリックで閉じる。閉じるボタンは1クリック目が
+            // キー化に消費されて2クリック要る体験になるため廃止)
+            window.onBecomeKey = { [weak self] in self?.handleNotificationActivated() }
             window.orderFrontRegardless()
             playNotificationPulse()
             return
         }
         window.makeKeyAndOrderFront(nil)
+        installOutsideClickMonitors()
+    }
 
-        // パネル外クリックで閉じる(他アプリ宛はグローバル、自アプリ宛はローカルの両モニタで拾う)
+    /// パネル外クリックで閉じる(他アプリ宛はグローバル、自アプリ宛はローカルの両モニタで拾う)
+    private func installOutsideClickMonitors() {
+        guard globalClickMonitor == nil else { return }
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) {
             [weak self] _ in
             self?.hideIfClickedOutside()
@@ -156,13 +164,27 @@ final class PanelController {
         }
     }
 
-    /// 登場の署名: 通知としての自動表示の瞬間だけ、パネル輪郭を生成りのグローで
-    /// 3回明滅させて静止する(周辺視野は動きに反応するため、音を使わずに気づかせる。
-    /// 常時脈動はしない。2026-07-19 タダシ決定: 音・macOS通知併送は不採用で演出一本)
+    /// 通知パネルがクリックでキー化された: ユーザーが気づいたのでパルスを止め、
+    /// 以後は通常パネルと同じく外クリックで閉じるようにする
+    private func handleNotificationActivated() {
+        guard notificationMode else { return }
+        notificationPulseLayer?.removeFromSuperlayer()
+        notificationPulseLayer = nil
+        installOutsideClickMonitors()
+    }
+
+    /// 登場の署名: 通知としての自動表示中、パネル輪郭を生成りのグローで
+    /// 「3回明滅→ひと呼吸」のリズムで繰り返す(周辺視野は動きに反応するため、
+    /// 音を使わずに気づかせる。2026-07-19 タダシ決定: 音・macOS通知併送は不採用で演出一本)。
+    /// ユーザーがパネルをクリックしてキー化するまで続け、キー化で止まる。
+    /// キー化後の合流通知は署名を1周だけ打つ
     private func playNotificationPulse() {
         guard let panelView else { return }
         panelView.wantsLayer = true
         guard let hostLayer = panelView.layer else { return }
+
+        notificationPulseLayer?.removeFromSuperlayer()
+        notificationPulseLayer = nil
 
         let cream = NSColor(srgbRed: 0.95, green: 0.91, blue: 0.83, alpha: 1).cgColor
         let pulse = CAShapeLayer()
@@ -180,12 +202,22 @@ final class PanelController {
         hostLayer.addSublayer(pulse)
 
         let animation = CAKeyframeAnimation(keyPath: "opacity")
-        animation.values = [0, 1, 0.1, 1, 0.1, 1, 0]
-        animation.duration = 1.6
-        CATransaction.begin()
-        CATransaction.setCompletionBlock { [weak pulse] in pulse?.removeFromSuperlayer() }
-        pulse.add(animation, forKey: "notificationPulse")
-        CATransaction.commit()
+        // 前半1.6秒で3回明滅し、後半1秒は消灯(休符)。休符があることで
+        // ループしても「点きっぱなし」にならず、動きとしての気づきやすさを保つ
+        animation.values = [0, 1, 0.1, 1, 0.1, 1, 0, 0]
+        animation.keyTimes = [0, 0.103, 0.205, 0.308, 0.41, 0.513, 0.615, 1]
+        animation.duration = 2.6
+
+        if window?.isKeyWindow != true {
+            animation.repeatCount = .greatestFiniteMagnitude
+            notificationPulseLayer = pulse
+            pulse.add(animation, forKey: "notificationPulse")
+        } else {
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { [weak pulse] in pulse?.removeFromSuperlayer() }
+            pulse.add(animation, forKey: "notificationPulse")
+            CATransaction.commit()
+        }
     }
 
     private func hideIfClickedOutside() {
@@ -207,6 +239,8 @@ final class PanelController {
             NSEvent.removeMonitor(localClickMonitor)
             self.localClickMonitor = nil
         }
+        notificationPulseLayer?.removeFromSuperlayer()
+        notificationPulseLayer = nil
         window?.orderOut(nil)
         window?.alphaValue = 1
         window = nil

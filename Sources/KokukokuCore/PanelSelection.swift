@@ -13,7 +13,7 @@ public enum PanelSelectionTarget: Equatable, Sendable {
 
 public enum PanelSelection {
     /// 選択ループの巡回順(見た目の上から下: 予定セクション→プロジェクト行)。
-    /// 参加者・エラー・告知・鮮度の行は操作対象がないため選択に含めない
+    /// エラー・告知・鮮度の行は操作対象がないため選択に含めない
     public static func targets(
         calendarRows: [CalendarSectionRow], projectCount: Int
     ) -> [PanelSelectionTarget] {
@@ -28,7 +28,7 @@ public enum PanelSelection {
                 targets.append(.calendarOverflow)
             case .collapse:
                 targets.append(.calendarCollapse)
-            case .attendees, .error, .notice, .freshness:
+            case .error, .notice, .freshness:
                 break
             }
         }

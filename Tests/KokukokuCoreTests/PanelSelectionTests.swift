@@ -11,7 +11,6 @@ struct PanelSelectionTests {
         let rows: [CalendarSectionRow] = [
             .notice(text: "中止"),
             .event(eventRow),
-            .attendees(.init(othersText: "a, b")),
             .event(eventRow),
             .overflow(hiddenCount: 2),
             .freshness(text: "6分前時点の情報"),

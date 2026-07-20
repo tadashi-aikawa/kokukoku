@@ -46,7 +46,7 @@ public struct PanelElementsBuilder {
     private let now: () -> Int
     private let localTime: () -> ClockTime
     private let measureTextHeight: (_ text: String, _ fontName: String, _ size: Double) -> Double
-    /// 参加者一覧の主催者強調(色分け連結)と予定名の省略判定に使う実測幅。未指定時は文字数からの概算
+    /// 予定名の省略判定に使う実測幅。未指定時は文字数からの概算
     private let measureTextWidth: (_ text: String, _ fontName: String, _ size: Double) -> Double
     private let resolveIcon: (String) -> IconResolution
     private let metrics: PanelMetrics
@@ -491,33 +491,6 @@ public struct PanelElementsBuilder {
                         text: event.title))
                 }
                 eventIndex += 1
-
-            case .attendees(let attendees):
-                // 予定名の列に揃えたインデントで参加者一覧を小さく添える。主催者は明色で強調
-                var x = layout.calendarContentX + layout.calendarTimeWidth + 8
-                let height = measureTextHeight("参加者", inputs.ui.fontName, 11)
-                let textY = y + centeredOffset(rowHeight, height)
-                if let organizer = attendees.organizerName {
-                    let width = measureTextWidth(organizer, inputs.ui.fontName, 11).rounded(.up)
-                    elements.append(.text(
-                        frame: .init(x: x, y: textY, w: width + 2, h: height),
-                        text: organizer,
-                        fontName: inputs.ui.fontName,
-                        fontSize: 11,
-                        color: colors.activeText))
-                    x += width + 2
-                }
-                if let others = attendees.othersText {
-                    let text = attendees.organizerName == nil ? others : ", \(others)"
-                    elements.append(.text(
-                        frame: .init(
-                            x: x, y: textY,
-                            w: metrics.panelWidth - layout.padding - x, h: height),
-                        text: text,
-                        fontName: inputs.ui.fontName,
-                        fontSize: 11,
-                        color: colors.subText))
-                }
 
             case .overflow(let hiddenCount):
                 appendCalendarToggleRow(

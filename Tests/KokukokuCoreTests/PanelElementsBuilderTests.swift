@@ -409,7 +409,6 @@ struct PanelElementsBuilderTests {
                 locationText: "会議室A",
                 detailURL: URL(string: "https://calendar.google.com/calendar/event?eid=x"),
                 countdownText: "あと30分")),
-            .attendees(.init(organizerName: "boss", othersText: "a, b 他3人")),
         ]
         let sectionHeight = PanelLayout.calendarSectionHeight(rows: rows)
         let elements = builder().build(inputs(calendarRows: rows))
@@ -420,14 +419,12 @@ struct PanelElementsBuilderTests {
             return
         }
         #expect(bgFrame.h == 164 + sectionHeight)
-        // セクションの中身(時刻分離・カウントダウン・主催者強調)と行クリックのホバー追跡
+        // セクションの中身(時刻分離・カウントダウン)と行クリックのホバー追跡
         #expect(containsText("13:00", in: elements))
         #expect(containsText("14:00", in: elements))
         #expect(containsText("定例", in: elements))
         #expect(containsText("会議室A", in: elements))
         #expect(containsText("あと30分", in: elements))
-        #expect(containsText("boss", in: elements))
-        #expect(containsText(", a, b 他3人", in: elements))
         #expect(elements.contains { element in
             guard case .rectangle(_, _, _, _, _, let id, let tracksMouse) = element else {
                 return false
@@ -562,7 +559,6 @@ struct PanelElementsBuilderTests {
             .event(.init(
                 startText: "13:00", endText: "14:00", title: "a",
                 countdownText: "あと5分", isAlertTarget: true)),
-            .attendees(.init(othersText: "x, y")),
             .freshness(text: "3分前時点の情報"),
         ]
         let elements = builder().build(inputs(calendarRows: rows))

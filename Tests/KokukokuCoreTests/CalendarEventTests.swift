@@ -4,19 +4,13 @@ import Testing
 @testable import KokukokuCore
 
 private struct FakeAttendee: CalendarAttendeeSource {
-    var attendeeName: String?
-    var attendeeURL: URL?
     var attendeeStatus: CalendarEvent.ParticipationStatus
     var attendeeIsCurrentUser: Bool
 
     init(
-        name: String? = nil,
-        url: URL? = nil,
         status: CalendarEvent.ParticipationStatus = .accepted,
         isCurrentUser: Bool = false
     ) {
-        self.attendeeName = name
-        self.attendeeURL = url
         self.attendeeStatus = status
         self.attendeeIsCurrentUser = isCurrentUser
     }
@@ -74,10 +68,8 @@ struct CalendarEventConversionTests {
             location: "会議室A",
             notes: notes,
             attendees: [
-                FakeAttendee(
-                    name: "Tadashi", url: URL(string: "mailto:tadashi@example.com"),
-                    status: .accepted, isCurrentUser: true),
-                FakeAttendee(name: "Alice", status: .pending),
+                FakeAttendee(status: .accepted, isCurrentUser: true),
+                FakeAttendee(status: .pending),
             ])
 
         let event = try #require(CalendarEvent(source: source))
@@ -93,11 +85,6 @@ struct CalendarEventConversionTests {
         #expect(event.location == "会議室A")
         #expect(event.meetURL == URL(string: "https://meet.google.com/abc-defg-hij"))
         #expect(event.notes == notes)
-        #expect(
-            event.attendees == [
-                .init(name: "Tadashi", email: "tadashi@example.com", status: .accepted),
-                .init(name: "Alice", email: nil, status: .pending),
-            ])
         #expect(event.myStatus == .accepted)
     }
 
@@ -112,7 +99,7 @@ struct CalendarEventConversionTests {
 
     @Test("自分を特定できない場合myStatusはunknownになる")
     func myStatusWithoutCurrentUser() throws {
-        let source = FakeEventSource(attendees: [FakeAttendee(name: "Alice", status: .accepted)])
+        let source = FakeEventSource(attendees: [FakeAttendee(status: .accepted)])
 
         let event = try #require(CalendarEvent(source: source))
 
@@ -124,7 +111,6 @@ struct CalendarEventConversionTests {
         let event = try #require(CalendarEvent(source: FakeEventSource()))
 
         #expect(event.myStatus == .unknown)
-        #expect(event.attendees.isEmpty)
     }
 
     @Test("主催者のmailto URLからorganizerEmailを取り出す")
@@ -144,15 +130,13 @@ struct CalendarEventConversionTests {
         #expect(event.location == nil)
     }
 
-    @Test("mailto以外の参加者URLからはemailを取り出さない")
-    func nonMailtoURLIsIgnored() throws {
-        let source = FakeEventSource(attendees: [
-            FakeAttendee(name: "Bot", url: URL(string: "https://example.com/bot"))
-        ])
+    @Test("mailto以外の主催者URLからはorganizerEmailを取り出さない")
+    func nonMailtoOrganizerURLIsIgnored() throws {
+        let source = FakeEventSource(organizerURL: URL(string: "https://example.com/bot"))
 
         let event = try #require(CalendarEvent(source: source))
 
-        #expect(event.attendees == [.init(name: "Bot", email: nil, status: .accepted)])
+        #expect(event.organizerEmail == nil)
     }
 }
 

@@ -5,12 +5,8 @@ public struct CalendarPanelState: Equatable, Sendable {
     /// 表示フィルタ適用済みの予定(上限カットはCalendarSectionModelが行う)
     public var events: [CalendarEvent]
     public var error: CalendarFetchError?
-    /// 予定行に表示する参加者数の上限(ResolvedCalendarConfig.maxAttendees)
-    public var maxAttendees: Int
     /// 展開前に表示する予定数の上限(ResolvedCalendarConfig.maxVisibleEvents)
     public var maxVisibleEvents: Int
-    /// 自分自身のメールアドレス(参加者一覧から除外する)
-    public var selfEmail: String?
     /// レールを表示する最小間隔(分)。これ未満は「間隔なし」として接触表現にする
     public var gapRailMinutes: Int
     /// 未開始の「あと◯◯」を表示する残り時間の上限(分)(ResolvedCalendarConfig.upcomingCountdownMaxMinutes)
@@ -27,24 +23,20 @@ public struct CalendarPanelState: Equatable, Sendable {
     public init(
         events: [CalendarEvent],
         error: CalendarFetchError? = nil,
-        maxAttendees: Int = 5,
         maxVisibleEvents: Int = 2,
         lastSuccessAt: Date? = nil,
         highlightedKeys: Set<CalendarEvent.EventKey> = [],
         notices: [String] = [],
-        selfEmail: String? = nil,
         gapRailMinutes: Int = 1,
         upcomingCountdownMaxMinutes: Int = 120,
         ongoingCountdownMaxMinutes: Int = 30
     ) {
         self.events = events
         self.error = error
-        self.maxAttendees = maxAttendees
         self.maxVisibleEvents = maxVisibleEvents
         self.lastSuccessAt = lastSuccessAt
         self.highlightedKeys = highlightedKeys
         self.notices = notices
-        self.selfEmail = selfEmail
         self.gapRailMinutes = gapRailMinutes
         self.upcomingCountdownMaxMinutes = upcomingCountdownMaxMinutes
         self.ongoingCountdownMaxMinutes = ongoingCountdownMaxMinutes
@@ -55,8 +47,6 @@ public struct CalendarPanelState: Equatable, Sendable {
 /// 間隔・カウントダウンは予定行が持ち、専用のラベル行は置かない(タイムライン描画)
 public enum CalendarSectionRow: Equatable, Sendable {
     case event(CalendarEventRow)
-    /// 予定行の2行目: 参加者一覧。参加者情報が無い予定には付かない
-    case attendees(CalendarAttendeesRow)
     /// 上限超過分の「他◯件」(クリックで全件展開)
     case overflow(hiddenCount: Int)
     /// 展開中の「畳む」(クリックで上限表示へ戻す)
@@ -140,18 +130,6 @@ public enum CalendarCountdownUrgency: Equatable, Sendable {
     case imminent
 }
 
-/// 参加者一覧行。主催者(招待されたMTGでのみ特定できる)は強調して先頭に置く
-public struct CalendarAttendeesRow: Equatable, Sendable {
-    public var organizerName: String?
-    /// 主催者以外の一覧("a, b 他3人")
-    public var othersText: String?
-
-    public init(organizerName: String? = nil, othersText: String? = nil) {
-        self.organizerName = organizerName
-        self.othersText = othersText
-    }
-}
-
 public enum CalendarSectionModel {
     /// 表示状態から予定セクションの行データ列を組み立てる。空配列はセクションごと非表示。
     /// includeFreshness は通知モードのみ true(「◯分前時点の情報」を末尾に付ける)。
@@ -192,14 +170,6 @@ public enum CalendarSectionModel {
                     railMinutes: state.gapRailMinutes)
             }
             rows.append(.event(row))
-            // 参加者一覧は次の予定(先頭)だけ。移動後の場所把握に必要なのは次の予定だけで、
-            // それ以外は行クリックの詳細ページで足りる(2026-07-19 タダシ決定)
-            if index == 0,
-                let attendees = attendeesRow(
-                    for: event, maxAttendees: state.maxAttendees, selfEmail: state.selfEmail)
-            {
-                rows.append(.attendees(attendees))
-            }
         }
         if hasOverflow {
             if expanded {
@@ -307,64 +277,6 @@ public enum CalendarSectionModel {
         return URL(string: "https://calendar.google.com/calendar/r/day/\(year)/\(month)/\(day)")
     }
 
-    /// 参加者一覧行。主催者を特定できたら強調用に分離して先頭に置き、
-    /// 残りを maxAttendees(主催者込み)まで表示して超過分は「他◯人」に畳む。
-    /// 自分自身(selfEmail)は純ノイズのため除外する
-    static func attendeesRow(for event: CalendarEvent, maxAttendees: Int, selfEmail: String? = nil)
-        -> CalendarAttendeesRow?
-    {
-        let selfEmail = selfEmail?.lowercased()
-        // 自分で作った予定はorganizerがカレンダー自身になるため「主催者」として扱わない。
-        // 自分が主催者の場合も強調不要
-        let organizerEmail: String? = {
-            guard let email = event.organizerEmail?.lowercased(),
-                !email.hasSuffix("@group.calendar.google.com"),
-                email != selfEmail
-            else { return nil }
-            return email
-        }()
-
-        var organizerName: String?
-        var others: [String] = []
-        for attendee in event.attendees {
-            if let selfEmail, attendee.email?.lowercased() == selfEmail { continue }
-            guard let name = displayName(for: attendee) else { continue }
-            if organizerName == nil, let organizerEmail,
-                attendee.email?.lowercased() == organizerEmail
-            {
-                organizerName = name
-            } else {
-                others.append(name)
-            }
-        }
-        // 主催者が参加者一覧に居ない予定でも主催者は表示する
-        if organizerName == nil, let organizerEmail {
-            organizerName = displayName(
-                for: .init(email: organizerEmail, status: .unknown))
-        }
-        guard organizerName != nil || !others.isEmpty else { return nil }
-
-        let capacity = max(maxAttendees - (organizerName == nil ? 0 : 1), 0)
-        let shownOthers = others.prefix(capacity)
-        var othersText = shownOthers.joined(separator: ", ")
-        let hiddenCount = others.count - shownOthers.count
-        if hiddenCount > 0 {
-            othersText += othersText.isEmpty ? "他\(hiddenCount)人" : " 他\(hiddenCount)人"
-        }
-        return CalendarAttendeesRow(
-            organizerName: organizerName,
-            othersText: othersText.isEmpty ? nil : othersText)
-    }
-
-    /// 参加者の表示名。EventKit経由ではnameにメールアドレスが入ることが多いため、
-    /// メール形式ならローカル部(@より前)だけを使う
-    static func displayName(for attendee: CalendarEvent.Attendee) -> String? {
-        guard let raw = attendee.name ?? attendee.email, !raw.isEmpty else { return nil }
-        if let atIndex = raw.firstIndex(of: "@"), atIndex != raw.startIndex {
-            return String(raw[..<atIndex])
-        }
-        return raw
-    }
 }
 
 extension CalendarFetchError {

@@ -257,11 +257,12 @@ struct ConfigLoaderTests {
         }
     }
 
-    @Test("calendarの参加者表示上限が1未満ならinvalidエラーになる")
-    func parseCalendarInvalidMaxAttendees() {
-        #expect(throws: ConfigError.invalid(description: "calendar.maxAttendees must be >= 1")) {
-            try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\nmaxAttendees = 0")
-        }
+    @Test("calendarの廃止済みキー(maxAttendees・selfEmail)が残っていてもエラーにならない")
+    func parseCalendarIgnoresRemovedKeys() throws {
+        let config = try ConfigLoader.parse(
+            toml: "[calendar]\nname = \"一般\"\nmaxAttendees = 5\nselfEmail = \"me@example.com\"")
+
+        #expect(config.calendar == .init(name: "一般"))
     }
 
     @Test("calendarの予定表示上限が1未満ならinvalidエラーになる")
@@ -322,9 +323,7 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.name == "一般")
         #expect(resolved.refreshIntervalMinutes == 5)
         #expect(resolved.notificationLeadMinutes == 5)
-        #expect(resolved.maxAttendees == 5)
         #expect(resolved.maxVisibleEvents == 2)
-        #expect(resolved.selfEmail == nil)
         #expect(resolved.gapRailMinutes == 1)
         #expect(resolved.upcomingCountdownMaxMinutes == 120)
         #expect(resolved.ongoingCountdownMaxMinutes == 30)
@@ -359,19 +358,6 @@ struct ResolvedPanelConfigTests {
         ) {
             try ConfigLoader.parse(
                 toml: "[calendar]\nname = \"一般\"\nongoingCountdownMaxMinutes = 0")
-        }
-    }
-
-    @Test("calendarのselfEmailを読み込める(空文字はinvalidエラー)")
-    func parseCalendarSelfEmail() throws {
-        let config = try ConfigLoader.parse(
-            toml: "[calendar]\nname = \"一般\"\nselfEmail = \"me@example.com\"")
-
-        #expect(ResolvedCalendarConfig(calendar: config.calendar!).selfEmail == "me@example.com")
-        #expect(
-            throws: ConfigError.invalid(description: "calendar.selfEmail must be a non-empty string")
-        ) {
-            try ConfigLoader.parse(toml: "[calendar]\nname = \"一般\"\nselfEmail = \"\"")
         }
     }
 

@@ -17,7 +17,6 @@ private func makeEvent(
     end: Date,
     location: String? = nil,
     meetURL: URL? = nil,
-    attendees: [CalendarEvent.Attendee] = [],
     organizerEmail: String? = nil
 ) -> CalendarEvent {
     CalendarEvent(
@@ -27,7 +26,6 @@ private func makeEvent(
         end: end,
         location: location,
         meetURL: meetURL,
-        attendees: attendees,
         organizerEmail: organizerEmail)
 }
 
@@ -235,131 +233,8 @@ struct CalendarSectionModelTests {
         #expect(eventRow(rows[1])?.gapStyle == .overlap(minutes: 30))
     }
 
-    @Test("参加者は2行目になり、メールアドレスはローカル部だけ表示される")
-    func attendeesRow() {
-        let event = makeEvent(
-            start: at(hour: 14), end: at(hour: 15),
-            attendees: [
-                .init(name: "syou.maman@gmail.com", email: "syou.maman@gmail.com", status: .pending),
-                .init(name: nil, email: "alice@example.com", status: .accepted),
-            ])
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
-
-        #expect(rows[1] == .attendees(.init(organizerName: nil, othersText: "syou.maman, alice")))
-    }
-
-    @Test("招待されたMTGでは主催者が分離され先頭で強調される")
-    func organizerEmphasis() {
-        let event = makeEvent(
-            start: at(hour: 14), end: at(hour: 15),
-            attendees: [
-                .init(name: nil, email: "member@example.com", status: .accepted),
-                .init(name: nil, email: "boss@example.com", status: .accepted),
-            ],
-            organizerEmail: "boss@example.com")
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
-
-        #expect(rows[1] == .attendees(.init(organizerName: "boss", othersText: "member")))
-    }
-
-    @Test("カレンダー自身が主催者の予定では主催者強調をしない")
-    func calendarSelfOrganizerIsNotEmphasized() {
-        let event = makeEvent(
-            start: at(hour: 14), end: at(hour: 15),
-            attendees: [.init(name: nil, email: "me@example.com", status: .accepted)],
-            organizerEmail: "cal-id@group.calendar.google.com")
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: [event]), now: at(hour: 12), calendar: calendar)
-
-        #expect(rows[1] == .attendees(.init(organizerName: nil, othersText: "me")))
-    }
-
-    @Test("参加者がmaxAttendees(主催者込み)を超えたら他◯人に畳まれる")
-    func attendeeOverflow() {
-        let event = makeEvent(
-            start: at(hour: 14), end: at(hour: 15),
-            attendees: (1...5).map {
-                .init(name: "user\($0)", email: "user\($0)@example.com", status: .accepted)
-            },
-            organizerEmail: "user3@example.com")
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: [event], maxAttendees: 3),
-            now: at(hour: 12), calendar: calendar)
-
-        #expect(
-            rows[1]
-                == .attendees(.init(organizerName: "user3", othersText: "user1, user2 他2人")))
-    }
-
-    @Test("参加者一覧は次の予定(先頭)だけに付く")
-    func attendeesOnlyOnFirstEvent() {
-        let attendees: [CalendarEvent.Attendee] = [.init(name: "alice", status: .accepted)]
-        let events = [
-            makeEvent(id: "a@google.com", start: at(hour: 13), end: at(hour: 14), attendees: attendees),
-            makeEvent(id: "b@google.com", start: at(hour: 15), end: at(hour: 16), attendees: attendees),
-        ]
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: events), now: at(hour: 12), calendar: calendar)
-
-        let attendeeRowCount = rows.filter {
-            if case .attendees = $0 { return true } else { return false }
-        }.count
-        #expect(attendeeRowCount == 1)
-        #expect(rows[1] == .attendees(.init(othersText: "alice")))
-    }
-
-    @Test("自分自身(selfEmail)は参加者一覧から除外される")
-    func selfIsExcludedFromAttendees() {
-        let event = makeEvent(
-            start: at(hour: 14), end: at(hour: 15),
-            attendees: [
-                .init(name: nil, email: "me@example.com", status: .pending),
-                .init(name: nil, email: "alice@example.com", status: .accepted),
-            ])
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: [event], selfEmail: "Me@example.com"),
-            now: at(hour: 12), calendar: calendar)
-
-        #expect(rows[1] == .attendees(.init(othersText: "alice")))
-    }
-
-    @Test("自分しか参加者が居ない予定には2行目が付かない")
-    func selfOnlyAttendeesYieldsNoRow() {
-        let event = makeEvent(
-            start: at(hour: 14), end: at(hour: 15),
-            attendees: [.init(name: nil, email: "me@example.com", status: .pending)])
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: [event], selfEmail: "me@example.com"),
-            now: at(hour: 12), calendar: calendar)
-
-        #expect(rows.count == 1)
-    }
-
-    @Test("自分が主催者の場合は主催者強調をしない")
-    func selfOrganizerIsNotEmphasized() {
-        let event = makeEvent(
-            start: at(hour: 14), end: at(hour: 15),
-            attendees: [.init(name: nil, email: "alice@example.com", status: .accepted)],
-            organizerEmail: "me@example.com")
-
-        let rows = CalendarSectionModel.rows(
-            state: .init(events: [event], selfEmail: "me@example.com"),
-            now: at(hour: 12), calendar: calendar)
-
-        #expect(rows[1] == .attendees(.init(organizerName: nil, othersText: "alice")))
-    }
-
-    @Test("参加者情報が無い予定には2行目が付かない")
-    func noAttendeesRow() {
+    @Test("予定は1行のみ(参加者行は2026-07-20全廃)で、予定行だけが並ぶ")
+    func eventYieldsSingleRow() {
         let event = makeEvent(start: at(hour: 14), end: at(hour: 15))
 
         let rows = CalendarSectionModel.rows(
@@ -584,12 +459,10 @@ struct PanelLayoutCalendarTests {
     func sectionHeight() {
         let rows: [CalendarSectionRow] = [
             .event(.init(startText: "13:00", endText: "14:00", title: "a")),
-            .attendees(.init(othersText: "x, y")),
             .overflow(hiddenCount: 2),
         ]
 
         let expected = PanelLayout.calendarEventRowHeight
-            + PanelLayout.calendarAttendeeRowHeight
             + PanelLayout.calendarOverflowRowHeight
             + PanelLayout.calendarNowMarkerHeight
             + PanelLayout.calendarSectionPaddingTop

@@ -20,7 +20,7 @@ Googleカレンダーの「本日の残予定」をKOKUKOKUのパネルに表示
 - 認証はOS委譲: システム設定 > インターネットアカウントにGoogleアカウントを追加するだけ。Cloud Console・OAuth自前実装は不要。会社環境でもRaycastのカレンダー同期実績があり、アカウント連携済みの前提が立つ
 - 実機検証で確認済みの取得可否:
   - 予定名称・開始・終了・場所: そのまま取得可
-  - 参加者+参加ステータス: `EKParticipant.participantStatus` で取得可(未回答=pending を実証。辞退=declined は同機構のため取得可能と判断、実招待での追検証は今後)
+  - 参加者+参加ステータス: `EKParticipant.participantStatus` で取得可(未回答=pending を実証。辞退=declined は同機構のため取得可能と判断、実招待での追検証は今後)。ただし**表示名は取得できない**(`EKParticipant.name` にはメールアドレスがそのまま入る。CalDAVのCNをGoogleがメールアドレスでしか出さないため)。参加者の読み取りは myStatus 導出にのみ使う
   - Meet URL: `url` プロパティではなく **説明文(notes)内の定型文**(`Google Meet に参加: https://meet.google.com/...`)として降りてくる。正規表現で抽出する
   - 説明文: 同一オブジェクトで取得可
 - 制約(実測):
@@ -40,14 +40,9 @@ name = "一般"
 refreshIntervalMinutes = 5
 # 通知を出すタイミング: 予定開始の何分前か。省略時 5
 notificationLeadMinutes = 5
-# パネルの予定行に表示する参加者数の上限。超過分は「他◯人」に畳む。省略時 5
-maxAttendees = 5
 # 展開前に表示する予定数の上限。超過分は「他◯件」に畳む。省略時 2
 # (パネルの本業は計測操作のため控えめの既定。2026-07-19 タダシ決定)
 maxVisibleEvents = 2
-# 自分自身のメールアドレス(任意)。参加者一覧から自分を除外する。
-# EventKitのisCurrentUserはGoogleアカウント連携で効かないことを実測済みのため設定で指定する
-selfEmail = "you@example.com"
 # タイムラインのレールを表示する最小間隔(分)。これ未満は「間隔なし」の接触表現。省略時 1
 gapRailMinutes = 1
 # 未開始予定の「あと◯◯」を表示する残り時間の上限(分)。省略時 120
@@ -59,7 +54,8 @@ ongoingCountdownMaxMinutes = 30
 ```
 
 - `name` が空文字の場合は設定エラー(既存のvalidateと同様に `ConfigError.invalid`)
-- `refreshIntervalMinutes` / `notificationLeadMinutes` / `maxAttendees` / `maxVisibleEvents` / `gapRailMinutes` / `upcomingCountdownMaxMinutes` / `ongoingCountdownMaxMinutes` は 1 以上。0 以下は設定エラー
+- `refreshIntervalMinutes` / `notificationLeadMinutes` / `maxVisibleEvents` / `gapRailMinutes` / `upcomingCountdownMaxMinutes` / `ongoingCountdownMaxMinutes` は 1 以上。0 以下は設定エラー
+- 廃止済みキー: `maxAttendees` / `selfEmail`(参加者一覧の全廃に伴い2026-07-20廃止。設定に残っていても未知キーとして無視される)
 - `notificationLeadMinutes < 5` は許容するが、同期遅延(最大3〜4分)により直前変更を拾えない可能性がある旨をREADMEに注記する
 - カレンダー名の解決: 一致するカレンダーが **0件** ならエラー状態(セクションに「カレンダー『◯◯』が見つからない」と表示)。**複数一致**(別アカウントに同名カレンダーがある場合など)もエラー状態とし、`ソース名/カレンダー名` の候補一覧を表示して設定の見直しを促す。統合はしない(単一カレンダーのスコープを維持)
 - `Resources/Info.plist` に `NSCalendarsFullAccessUsageDescription` を追加する(権限要求の必須キー)
@@ -74,19 +70,12 @@ public struct CalendarEvent: Equatable, Sendable {
     public var end: Date
     public var location: String?   // 物理の場所文字列(空なら nil)
     public var meetURL: URL?       // notes から抽出した会議URL
-    public var attendees: [Attendee]
     public var notes: String?      // 説明文(Meet定型文含む生テキスト)
     public var myStatus: ParticipationStatus  // 自分の参加ステータス
 
     public struct EventKey: Hashable, Sendable {
         public var externalIdentifier: String  // EKCalendarItem.calendarItemExternalIdentifier
         public var occurrenceDate: Date        // EKEvent.occurrenceDate(定期予定の各発生を区別する「元の」発生日時)
-    }
-
-    public struct Attendee: Equatable, Sendable {
-        public var name: String?
-        public var email: String?  // mailto: URLから抽出
-        public var status: ParticipationStatus
     }
 
     public enum ParticipationStatus: Equatable, Sendable {
@@ -98,7 +87,7 @@ public struct CalendarEvent: Equatable, Sendable {
 - **論理キー**: `EKEvent.eventIdentifier` は同期・カレンダー移動で変化し得るため、差分・通知済み管理のキーに使わない。`calendarItemExternalIdentifier` + `occurrenceDate` の複合キー(`EventKey`)を用いる。`occurrenceDate` は定期予定の各発生を区別する「元の」発生日時で、**発生の時刻が変更されても変わらない**ため、時刻変更は同一キーの CHANGED として素直に照合できる(**予定の同一性はEventKey、通知の回は後述の「通知回」**で管理し、両者を分離する)
   - **実測注記(2026-07-19)**: 上記の「時刻変更でもキー不変」は**定期予定の発生にのみ**成り立つ。**単発予定では occurrenceDate が開始時刻に追随する**ため、時刻変更は CHANGED ではなく **ADDED+REMOVED** として観測される(実測: 01:00→01:30 の変更が `+1 ~0 -1`)。消えた側のキーは externalIdentifier の再照会でアイテムが見つかり「取得範囲外への移動」扱いになるため**中止の誤報にはならない**。通知済み管理も通知回=(EventKey, 開始時刻)の単位のため、新キー+新開始時刻=新しい通知回として正しく再通知対象になる(設計変更は不要)
 - **Meet URL抽出**は Core の純ロジック: notes から `https://meet.google.com/xxx-xxxx-xxx` 形式のURLを正規表現で抽出する。将来Zoom等へ広げる場合もここに追加する
-- **myStatus** は attendees のうち自分(isCurrentUser)のステータス。attendees が空・自分を特定できない場合は **`.unknown` とし表示対象に含める**(「辞退情報を取得できない予定は表示する」保守的フォールバック。参加者情報を提供しないカレンダーがあるため)
+- **myStatus** は取得元の参加者のうち自分(isCurrentUser)のステータス。参加者が空・自分を特定できない場合は **`.unknown` とし表示対象に含める**(「辞退情報を取得できない予定は表示する」保守的フォールバック。参加者情報を提供しないカレンダーがあるため)。参加者の読み取りはこの myStatus 導出のためだけに行い、モデルには保持しない(参加者一覧の全廃に伴う整理。2026-07-20)
 - ParticipationStatus のマッピング: accepted / pending / tentative / declined を対応させ、その他(delegated 等)は `.unknown`。**非表示にするのは declined のみ**(tentative・unknown は表示)
 
 ## 取得層
@@ -139,7 +128,7 @@ public struct CalendarEvent: Equatable, Sendable {
 「本日の残予定」セクションを**ヘッダー(時計)の直下**に置く(2026-07-19 タダシ決定: カレンダーの予定は計測項目と独立した概念のため、「上=時間の世界(いま=時計+これから=予定)/中=計測項目/下=フッター」のゾーニングで分離する。セクション背景はヘッダーと同色でまとめる)。
 
 - 各予定行の表示: **予定名称・開始時刻・終了時刻・場所**。開始は明色・終了は沈み色で塗り分け、パッと見で区別できるようにする(2026-07-19 タダシ指摘: `01:00-02:00` の隣接は読みにくい)。表示デザインの詳細(配色・アイコン・余白)は実装時にスクリーンショット比較で決める
-- **参加者一覧**を**次の予定(先頭)だけ**2行目に表示する(2026-07-19 タダシ決定: 移動後の場所把握に必要なのは次の予定だけで、それ以外は行クリックの詳細ページで足りる。当初の全予定表示からFT前検討で変更)。名前はEventKitではメールアドレスで降りてくることが多いため、メール形式なら**ローカル部(@より前)**を表示する。**自分自身(`selfEmail`)は除外**する(純ノイズのため)。**主催者を特定できた場合は強調色で先頭に置く**(招待されたMTGのみ。自分で作った予定は organizer がカレンダー自身になるため強調なし。自分が主催者の場合も強調なし)。`maxAttendees`(既定5、主催者込み)を超えた分は「他◯人」に畳む。参加者情報が無い予定は2行目なし
+- **参加者一覧(予定行の2行目)は表示しない**(2026-07-20 タダシ決定で全廃。参加者確認の要求自体は残り、**行クリックの詳細ページが充足手段**になる)。経緯: 当初は全予定に表示 → 次の予定のみに縮小(2026-07-19)→ 実データ検証で「EventKit経由では表示名が取得できずメールアドレスのローカル部しか出せない」「organizerは常にカレンダー自身で主催者強調が機能しない」「顔写真APIは存在しない」ことが確定し、名前が出ない一覧に瞬時確認の価値がないため全廃(改善手段の連絡帳照合・People API連携はオーバーキルと判断し調査打ち切り。4人検討: owlery `shared/discussions/2026-07-20 KOKUKOKU参加者表示全廃の検討.md`)
 - **予定間の間隔表示(R2)**: 左端のタイムラインで、**空き時間の有無をレール(縦線)の有無で表現**する(2026-07-19 タダシ発案・4人検討で再設計。分数の常時表示は廃止 — 間隔情報は例外報告であり、全件報告に価値がないため)
   - 間隔が `gapRailMinutes`(既定1分)以上: **淡色のレール**。分数は出さない
   - 間隔が閾値未満(back-to-back含む): **明るい生成り(テキストと同格のフル明度)の太めレール**で「間がない」連鎖を示す(点との余白は淡色レールと同一)。連鎖は「危険」でも「いま」でもない構造情報のため**炎色帯(金茶〜朱)を使わない** — 当初の朱は連続MTGが日常のためアラート疲れ、次の燻し橙は計測中ネオンと同色相帯で紛らわしく、いずれも却下(2026-07-19 タダシ指摘+4人検討で確定)。タイムライン内は「**繋がりの強さ=明度、色相ジャンプ=異常(朱)**」の一軸文法
@@ -162,7 +151,7 @@ public struct CalendarEvent: Equatable, Sendable {
 - **レイアウト**: パネル高は予定セクションの行数を含めて動的に計算する(`PanelLayout` に予定セクション高を組み込み、フッター・インライン時間編集の座標も連動してオフセットする)。表示中に予定数が変わった場合はウィンドウ高を再計算し、**画面中央位置を維持したままリサイズ**する
 - **キーボード操作**: 予定行・「他◯件/畳む」行を既存の j/k 選択ループに含め、「予定セクション→プロジェクト行」の一巡で回す(2026-07-19 タダシ決定。当初の「ループに含めない」を FT 前に改訂 — キーボード至上主義の運用ではマウス専用の予定行だけ文法から浮くため)
   - Enter の確定動作は選択対象で分岐: 予定行=詳細ページを開いてパネルを閉じる(クリックも同様。フォーカスがブラウザへ移るため、パネルを残してフォーカスを戻すよりホットキー再表示のほうが楽 — 2026-07-19 タダシ決定)/「他◯件」=全件展開(カーソルは展開で現れた先頭の予定へ)/「畳む」=上限表示へ戻す(カーソルは「他◯件」行に留まる)
-  - 参加者・エラー・中止告知・鮮度の行は操作対象がないため選択ループに含めない
+  - エラー・中止告知・鮮度の行は操作対象がないため選択ループに含めない
   - 数字キー(1-9)・`e`(時間編集)はプロジェクト行専用のまま
   - 選択の合図はプロジェクト行と同じ「消灯版カプセル輪郭」。予定の増減で選択中の行が消えた場合は選択を外す
   - 通知モードのパネルはフォーカス非奪取(キーボードを取らない)ため、キー操作は通常パネル限定

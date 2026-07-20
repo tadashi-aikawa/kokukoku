@@ -26,9 +26,7 @@ final class CalendarService {
     /// 通知すべき予定が発生したときに呼ばれる(空Setは告知のみの再表示)
     var onNotification: ((Set<CalendarEvent.EventKey>) -> Void)?
 
-    var maxAttendees: Int { config.maxAttendees }
     var maxVisibleEvents: Int { config.maxVisibleEvents }
-    var selfEmail: String? { config.selfEmail }
     var gapRailMinutes: Int { config.gapRailMinutes }
     var upcomingCountdownMaxMinutes: Int { config.upcomingCountdownMaxMinutes }
     var ongoingCountdownMaxMinutes: Int { config.ongoingCountdownMaxMinutes }
@@ -257,7 +255,7 @@ final class CalendarService {
             log(
                 "  \(visibleKeys.contains(event.key) ? "*" : " ")"
                     + " \(formatter.string(from: event.start))-\(formatter.string(from: event.end))"
-                    + " \(event.title) [\(place)] \(event.attendees.count)人 \(event.myStatus)")
+                    + " \(event.title) [\(place)] \(event.myStatus)")
         }
     }
 
@@ -280,8 +278,6 @@ extension EKEvent: CalendarEventSource {
 }
 
 extension EKParticipant: CalendarAttendeeSource {
-    public var attendeeName: String? { name }
-    public var attendeeURL: URL? { url }
     public var attendeeIsCurrentUser: Bool { isCurrentUser }
     public var attendeeStatus: CalendarEvent.ParticipationStatus {
         switch participantStatus {

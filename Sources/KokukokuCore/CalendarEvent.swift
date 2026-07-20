@@ -16,18 +16,6 @@ public struct CalendarEvent: Equatable, Sendable {
         }
     }
 
-    public struct Attendee: Equatable, Sendable {
-        public var name: String?
-        public var email: String?
-        public var status: ParticipationStatus
-
-        public init(name: String? = nil, email: String? = nil, status: ParticipationStatus) {
-            self.name = name
-            self.email = email
-            self.status = status
-        }
-    }
-
     public enum ParticipationStatus: Equatable, Sendable {
         case accepted, pending, tentative, declined, unknown
     }
@@ -42,9 +30,8 @@ public struct CalendarEvent: Equatable, Sendable {
     public var location: String?
     /// notes から抽出した会議URL
     public var meetURL: URL?
-    public var attendees: [Attendee]
     /// 主催者のメールアドレス。自分で作った予定ではカレンダー自身
-    /// (`...@group.calendar.google.com`)が入る。詳細ページURLの組み立てと主催者強調に使う
+    /// (`...@group.calendar.google.com`)が入る。詳細ページURLの組み立てに使う
     public var organizerEmail: String?
     /// 説明文(Meet定型文含む生テキスト)
     public var notes: String?
@@ -59,7 +46,6 @@ public struct CalendarEvent: Equatable, Sendable {
         isAllDay: Bool = false,
         location: String? = nil,
         meetURL: URL? = nil,
-        attendees: [Attendee] = [],
         organizerEmail: String? = nil,
         notes: String? = nil,
         myStatus: ParticipationStatus = .unknown
@@ -71,7 +57,6 @@ public struct CalendarEvent: Equatable, Sendable {
         self.isAllDay = isAllDay
         self.location = location
         self.meetURL = meetURL
-        self.attendees = attendees
         self.organizerEmail = organizerEmail
         self.notes = notes
         self.myStatus = myStatus
@@ -93,12 +78,10 @@ public protocol CalendarEventSource {
     var sourceOrganizerURL: URL? { get }
 }
 
-/// EKParticipant への依存を薄く切るための参加者プロトコル。
+/// EKParticipant への依存を薄く切るための参加者プロトコル(myStatus の導出にのみ使う。
+/// 参加者一覧の表示は2026-07-20に全廃)。
 /// status のマッピング(EKParticipantStatus → ParticipationStatus)は Platform 側の責務
 public protocol CalendarAttendeeSource {
-    var attendeeName: String? { get }
-    /// mailto: 形式のURL(メールアドレス抽出は Core で行う)
-    var attendeeURL: URL? { get }
     var attendeeStatus: CalendarEvent.ParticipationStatus { get }
     var attendeeIsCurrentUser: Bool { get }
 }
@@ -114,12 +97,6 @@ extension CalendarEvent {
             let end = source.sourceEnd
         else { return nil }
 
-        let attendees = source.sourceAttendees.map { attendee in
-            Attendee(
-                name: attendee.attendeeName,
-                email: Self.email(fromMailto: attendee.attendeeURL),
-                status: attendee.attendeeStatus)
-        }
         let location = source.sourceLocation?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         self.init(
@@ -130,7 +107,6 @@ extension CalendarEvent {
             isAllDay: source.sourceIsAllDay,
             location: (location?.isEmpty ?? true) ? nil : location,
             meetURL: MeetURLExtractor.extract(from: source.sourceNotes),
-            attendees: attendees,
             organizerEmail: Self.email(fromMailto: source.sourceOrganizerURL),
             notes: source.sourceNotes,
             myStatus: source.sourceAttendees.first(where: { $0.attendeeIsCurrentUser })?

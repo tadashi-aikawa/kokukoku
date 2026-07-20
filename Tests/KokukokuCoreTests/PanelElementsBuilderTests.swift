@@ -423,7 +423,8 @@ struct PanelElementsBuilderTests {
         #expect(containsText("13:00", in: elements))
         #expect(containsText("14:00", in: elements))
         #expect(containsText("定例", in: elements))
-        #expect(containsText("会議室A", in: elements))
+        // 場所には地図ピン(📍)が前置される
+        #expect(containsText("📍会議室A", in: elements))
         #expect(containsText("あと30分", in: elements))
         #expect(elements.contains { element in
             guard case .rectangle(_, _, _, _, _, let id, let tracksMouse) = element else {
@@ -565,6 +566,8 @@ struct PanelElementsBuilderTests {
 
         #expect(containsText("『定例』は中止になりました", in: elements))
         #expect(containsText("3分前時点の情報", in: elements))
+        // 場所が無い予定にはピンも出ない
+        #expect(!containsText("📍", in: elements))
         // 通知対象の点には生成りの二層ハローが灯る(点の位置はレール上)
         #expect(elements.contains { element in
             guard case .circle(let center, 8, let fill, _, _) = element else { return false }

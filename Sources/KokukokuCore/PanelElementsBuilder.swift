@@ -458,13 +458,16 @@ public struct PanelElementsBuilder {
                         color: color,
                         alignment: .right))
                 } else if let locationText = event.locationText {
-                    let height = measureTextHeight(locationText, inputs.ui.fontName, 12)
+                    // 場所には地図ピン(📍)を前置し「この文字列=場所」と一瞥で分かるようにする。
+                    // 絵文字はフォントサイズに追随するためSF Symbolより実寸を出しやすい
+                    let text = "\(PanelLayout.locationPrefix)\(locationText)"
+                    let height = measureTextHeight(text, inputs.ui.fontName, 12)
                     elements.append(.text(
                         frame: .init(
                             x: metrics.panelWidth - layout.padding - locationColumnWidth,
                             y: y + centeredOffset(rowHeight, height),
                             w: locationColumnWidth, h: height),
-                        text: locationText,
+                        text: text,
                         fontName: inputs.ui.fontName,
                         fontSize: 12,
                         color: colors.subText,

@@ -258,8 +258,6 @@ public enum PanelLayout {
     public static let calendarTimeWidth = 96.0
     /// 開始-終了の区切り「-」の左右の余白(等幅空白1文字では広すぎるため要素分解して詰める)
     public static let calendarTimeSeparatorPad = 3.0
-    /// 場所テキストに前置する地図ピン。絵文字のためフォントサイズ(12pt)にそのまま追随する
-    public static let locationPrefix = "📍"
 
     public static func calendarRowHeight(_ row: CalendarSectionRow) -> Double {
         switch row {

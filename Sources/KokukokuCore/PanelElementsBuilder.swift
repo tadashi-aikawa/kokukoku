@@ -469,7 +469,7 @@ public struct PanelElementsBuilder {
 
                 // 場所(下段): タイトルの下に小さめフォントで表示
                 if let locationText = event.locationText {
-                    let text = "\(PanelLayout.locationPrefix)\(locationText)"
+                    let text = locationText
                     let locationY = y + titleRowHeight
                     let locationHeight = rowHeight - titleRowHeight
                     let locationX = layout.calendarContentX + layout.calendarTimeWidth + 8

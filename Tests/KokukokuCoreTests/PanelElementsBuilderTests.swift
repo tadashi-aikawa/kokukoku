@@ -340,6 +340,22 @@ struct PanelElementsBuilderTests {
         #expect(width(nameWidths: [:]) == 420)
     }
 
+    @Test("パネル幅の下限・上限を設定で変更できる")
+    func metricsComputeCustomWidth() {
+        func width(nameWidths: [String: Double], min: Double, max: Double) -> Double {
+            PanelMetrics.compute(
+                projectNames: Array(nameWidths.keys),
+                measureNameWidth: { nameWidths[$0] ?? 0 },
+                minWidth: min,
+                maxWidth: max
+            ).panelWidth
+        }
+
+        #expect(width(nameWidths: ["short": 100], min: 300, max: 600) == 310)
+        #expect(width(nameWidths: ["short": 100], min: 350, max: 600) == 350)
+        #expect(width(nameWidths: ["long": 400], min: 300, max: 500) == 500)
+    }
+
     @Test("パネル高さをプロジェクト数から算出する")
     func panelHeight() {
         #expect(PanelLayout.panelHeight(projectCount: 0) == 124)

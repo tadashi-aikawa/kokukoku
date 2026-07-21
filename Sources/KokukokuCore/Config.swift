@@ -46,13 +46,19 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
     public struct UI: Codable, Equatable, Sendable {
         public var fontName: String?
         public var copyTextFormat: String?
+        public var panelMinWidth: Int?
+        public var panelMaxWidth: Int?
 
         public init(
             fontName: String? = nil,
-            copyTextFormat: String? = nil
+            copyTextFormat: String? = nil,
+            panelMinWidth: Int? = nil,
+            panelMaxWidth: Int? = nil
         ) {
             self.fontName = fontName
             self.copyTextFormat = copyTextFormat
+            self.panelMinWidth = panelMinWidth
+            self.panelMaxWidth = panelMaxWidth
         }
     }
 
@@ -139,11 +145,20 @@ public struct ResolvedUIConfig: Equatable, Sendable {
     /// 時間表示の等幅フォント(設定不可の固定値)
     public let monoFontName = "Menlo"
     public var copyTextFormat: String
+    public var panelMinWidth: Double
+    public var panelMaxWidth: Double
 
     public init(ui: KokukokuConfig.UI?) {
         self.fontName = ui?.fontName ?? ".AppleSystemUIFont"
         self.copyTextFormat = ui?.copyTextFormat ?? "- {name}: {hh}:{mm}:{ss}"
+        self.panelMinWidth = ui?.panelMinWidth.map(Double.init) ?? PanelWidthDefaults.min
+        self.panelMaxWidth = ui?.panelMaxWidth.map(Double.init) ?? PanelWidthDefaults.max
     }
+}
+
+public enum PanelWidthDefaults {
+    public static let min = 420.0
+    public static let max = 480.0
 }
 
 public struct ResolvedKeymap: Equatable, Sendable {
@@ -226,6 +241,16 @@ public enum ConfigLoader {
             }
             if !seenIds.insert(project.id).inserted {
                 throw ConfigError.invalid(description: "duplicate project id: \(project.id)")
+            }
+        }
+        if let ui = config.ui {
+            if let minW = ui.panelMinWidth, minW < 300 {
+                throw ConfigError.invalid(
+                    description: "ui.panelMinWidth must be >= 300")
+            }
+            if let maxW = ui.panelMaxWidth, maxW < (ui.panelMinWidth ?? 300) {
+                throw ConfigError.invalid(
+                    description: "ui.panelMaxWidth must be >= panelMinWidth")
             }
         }
         if let calendar = config.calendar {

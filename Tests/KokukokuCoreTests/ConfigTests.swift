@@ -287,6 +287,36 @@ struct ConfigLoaderTests {
         #expect(config.ui == .init(fontName: "Helvetica"))
         #expect(config.keymap == .init(reset: "x"))
     }
+
+    @Test("パネル幅の最小値・最大値を読み込める")
+    func parsePanelWidth() throws {
+        let config = try ConfigLoader.parse(toml: """
+            [ui]
+            panelMinWidth = 400
+            panelMaxWidth = 500
+            """)
+
+        #expect(config.ui?.panelMinWidth == 400)
+        #expect(config.ui?.panelMaxWidth == 500)
+    }
+
+    @Test("panelMinWidthが300未満ならinvalidエラーになる")
+    func parsePanelMinWidthTooSmall() {
+        #expect(
+            throws: ConfigError.invalid(description: "ui.panelMinWidth must be >= 300")
+        ) {
+            try ConfigLoader.parse(toml: "[ui]\npanelMinWidth = 299")
+        }
+    }
+
+    @Test("panelMaxWidthがpanelMinWidth未満ならinvalidエラーになる")
+    func parsePanelMaxWidthLessThanMin() {
+        #expect(
+            throws: ConfigError.invalid(description: "ui.panelMaxWidth must be >= panelMinWidth")
+        ) {
+            try ConfigLoader.parse(toml: "[ui]\npanelMinWidth = 400\npanelMaxWidth = 399")
+        }
+    }
 }
 
 @Suite("Resolved panel config")
@@ -305,6 +335,16 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.fontName == "Helvetica")
         #expect(resolved.monoFontName == "Menlo")
         #expect(resolved.copyTextFormat == "- {name}: {hh}:{mm}:{ss}")
+        #expect(resolved.panelMinWidth == 420)
+        #expect(resolved.panelMaxWidth == 480)
+    }
+
+    @Test("パネル幅の設定値が解決される")
+    func panelWidthResolved() {
+        let resolved = ResolvedUIConfig(ui: .init(panelMinWidth: 350, panelMaxWidth: 600))
+
+        #expect(resolved.panelMinWidth == 350)
+        #expect(resolved.panelMaxWidth == 600)
     }
 
     @Test("キーマップの既定値を解決する")

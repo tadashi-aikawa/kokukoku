@@ -122,17 +122,19 @@ public struct PanelMetrics: Equatable, Sendable {
     }
 
     /// 最長プロジェクト名がちょうど収まる幅を計算する。
-    /// 名前が短ければminPanelWidthまで縮み、長くてもmaxPanelWidthで頭打ち
+    /// 名前が短ければminWidthまで縮み、長くてもmaxWidthで頭打ち
     /// (収まらない分は描画側が「…」で省略する)
     public static func compute(
         projectNames: [String],
-        measureNameWidth: (String) -> Double
+        measureNameWidth: (String) -> Double,
+        minWidth: Double = PanelWidthDefaults.min,
+        maxWidth: Double = PanelWidthDefaults.max
     ) -> PanelMetrics {
         let maxNameWidth = projectNames.map(measureNameWidth).max() ?? 0
         let width = PanelLayout.projectNameX + maxNameWidth.rounded(.up)
             + PanelLayout.nameTimeGap + PanelLayout.timeColumnWidth + PanelLayout.numberColumnX
         return PanelMetrics(
-            panelWidth: min(max(width, PanelLayout.minPanelWidth), PanelLayout.maxPanelWidth))
+            panelWidth: min(max(width, minWidth), maxWidth))
     }
 
     /// 累積時間列は右端を行番号列と対称の位置(パネル右端-18px)に揃え、
@@ -187,9 +189,6 @@ public struct PanelMetrics: Equatable, Sendable {
 }
 
 public enum PanelLayout {
-    /// パネル幅は最長プロジェクト名の実測幅に合わせてこの範囲で伸縮する(PanelMetrics.compute)
-    public static let minPanelWidth = 420.0
-    public static let maxPanelWidth = 480.0
     /// ヘッダー(現在時刻段: アナログ+デジタル時計)の高さ = プロジェクト行の開始位置。
     /// 時計(直径56px)の上下に14pxずつの余白を取り、下の記録エリアと視覚的に分離する
     public static let clockSectionHeight = 84.0

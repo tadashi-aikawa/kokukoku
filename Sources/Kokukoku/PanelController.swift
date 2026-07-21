@@ -68,7 +68,9 @@ final class PanelController {
             projectNames: projects.map(\.name),
             measureNameWidth: { name in
                 Double((name as NSString).size(withAttributes: [.font: nameFont]).width)
-            })
+            },
+            minWidth: ui.panelMinWidth,
+            maxWidth: ui.panelMaxWidth)
         iconStore.onLoad = { [weak self] in self?.rebuildPanel() }
     }
 

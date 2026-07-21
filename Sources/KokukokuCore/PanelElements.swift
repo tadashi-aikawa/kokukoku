@@ -231,6 +231,8 @@ public enum PanelLayout {
 
     // 予定セクション(ヘッダーの時計直下=「時間の世界」ゾーン)。パネル高は行数に応じて動的に変わる
     public static let calendarEventRowHeight = 26.0
+    /// 場所付き予定行の高さ(タイトル行+場所行の2段)
+    public static let calendarEventWithLocationRowHeight = 40.0
     public static let calendarOverflowRowHeight = 18.0
     public static let calendarErrorRowHeight = 26.0
     /// 中止告知行(通知文脈)の高さ
@@ -261,7 +263,9 @@ public enum PanelLayout {
 
     public static func calendarRowHeight(_ row: CalendarSectionRow) -> Double {
         switch row {
-        case .event: return calendarEventRowHeight
+        case .event(let event):
+            return event.locationText != nil
+                ? calendarEventWithLocationRowHeight : calendarEventRowHeight
         case .overflow, .collapse: return calendarOverflowRowHeight
         case .error: return calendarErrorRowHeight
         case .notice: return calendarNoticeRowHeight

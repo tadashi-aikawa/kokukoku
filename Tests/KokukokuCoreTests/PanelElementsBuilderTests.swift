@@ -529,7 +529,7 @@ struct PanelElementsBuilderTests {
         #expect(labelFrames.map(\.x) == [railX + 9])
     }
 
-    @Test("進行中の「終了まで◯分」は行内右端に出て場所より優先される")
+    @Test("進行中の「終了まで◯分」はタイトル右端に出て、場所は下段に表示される")
     func ongoingCountdownInRow() {
         let rows: [CalendarSectionRow] = [
             .event(.init(
@@ -540,13 +540,14 @@ struct PanelElementsBuilderTests {
         ]
         let elements = builder().build(inputs(calendarRows: rows))
 
-        // 行内右端スロット(右寄せ・警告色)。表示中は場所を出さない
+        // カウントダウンはタイトル右端(右寄せ・警告色)
         #expect(elements.contains { element in
             guard case .text(let frame, "終了まで8分", _, 12, let color, .right) = element
             else { return false }
             return frame.x == 358 && color == PanelLayout.Colors.countdownImminent
         })
-        #expect(!containsText("会議室A", in: elements))
+        // 場所は下段に表示される(進行中でも表示)
+        #expect(containsText("📍会議室A", in: elements))
         // 帯は置かず(高さごと詰める)、nowレールも出さない(「いま」はリングが語る)。
         // 行はセクション上端84+余白6から始まる
         #expect(!elements.contains { element in

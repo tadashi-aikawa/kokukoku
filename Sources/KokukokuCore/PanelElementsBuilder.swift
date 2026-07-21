@@ -339,12 +339,10 @@ public struct PanelElementsBuilder {
 
         var y = startY + layout.calendarSectionPaddingTop
         var eventIndex = 0
-        // 右端の列は場所と進行中カウントダウンが同じスロットを使う。
-        // どちらか1つでも表示があれば全行分を確保し、タイトルの折り返し位置を揃える
-        let locationColumnWidth: Double = inputs.calendarRows.contains(where: { row in
+        // 進行中カウントダウンの右端スロット幅。1件でも表示があれば全行分を確保する
+        let countdownColumnWidth: Double = inputs.calendarRows.contains(where: { row in
             guard case .event(let event) = row else { return false }
-            return event.locationText != nil
-                || (event.isInProgress && event.countdownText != nil)
+            return event.isInProgress && event.countdownText != nil
         }) ? 110 : 0
         // タイムラインの点の中心Yと、その予定の間隔表現(レール描画は行の後にまとめて行う)
         var dots:
@@ -380,13 +378,12 @@ public struct PanelElementsBuilder {
             }
             switch row {
             case .event(let event):
-                let lineCenterY = y + rowHeight / 2
+                // タイムラインの点は上段(タイトル段)の中央に置く
+                let titleRowHeight = PanelLayout.calendarEventRowHeight
+                let lineCenterY = y + titleRowHeight / 2
                 dots.append(
                     (lineCenterY, event.gapStyle, event.isInProgress, event.isAlertTarget))
 
-                // 行背景はホバー追跡のみ(クリックで詳細ページを開ける)。
-                // 通知対象は点のハローが指し、行の暖色強調は置かない
-                // (「暖色=計測中」の単義を守る。2026-07-19 タダシ決定)
                 let id = "cal_event_\(eventIndex)"
                 let isHovered = inputs.hoveredId == id
                 let rowFill =
@@ -398,10 +395,8 @@ public struct PanelElementsBuilder {
                     id: event.detailURL != nil ? id : nil,
                     tracksMouse: event.detailURL != nil))
 
-                // 「明るい時刻=次に来る境界」: 未開始は開始を明色・終了を沈み色、
-                // 進行中は反転して終了だけ明るくする(進行中の一瞥区別。カウントダウンの判定と同型)
                 let startHeight = measureTextHeight(event.startText, inputs.ui.monoFontName, 13)
-                let startY = y + centeredOffset(rowHeight, startHeight)
+                let startY = y + centeredOffset(titleRowHeight, startHeight)
                 elements.append(.text(
                     frame: .init(
                         x: layout.calendarContentX, y: startY,
@@ -410,10 +405,6 @@ public struct PanelElementsBuilder {
                     fontName: inputs.ui.monoFontName,
                     fontSize: 13,
                     color: event.isInProgress ? colors.subText : colors.text))
-                // 開始-終了の区切り「-」と終了時刻は開始と別要素で描き、余白をレイアウトで管理する
-                // (テキストに空白を混ぜると等幅1文字分の広すぎる隙間になるため)。
-                // サイズは開始と同じ13pt: 階層は明暗が担っており、進行中は終了側が
-                // 「次に来る境界」として主役になるため、サイズ差の固定階層は置かない
                 let endColor = event.isInProgress ? colors.text : colors.subText
                 let hyphenX = layout.calendarContentX
                     + measureTextWidth(event.startText, inputs.ui.monoFontName, 13)
@@ -436,9 +427,7 @@ public struct PanelElementsBuilder {
                     fontSize: 13,
                     color: endColor))
 
-                // 進行中の「終了まで◯分」は行内(右端スロット)で完結させる。
-                // 独立行にすると残30分を切った瞬間にリスト中程へ行が挿入されて縦ずれするため。
-                // 表示中は場所より優先する(進行中=もう現地に居るので場所の価値が下がっている)
+                // 進行中カウントダウンはタイトル右端に表示
                 if event.isInProgress, let countdown = event.countdownText {
                     let color: PanelColor
                     switch event.countdownUrgency {
@@ -449,49 +438,59 @@ public struct PanelElementsBuilder {
                     let height = measureTextHeight(countdown, inputs.ui.fontName, 12)
                     elements.append(.text(
                         frame: .init(
-                            x: metrics.panelWidth - layout.padding - locationColumnWidth,
-                            y: y + centeredOffset(rowHeight, height),
-                            w: locationColumnWidth, h: height),
+                            x: metrics.panelWidth - layout.padding - countdownColumnWidth,
+                            y: y + centeredOffset(titleRowHeight, height),
+                            w: countdownColumnWidth, h: height),
                         text: countdown,
                         fontName: inputs.ui.fontName,
                         fontSize: 12,
                         color: color,
                         alignment: .right))
-                } else if let locationText = event.locationText {
-                    // 場所には地図ピン(📍)を前置し「この文字列=場所」と一瞥で分かるようにする。
-                    // 絵文字はフォントサイズに追随するためSF Symbolより実寸を出しやすい
-                    let text = "\(PanelLayout.locationPrefix)\(locationText)"
-                    let height = measureTextHeight(text, inputs.ui.fontName, 12)
-                    elements.append(.text(
-                        frame: .init(
-                            x: metrics.panelWidth - layout.padding - locationColumnWidth,
-                            y: y + centeredOffset(rowHeight, height),
-                            w: locationColumnWidth, h: height),
-                        text: text,
-                        fontName: inputs.ui.fontName,
-                        fontSize: 12,
-                        color: colors.subText,
-                        alignment: .right))
                 }
 
+                // タイトル(上段)
                 let titleX = layout.calendarContentX + layout.calendarTimeWidth + 8
                 let titleRight = metrics.panelWidth - layout.padding
-                    - (locationColumnWidth > 0 ? locationColumnWidth + 8 : 0)
+                    - (countdownColumnWidth > 0 ? countdownColumnWidth + 8 : 0)
                 let titleHeight = measureTextHeight(event.title, inputs.ui.fontName, 13)
                 elements.append(.text(
                     frame: .init(
-                        x: titleX, y: y + centeredOffset(rowHeight, titleHeight),
+                        x: titleX, y: y + centeredOffset(titleRowHeight, titleHeight),
                         w: titleRight - titleX, h: titleHeight),
                     text: event.title,
                     fontName: inputs.ui.fontName,
                     fontSize: 13,
                     color: colors.text))
-                // 枠に収まらず「…」で省略される予定名だけ、ホバーで全文を見せる
-                // (収まっている名前にまで出すとノイズになるため)
                 if measureTextWidth(event.title, inputs.ui.fontName, 13) > titleRight - titleX {
                     elements.append(.tooltip(
-                        frame: .init(x: titleX, y: y, w: titleRight - titleX, h: rowHeight),
+                        frame: .init(x: titleX, y: y, w: titleRight - titleX, h: titleRowHeight),
                         text: event.title))
+                }
+
+                // 場所(下段): タイトルの下に小さめフォントで表示
+                if let locationText = event.locationText {
+                    let text = "\(PanelLayout.locationPrefix)\(locationText)"
+                    let locationY = y + titleRowHeight
+                    let locationHeight = rowHeight - titleRowHeight
+                    let locationX = layout.calendarContentX + layout.calendarTimeWidth + 8
+                    let locationRight = metrics.panelWidth - layout.padding
+                    elements.append(.text(
+                        frame: .init(
+                            x: locationX, y: locationY,
+                            w: locationRight - locationX, h: locationHeight),
+                        text: text,
+                        fontName: inputs.ui.fontName,
+                        fontSize: 11,
+                        color: colors.subText))
+                    if measureTextWidth(text, inputs.ui.fontName, 11)
+                        > locationRight - locationX
+                    {
+                        elements.append(.tooltip(
+                            frame: .init(
+                                x: locationX, y: locationY,
+                                w: locationRight - locationX, h: locationHeight),
+                            text: text))
+                    }
                 }
                 eventIndex += 1
 

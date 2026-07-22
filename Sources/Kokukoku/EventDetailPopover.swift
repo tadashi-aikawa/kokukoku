@@ -21,11 +21,26 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
         contentViewController = vc
         behavior = .transient
         appearance = NSAppearance(named: .darkAqua)
+        // 既定のポップアニメーション(拡縮入り)は非Retinaでカクつくため無効化し、
+        // 表示はpopoverDidShowの軽量フェードインに置き換える。クローズは常に即時
+        animates = false
         delegate = self
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
+
+    func popoverDidShow(_ notification: Notification) {
+        // ウィンドウのalpha合成だけのフェードインは拡縮と違い再ラスタライズが
+        // 走らないため、非Retinaディスプレイでも滑らかに表示できる
+        guard let window = contentViewController?.view.window else { return }
+        window.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().alphaValue = 1
+        }
+    }
 
     func popoverShouldClose(_ popover: NSPopover) -> Bool {
         onUserCloseRequest?() ?? true

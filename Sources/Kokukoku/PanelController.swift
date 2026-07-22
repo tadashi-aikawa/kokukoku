@@ -709,9 +709,6 @@ final class PanelController {
     private func dismissEventPopover() {
         guard let eventPopover else { return }
         eventPopover.onDismiss = nil
-        // パネルごと閉じるときにpopoverのフェードだけ残ると2段階の直列アニメーションに
-        // 見えるため、即時で閉じる
-        eventPopover.animates = false
         eventPopover.close()
         self.eventPopover = nil
     }

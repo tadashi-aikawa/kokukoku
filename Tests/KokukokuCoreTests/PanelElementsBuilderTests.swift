@@ -3,6 +3,10 @@ import Testing
 
 @testable import KokukokuCore
 
+private func testEventKey(_ id: String) -> CalendarEvent.EventKey {
+    .init(externalIdentifier: id, occurrenceDate: .distantPast)
+}
+
 @Suite("PanelElementsBuilder")
 struct PanelElementsBuilderTests {
     private let ui = ResolvedUIConfig(ui: nil)
@@ -158,8 +162,12 @@ struct PanelElementsBuilderTests {
     @Test("予定行のキーボード選択もカプセル輪郭で示す")
     func selectionOutlineOnCalendarRow() {
         let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "14:00", title: "a", countdownText: "あと5分")),
-            .event(.init(startText: "14:10", endText: "15:00", title: "b", gapStyle: .rail)),
+            .event(.init(
+                eventKey: testEventKey("a"), startText: "13:00", endText: "14:00",
+                title: "a", countdownText: "あと5分")),
+            .event(.init(
+                eventKey: testEventKey("b"), startText: "14:10", endText: "15:00",
+                title: "b", gapStyle: .rail)),
             .overflow(hiddenCount: 2),
         ]
         let selected = builder().build(inputs(
@@ -421,6 +429,7 @@ struct PanelElementsBuilderTests {
     func calendarSectionShiftsRowsAndFooter() {
         let rows: [CalendarSectionRow] = [
             .event(.init(
+                eventKey: testEventKey("meeting"),
                 startText: "13:00", endText: "14:00", title: "定例",
                 locationText: "会議室A",
                 detailURL: URL(string: "https://calendar.google.com/calendar/event?eid=x"),
@@ -463,13 +472,17 @@ struct PanelElementsBuilderTests {
     @Test("間隔ありはレール、間隔なしは朱の接触線、重複は接触線+朱の分数になる")
     func calendarRail() {
         let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "14:00", title: "a", countdownText: "あと5分")),
             .event(.init(
-                startText: "14:10", endText: "15:00", title: "b", gapStyle: .rail)),
+                eventKey: testEventKey("a"), startText: "13:00", endText: "14:00",
+                title: "a", countdownText: "あと5分")),
             .event(.init(
-                startText: "15:00", endText: "16:00", title: "c", gapStyle: .contact)),
+                eventKey: testEventKey("b"), startText: "14:10", endText: "15:00",
+                title: "b", gapStyle: .rail)),
             .event(.init(
-                startText: "15:30", endText: "16:30", title: "d",
+                eventKey: testEventKey("c"), startText: "15:00", endText: "16:00",
+                title: "c", gapStyle: .contact)),
+            .event(.init(
+                eventKey: testEventKey("d"), startText: "15:30", endText: "16:30", title: "d",
                 gapStyle: .overlap(minutes: 30))),
         ]
         let elements = builder().build(inputs(calendarRows: rows))
@@ -511,7 +524,7 @@ struct PanelElementsBuilderTests {
     func nowMarkerWithUpcomingCountdown() {
         let rows: [CalendarSectionRow] = [
             .event(.init(
-                startText: "13:00", endText: "14:00", title: "a",
+                eventKey: testEventKey("a"), startText: "13:00", endText: "14:00", title: "a",
                 countdownText: "あと38分", countdownUrgency: .distant)),
         ]
         let elements = builder().build(inputs(calendarRows: rows))
@@ -533,7 +546,7 @@ struct PanelElementsBuilderTests {
     func ongoingCountdownInRow() {
         let rows: [CalendarSectionRow] = [
             .event(.init(
-                startText: "13:00", endText: "14:00", title: "a",
+                eventKey: testEventKey("a"), startText: "13:00", endText: "14:00", title: "a",
                 locationText: "会議室A",
                 countdownText: "終了まで8分", countdownUrgency: .imminent,
                 isInProgress: true)),
@@ -575,7 +588,7 @@ struct PanelElementsBuilderTests {
         let rows: [CalendarSectionRow] = [
             .notice(text: "『定例』は中止になりました"),
             .event(.init(
-                startText: "13:00", endText: "14:00", title: "a",
+                eventKey: testEventKey("a"), startText: "13:00", endText: "14:00", title: "a",
                 countdownText: "あと5分", isAlertTarget: true)),
             .freshness(text: "3分前時点の情報"),
         ]

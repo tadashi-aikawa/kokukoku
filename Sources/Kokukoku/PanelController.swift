@@ -325,6 +325,7 @@ final class PanelController {
 
         calendarRows = currentCalendarRows()
         resizeWindowIfNeeded()
+        refreshEventPopoverIfNeeded()
 
         // 予定の増減で選択対象の行が消えた場合は選択を外す(幽霊選択の防止)
         if let target = selectedTarget, !selectionTargets().contains(target) {
@@ -581,7 +582,10 @@ final class PanelController {
             rebuildPanel()
             return
         } else if elementId.hasPrefix("cal_event_") {
-            showEventDetailPopover(eventIndex: Int(elementId.dropFirst("cal_event_".count)) ?? -1)
+            guard let eventIndex = Int(elementId.dropFirst("cal_event_".count)) else { return }
+            selectedTarget = .calendarEvent(eventIndex: eventIndex)
+            rebuildPanel()
+            showEventDetailPopover(eventIndex: eventIndex)
             return
         }
         rebuildPanel()
@@ -592,42 +596,34 @@ final class PanelController {
         // 編集中のキーはフィールド側が処理する(こぼれたキーでパネル操作が走らないよう飲む)
         if editingTarget != nil { return true }
 
-        // popover表示中はh/l・←→でpopover内ボタンのフォーカスを移動し
-        // (先頭ボタン・ボタン未フォーカスからのh/←はpopupを閉じてメインUIへ戻る)、
-        // Enterはフォーカス中のボタンがあればそれを押す(なければ従来のトグル閉じに落ちる)。
-        // popover非表示なら、予定行選択中のl/→でpopupを開く(フォーカスはメインのまま)
-        let characters = event.charactersIgnoringModifiers
-        let isForward = characters == "l" || event.keyCode == 124
-        let isBackward = characters == "h" || event.keyCode == 123
-        if let eventPopover {
-            if isForward {
-                _ = eventPopover.moveButtonFocus(1)
-                return true
-            }
-            if isBackward {
-                if eventPopover.moveButtonFocus(-1) == .closePopover {
-                    eventPopover.close()
-                }
-                return true
-            }
-            if event.keyCode == 36, eventPopover.activateFocusedButton() {
-                return true
-            }
-        } else if isForward, case .calendarEvent(let eventIndex)? = selectedTarget {
-            showEventDetailPopover(eventIndex: eventIndex)
-            return true
+        // 矢印キーはOSが常に .function (と .numericPad) を立てて送ってくるため、
+        // ここに .function を含めると矢印単押しまで「修飾キー付き」になってしまう
+        let navigationModifiers: NSEvent.ModifierFlags = [
+            .command, .option, .control, .shift,
+        ]
+        let hasModifiers = !event.modifierFlags.intersection(navigationModifiers).isEmpty
+        let isCalendarEventSelected: Bool
+        if case .calendarEvent? = selectedTarget {
+            isCalendarEventSelected = true
+        } else {
+            isCalendarEventSelected = false
         }
-
         let action = PanelKeyInterpreter.interpret(
             characters: event.charactersIgnoringModifiers,
             keyCode: event.keyCode,
+            hasModifiers: hasModifiers,
+            context: .init(
+                isEventPopoverVisible: eventPopover != nil,
+                isCalendarEventSelected: isCalendarEventSelected),
             keymap: keymap)
 
         switch action {
         case .dismiss:
             hide()
         case .confirm:
-            executeSelectedAction()
+            if eventPopover?.activateFocusedButton() != true {
+                executeSelectedAction()
+            }
         case .moveDown:
             selectedTarget = PanelSelection.next(
                 current: selectedTarget, in: selectionTargets())
@@ -654,6 +650,18 @@ final class PanelController {
             if index <= projects.count {
                 selectProject(projects[index - 1].id)
             }
+        case .moveEventPopoverFocus(let delta):
+            if delta < 0, eventPopover?.moveButtonFocus(delta) == .closePopover {
+                eventPopover?.close()
+            } else if delta > 0 {
+                _ = eventPopover?.moveButtonFocus(delta)
+            }
+        case .showEventPopover:
+            if case .calendarEvent(let eventIndex)? = selectedTarget {
+                showEventDetailPopover(eventIndex: eventIndex)
+            }
+        case .reserved:
+            break
         case .passthrough:
             return false
         }
@@ -664,17 +672,14 @@ final class PanelController {
     /// 同じ予定を再度決定したときはトグルとして閉じる。
     /// ポップオーバー内のボタンからカレンダー詳細ページやMeetを開ける
     private func showEventDetailPopover(eventIndex: Int) {
-        if let eventPopover, eventPopover.eventIndex == eventIndex {
+        guard let eventRow = CalendarEventRowLookup.row(
+            atEventIndex: eventIndex, in: calendarRows),
+            let panelView
+        else { return }
+        if let eventPopover, eventPopover.eventKey == eventRow.eventKey {
             eventPopover.close()
             return
         }
-
-        let eventRows: [CalendarEventRow] = calendarRows.compactMap {
-            if case .event(let row) = $0 { return row } else { return nil }
-        }
-        guard eventIndex >= 0, eventIndex < eventRows.count,
-            let panelView
-        else { return }
 
         dismissEventPopover()
 
@@ -683,7 +688,10 @@ final class PanelController {
 
         // 外クリック監視は止めない(popover内クリックはhideIfClickedOutsideが除外する)。
         // パネル外クリックはpopoverだけでなくパネルごと閉じる
-        let popover = EventDetailPopover(eventRow: eventRows[eventIndex], eventIndex: eventIndex)
+        let popover = EventDetailPopover(
+            eventRow: eventRow,
+            eventIndex: eventIndex,
+            maximumContentHeight: eventPopoverMaximumContentHeight())
         popover.onDismiss = { [weak self] in
             self?.eventPopover = nil
         }
@@ -704,6 +712,42 @@ final class PanelController {
         }
         eventPopover = popover
         popover.show(relativeTo: rect, of: panelView, preferredEdge: .maxX)
+    }
+
+    /// 毎秒のパネル再構築後も、安定IDが一致する予定へpopoverを追従させる
+    private func refreshEventPopoverIfNeeded() {
+        guard let eventPopover else { return }
+        guard let match = CalendarEventRowLookup.match(
+            eventKey: eventPopover.eventKey, in: calendarRows)
+        else {
+            if selectedTarget == .calendarEvent(eventIndex: eventPopover.eventIndex) {
+                selectedTarget = nil
+            }
+            dismissEventPopover()
+            return
+        }
+
+        let previousEventIndex = eventPopover.eventIndex
+        if selectedTarget == .calendarEvent(eventIndex: previousEventIndex) {
+            selectedTarget = .calendarEvent(eventIndex: match.eventIndex)
+        }
+        let rect = eventRowRect(eventIndex: match.eventIndex)
+        guard rect != .zero else {
+            dismissEventPopover()
+            return
+        }
+        eventPopover.update(
+            eventRow: match.eventRow,
+            eventIndex: match.eventIndex,
+            maximumContentHeight: eventPopoverMaximumContentHeight())
+        eventPopover.positioningRect = rect
+    }
+
+    /// popover本体の枠と画面端の余白を残し、内容高を表示中スクリーン内へ制限する
+    private func eventPopoverMaximumContentHeight() -> CGFloat {
+        let visibleHeight = panelView?.window?.screen?.visibleFrame.height
+            ?? screenForMousePosition().visibleFrame.height
+        return max(160, visibleHeight - 64)
     }
 
     private func dismissEventPopover() {

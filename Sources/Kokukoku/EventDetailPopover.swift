@@ -10,19 +10,24 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
     /// falseを返すとpopover自身のアニメーション付きクローズを止められる
     /// (呼び出し側がパネルごと即時に閉じる場合に使う)。プログラムからの close() では呼ばれない
     var onUserCloseRequest: (() -> Bool)?
-    /// 表示中の予定のインデックス。同じ予定への再決定をトグル(閉じる)と判定するために持つ
-    let eventIndex: Int
+    /// 表示中の予定を再描画後も追跡するための安定ID
+    let eventKey: CalendarEvent.EventKey
+    /// 表示中の予定の現在の表示インデックス
+    private(set) var eventIndex: Int
 
-    init(eventRow: CalendarEventRow, eventIndex: Int) {
+    init(eventRow: CalendarEventRow, eventIndex: Int, maximumContentHeight: CGFloat) {
+        self.eventKey = eventRow.eventKey
         self.eventIndex = eventIndex
         super.init()
-        let vc = EventDetailViewController(eventRow: eventRow)
+        let vc = EventDetailViewController(
+            eventRow: eventRow, maximumContentHeight: maximumContentHeight)
         vc.onAction = { [weak self] in self?.close() }
         contentViewController = vc
+        contentSize = vc.preferredContentSize
         behavior = .transient
         appearance = NSAppearance(named: .darkAqua)
         // 既定のポップアニメーション(拡縮入り)は非Retinaでカクつくため無効化し、
-        // 表示はpopoverDidShowの軽量フェードインに置き換える。クローズは常に即時
+        // 表示は軽量フェードインに置き換える。クローズは常に即時
         animates = false
         delegate = self
     }
@@ -30,16 +35,35 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
+    func popoverWillShow(_ notification: Notification) {
+        // 表示完了後に透明化すると一瞬だけ不透明フレームが見えるため、表示前に隠す
+        contentViewController?.view.window?.alphaValue = 0
+    }
+
     func popoverDidShow(_ notification: Notification) {
         // ウィンドウのalpha合成だけのフェードインは拡縮と違い再ラスタライズが
         // 走らないため、非Retinaディスプレイでも滑らかに表示できる
         guard let window = contentViewController?.view.window else { return }
-        window.alphaValue = 0
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.15
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().alphaValue = 1
         }
+    }
+
+    /// 同じ安定IDの予定について、再描画後の内容と表示位置を反映する
+    func update(
+        eventRow: CalendarEventRow,
+        eventIndex: Int,
+        maximumContentHeight: CGFloat
+    ) {
+        guard eventRow.eventKey == eventKey,
+            let viewController = contentViewController as? EventDetailViewController
+        else { return }
+        self.eventIndex = eventIndex
+        viewController.update(
+            eventRow: eventRow, maximumContentHeight: maximumContentHeight)
+        contentSize = viewController.preferredContentSize
     }
 
     func popoverShouldClose(_ popover: NSPopover) -> Bool {
@@ -64,21 +88,43 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
 
 @MainActor
 private final class EventDetailViewController: NSViewController {
-    private let eventRow: CalendarEventRow
+    private static let contentWidth: CGFloat = 300
+    private static let horizontalPadding: CGFloat = 14
+
+    private var eventRow: CalendarEventRow
+    private var maximumContentHeight: CGFloat
     var onAction: (() -> Void)?
     private var actionButtons: [NSButton] = []
     private var focusedButtonIndex: Int?
 
-    init(eventRow: CalendarEventRow) {
+    private struct BodyScroll {
+        var scrollView: NSScrollView
+        var fullHeight: CGFloat
+        var heightConstraint: NSLayoutConstraint
+    }
+
+    init(eventRow: CalendarEventRow, maximumContentHeight: CGFloat) {
         self.eventRow = eventRow
+        self.maximumContentHeight = maximumContentHeight
         super.init(nibName: nil, bundle: nil)
+        _ = view
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let container = NSView()
+        view = NSView()
+        rebuildContent()
+    }
+
+    /// 表示内容を現在のeventRowから組み直す。表示中でもビュー本体は差し替えず
+    /// サブビューだけ再構築する(NSPopoverは表示時のviewインスタンスを保持し続けるため)
+    private func rebuildContent() {
+        NSLayoutConstraint.deactivate(view.constraints)
+        view.subviews.forEach { $0.removeFromSuperview() }
+        actionButtons = []
+        let container = view
 
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -100,28 +146,20 @@ private final class EventDetailViewController: NSViewController {
             stack.addArrangedSubview(locationLabel)
         }
 
-        if let notes = eventRow.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        {
-            stack.addArrangedSubview(makeSeparator())
-            let notesLabel = makeHTMLLabel(notes, fontSize: 11, color: .labelColor, maxLines: 8)
-            stack.addArrangedSubview(notesLabel)
-        }
-
-        if !eventRow.attendees.isEmpty {
-            stack.addArrangedSubview(makeSeparator())
-            let header = makeLabel("参加者", fontSize: 11, bold: true, color: .secondaryLabelColor)
-            stack.addArrangedSubview(header)
-            for attendee in eventRow.attendees {
-                let label = makeLabel(
-                    attendeeText(attendee), fontSize: 11,
-                    bold: attendee.isOrganizer, color: .labelColor)
-                stack.addArrangedSubview(label)
-            }
+        let bodyScroll = makeBodyScrollView()
+        if let scrollView = bodyScroll?.scrollView {
+            let separator = makeSeparator()
+            stack.addArrangedSubview(separator)
+            separator.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            stack.addArrangedSubview(scrollView)
+            scrollView.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
         let hasButtons = eventRow.meetURL != nil || eventRow.detailURL != nil
         if hasButtons {
-            stack.addArrangedSubview(makeSeparator())
+            let separator = makeSeparator()
+            stack.addArrangedSubview(separator)
+            separator.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             let buttonStack = NSStackView()
             buttonStack.orientation = .horizontal
             buttonStack.spacing = 8
@@ -140,10 +178,100 @@ private final class EventDetailViewController: NSViewController {
             stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12),
             stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
             stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
-            container.widthAnchor.constraint(equalToConstant: 300),
+            container.widthAnchor.constraint(equalToConstant: Self.contentWidth),
         ])
 
-        self.view = container
+        container.layoutSubtreeIfNeeded()
+        var fittingHeight = container.fittingSize.height
+        if let bodyScroll, fittingHeight > maximumContentHeight {
+            let overflow = fittingHeight - maximumContentHeight
+            bodyScroll.heightConstraint.constant = max(bodyScroll.fullHeight - overflow, 60)
+            bodyScroll.scrollView.hasVerticalScroller = true
+            container.layoutSubtreeIfNeeded()
+            fittingHeight = container.fittingSize.height
+        }
+        preferredContentSize = NSSize(
+            width: Self.contentWidth,
+            height: min(fittingHeight, maximumContentHeight))
+    }
+
+    /// 再取得された予定内容を表示へ反映する。表示データが同じならスクロール位置を維持する
+    func update(eventRow: CalendarEventRow, maximumContentHeight: CGFloat) {
+        guard eventRow != self.eventRow || maximumContentHeight != self.maximumContentHeight else {
+            return
+        }
+        let previousFocusedButtonIndex = focusedButtonIndex
+        self.eventRow = eventRow
+        self.maximumContentHeight = maximumContentHeight
+        rebuildContent()
+        if let previousFocusedButtonIndex,
+            previousFocusedButtonIndex < actionButtons.count
+        {
+            focusButton(at: previousFocusedButtonIndex)
+        } else {
+            focusedButtonIndex = nil
+        }
+    }
+
+    /// 説明文と参加者一覧を1つのスクロール領域へ収める
+    private func makeBodyScrollView() -> BodyScroll? {
+        let notes = eventRow.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard notes?.isEmpty == false || !eventRow.attendees.isEmpty else { return nil }
+
+        let bodyStack = NSStackView()
+        bodyStack.orientation = .vertical
+        bodyStack.alignment = .leading
+        bodyStack.spacing = 6
+        bodyStack.translatesAutoresizingMaskIntoConstraints = false
+
+        if let notes, !notes.isEmpty {
+            bodyStack.addArrangedSubview(makeHTMLLabel(notes, fontSize: 11, color: .labelColor))
+        }
+        if !eventRow.attendees.isEmpty {
+            if notes?.isEmpty == false {
+                let separator = makeSeparator()
+                bodyStack.addArrangedSubview(separator)
+                separator.widthAnchor.constraint(equalTo: bodyStack.widthAnchor).isActive = true
+            }
+            let header = makeLabel(
+                "参加者", fontSize: 11, bold: true, color: .secondaryLabelColor)
+            bodyStack.addArrangedSubview(header)
+            for attendee in eventRow.attendees {
+                bodyStack.addArrangedSubview(
+                    makeLabel(
+                        attendeeText(attendee), fontSize: 11,
+                        bold: attendee.isOrganizer, color: .labelColor))
+            }
+        }
+
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.autohidesScrollers = true
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let documentView = EventDetailDocumentView()
+        documentView.translatesAutoresizingMaskIntoConstraints = false
+        documentView.addSubview(bodyStack)
+        scrollView.documentView = documentView
+
+        let bodyWidth = Self.contentWidth - Self.horizontalPadding * 2
+        NSLayoutConstraint.activate([
+            documentView.widthAnchor.constraint(equalToConstant: bodyWidth),
+            bodyStack.topAnchor.constraint(equalTo: documentView.topAnchor),
+            bodyStack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
+            bodyStack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
+            bodyStack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
+        ])
+        documentView.layoutSubtreeIfNeeded()
+        let bodyHeight = max(bodyStack.fittingSize.height, 1)
+
+        let heightConstraint = scrollView.heightAnchor.constraint(equalToConstant: bodyHeight)
+        heightConstraint.isActive = true
+        return BodyScroll(
+            scrollView: scrollView,
+            fullHeight: bodyHeight,
+            heightConstraint: heightConstraint)
     }
 
     /// フォーカス位置を移動し、フォーカス中のボタンをデフォルトボタン
@@ -153,12 +281,16 @@ private final class EventDetailViewController: NSViewController {
         let move = EventPopoverButtonFocus.moved(
             from: focusedButtonIndex, delta: delta, count: actionButtons.count)
         if case .focus(let next) = move {
-            focusedButtonIndex = next
-            for (index, button) in actionButtons.enumerated() {
-                button.keyEquivalent = index == next ? "\r" : ""
-            }
+            focusButton(at: next)
         }
         return move
+    }
+
+    private func focusButton(at index: Int) {
+        focusedButtonIndex = index
+        for (buttonIndex, button) in actionButtons.enumerated() {
+            button.keyEquivalent = buttonIndex == index ? "\r" : ""
+        }
     }
 
     func activateFocusedButton() -> Bool {
@@ -280,4 +412,9 @@ private final class EventDetailViewController: NSViewController {
         actionButtons.append(button)
         return button
     }
+}
+
+/// スクロール開始位置を説明文・参加者一覧の先頭にするための反転ドキュメントビュー
+private final class EventDetailDocumentView: NSView {
+    override var isFlipped: Bool { true }
 }

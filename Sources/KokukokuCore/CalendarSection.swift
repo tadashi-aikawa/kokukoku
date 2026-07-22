@@ -60,6 +60,8 @@ public enum CalendarSectionRow: Equatable, Sendable {
 
 /// 予定行の表示データ(時刻等は整形済み)
 public struct CalendarEventRow: Equatable, Sendable {
+    /// 再取得・再描画をまたいで同じ予定を識別する論理キー
+    public var eventKey: CalendarEvent.EventKey
     /// 開始時刻 "01:00"(明色で描く)
     public var startText: String
     /// 終了時刻 "02:00"(沈み色で描き、開始と一目で区別する。区切りの「-」は描画側が挟む)
@@ -91,6 +93,7 @@ public struct CalendarEventRow: Equatable, Sendable {
     public var attendees: [CalendarEvent.Attendee]
 
     public init(
+        eventKey: CalendarEvent.EventKey,
         startText: String,
         endText: String,
         title: String,
@@ -105,6 +108,7 @@ public struct CalendarEventRow: Equatable, Sendable {
         meetURL: URL? = nil,
         attendees: [CalendarEvent.Attendee] = []
     ) {
+        self.eventKey = eventKey
         self.startText = startText
         self.endText = endText
         self.title = title
@@ -259,6 +263,7 @@ public enum CalendarSectionModel {
         let start = calendar.dateComponents([.hour, .minute], from: event.start)
         let end = calendar.dateComponents([.hour, .minute], from: event.end)
         return CalendarEventRow(
+            eventKey: event.key,
             startText: String(format: "%02d:%02d", start.hour ?? 0, start.minute ?? 0),
             endText: String(format: "%02d:%02d", end.hour ?? 0, end.minute ?? 0),
             title: event.title,

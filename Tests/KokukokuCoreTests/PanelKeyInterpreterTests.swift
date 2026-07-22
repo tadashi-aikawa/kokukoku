@@ -16,6 +16,50 @@ struct PanelKeyInterpreterTests {
         #expect(PanelKeyInterpreter.interpret(characters: nil, keyCode: 126, keymap: defaults) == .moveUp)
     }
 
+    @Test("popover表示中はh/l・左右キーをボタンフォーカス移動として解釈する")
+    func eventPopoverNavigation() {
+        let context = PanelKeyContext(isEventPopoverVisible: true)
+
+        #expect(action("l", context: context) == .moveEventPopoverFocus(delta: 1))
+        #expect(action("h", context: context) == .moveEventPopoverFocus(delta: -1))
+        #expect(action(nil, keyCode: 124, context: context) == .moveEventPopoverFocus(delta: 1))
+        #expect(action(nil, keyCode: 123, context: context) == .moveEventPopoverFocus(delta: -1))
+    }
+
+    @Test("予定行選択中はl・右キーでpopoverを開く")
+    func showEventPopover() {
+        let context = PanelKeyContext(isCalendarEventSelected: true)
+
+        #expect(action("l", context: context) == .showEventPopover)
+        #expect(action(nil, keyCode: 124, context: context) == .showEventPopover)
+        #expect(action("h", context: context) == .reserved)
+    }
+
+    @Test("修飾キー付き矢印はコンテキストにかかわらず消費しない")
+    func modifiedArrowsPassThrough() {
+        let context = PanelKeyContext(
+            isEventPopoverVisible: true, isCalendarEventSelected: true)
+
+        for keyCode: UInt16 in 123...126 {
+            #expect(
+                action(nil, keyCode: keyCode, hasModifiers: true, context: context)
+                    == .passthrough)
+        }
+    }
+
+    @Test("h/lはキーマップより優先する予約キー")
+    func reservedKeysPrecedeKeymap() {
+        let keymap = ResolvedKeymap(
+            keymap: .init(startBreak: "h", reset: "l", toggleCalendar: "o"))
+
+        #expect(
+            PanelKeyInterpreter.interpret(characters: "h", keyCode: 0, keymap: keymap)
+                == .reserved)
+        #expect(
+            PanelKeyInterpreter.interpret(characters: "l", keyCode: 0, keymap: keymap)
+                == .reserved)
+    }
+
     @Test("既定キーマップと固定キーを解釈する")
     func defaultKeymap() {
         #expect(action("0") == .startBreak)
@@ -46,7 +90,17 @@ struct PanelKeyInterpreterTests {
         #expect(PanelKeyInterpreter.interpret(characters: "2", keyCode: 0, keymap: keymap) == .reset)
     }
 
-    private func action(_ characters: String) -> PanelKeyAction {
-        PanelKeyInterpreter.interpret(characters: characters, keyCode: 0, keymap: defaults)
+    private func action(
+        _ characters: String?,
+        keyCode: UInt16 = 0,
+        hasModifiers: Bool = false,
+        context: PanelKeyContext = .init()
+    ) -> PanelKeyAction {
+        PanelKeyInterpreter.interpret(
+            characters: characters,
+            keyCode: keyCode,
+            hasModifiers: hasModifiers,
+            context: context,
+            keymap: defaults)
     }
 }

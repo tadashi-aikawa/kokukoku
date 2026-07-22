@@ -154,16 +154,26 @@ final class PanelController {
         installOutsideClickMonitors()
     }
 
-    /// パネル外クリックで閉じる(他アプリ宛はグローバル、自アプリ宛はローカルの両モニタで拾う)
+    /// パネル外クリックで閉じる(他アプリ宛はグローバル、自アプリ宛はローカルの両モニタで拾う)。
+    /// ローカルモニタはpopover表示中のESCも拾う: NSPopoverが自分だけアニメーション付きで
+    /// 閉じる前に横取りし、パネルごと即時に一発で閉じる
     private func installOutsideClickMonitors() {
         guard globalClickMonitor == nil else { return }
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) {
             [weak self] _ in
             self?.hideIfClickedOutside()
         }
-        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) {
-            [weak self] event in
-            self?.hideIfClickedOutside()
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .keyDown])
+        { [weak self] event in
+            guard let self else { return event }
+            if event.type == .keyDown {
+                if self.eventPopover != nil, event.keyCode == 53 {  // ESC
+                    self.hide()
+                    return nil
+                }
+                return event
+            }
+            self.hideIfClickedOutside()
             return event
         }
     }
@@ -226,9 +236,15 @@ final class PanelController {
 
     private func hideIfClickedOutside() {
         guard let window else { return }
-        if !window.frame.contains(NSEvent.mouseLocation) {
-            hide()
+        let location = NSEvent.mouseLocation
+        if window.frame.contains(location) { return }
+        // 予定詳細popover内のクリックはパネル外扱いにしない
+        if let popoverWindow = eventPopover?.contentViewController?.view.window,
+            popoverWindow.frame.contains(location)
+        {
+            return
         }
+        hide()
     }
 
     func hide() {
@@ -623,7 +639,6 @@ final class PanelController {
     /// ポップオーバー内のボタンからカレンダー詳細ページやMeetを開ける
     private func showEventDetailPopover(eventIndex: Int) {
         if let eventPopover, eventPopover.eventIndex == eventIndex {
-            // onDismissを生かしたまま閉じ、外クリック監視の復帰経路に乗せる
             eventPopover.close()
             return
         }
@@ -640,31 +655,39 @@ final class PanelController {
         let rect = eventRowRect(eventIndex: eventIndex)
         guard rect != .zero else { return }
 
-        if let globalClickMonitor {
-            NSEvent.removeMonitor(globalClickMonitor)
-            self.globalClickMonitor = nil
-        }
-        if let localClickMonitor {
-            NSEvent.removeMonitor(localClickMonitor)
-            self.localClickMonitor = nil
-        }
-
+        // 外クリック監視は止めない(popover内クリックはhideIfClickedOutsideが除外する)。
+        // パネル外クリックはpopoverだけでなくパネルごと閉じる
         let popover = EventDetailPopover(eventRow: eventRows[eventIndex], eventIndex: eventIndex)
         popover.onDismiss = { [weak self] in
-            guard let self else { return }
-            self.eventPopover = nil
-            if self.visible {
-                self.installOutsideClickMonitors()
+            self?.eventPopover = nil
+        }
+        popover.onUserCloseRequest = { [weak self] in
+            guard let self, let event = NSApp.currentEvent else { return true }
+            // ESC・パネル外クリック起因の閉じ要求は、popover単体のフェードを走らせず
+            // パネルごと即時に閉じる(2段階の直列アニメーション防止)。
+            // close処理中の再入を避けるためhideは次のrunloopで実行する
+            let isEsc = event.type == .keyDown && event.keyCode == 53
+            let isOutsidePanelClick =
+                event.type == .leftMouseDown
+                && self.window.map { !$0.frame.contains(NSEvent.mouseLocation) } == true
+            if isEsc || isOutsidePanelClick {
+                DispatchQueue.main.async { self.hide() }
+                return false
             }
+            return true
         }
         eventPopover = popover
         popover.show(relativeTo: rect, of: panelView, preferredEdge: .maxX)
     }
 
     private func dismissEventPopover() {
-        eventPopover?.onDismiss = nil
-        eventPopover?.close()
-        eventPopover = nil
+        guard let eventPopover else { return }
+        eventPopover.onDismiss = nil
+        // パネルごと閉じるときにpopoverのフェードだけ残ると2段階の直列アニメーションに
+        // 見えるため、即時で閉じる
+        eventPopover.animates = false
+        eventPopover.close()
+        self.eventPopover = nil
     }
 
     /// 予定セクション内の指定eventIndexの行の矩形(PanelView座標系)

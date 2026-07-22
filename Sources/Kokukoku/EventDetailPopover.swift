@@ -6,6 +6,10 @@ import KokukokuCore
 @MainActor
 final class EventDetailPopover: NSPopover, NSPopoverDelegate {
     var onDismiss: (() -> Void)?
+    /// ユーザー操作(ESC・transientの外クリック)による閉じ要求時に呼ばれ、
+    /// falseを返すとpopover自身のアニメーション付きクローズを止められる
+    /// (呼び出し側がパネルごと即時に閉じる場合に使う)。プログラムからの close() では呼ばれない
+    var onUserCloseRequest: (() -> Bool)?
     /// 表示中の予定のインデックス。同じ予定への再決定をトグル(閉じる)と判定するために持つ
     let eventIndex: Int
 
@@ -22,6 +26,10 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
+
+    func popoverShouldClose(_ popover: NSPopover) -> Bool {
+        onUserCloseRequest?() ?? true
+    }
 
     func popoverDidClose(_ notification: Notification) {
         onDismiss?()

@@ -47,6 +47,8 @@ final class PanelController {
     var onNotificationClosed: (() -> Void)?
     /// 「他◯件」クリックでの全件展開中(パネルを閉じると畳んだ状態に戻る)
     private var calendarExpanded = false
+    /// 予定詳細ポップオーバー(表示中のみ保持)
+    private var eventPopover: EventDetailPopover?
     /// 通知モードでループ再生中のパルスレイヤー(キー化で停止・除去する)
     private var notificationPulseLayer: CAShapeLayer?
 
@@ -230,6 +232,7 @@ final class PanelController {
     }
 
     func hide() {
+        dismissEventPopover()
         inlineEditor?.field.removeFromSuperview()
         inlineEditor = nil
         editingTarget = nil
@@ -377,14 +380,14 @@ final class PanelController {
     }
 
     /// Enterの確定動作は選択対象で分岐する。プロジェクト行=計測切替、
-    /// 予定行=詳細ページを開いてパネルを閉じる(クリックと同じ)、トグル行=展開/畳む
+    /// 予定行=詳細ポップオーバー、トグル行=展開/畳む
     private func executeSelectedAction() {
         switch selectedTarget {
         case .project(let index):
             guard index <= projects.count else { return }
             selectProject(projects[index - 1].id)
         case .calendarEvent(let eventIndex):
-            openCalendarDetail(eventIndex: eventIndex)
+            showEventDetailPopover(eventIndex: eventIndex)
         case .calendarOverflow:
             // キーボードで展開したときは、カーソルを展開で現れた先頭の予定へ進める
             let shownEventCount = calendarRows.reduce(0) {
@@ -562,7 +565,7 @@ final class PanelController {
             rebuildPanel()
             return
         } else if elementId.hasPrefix("cal_event_") {
-            openCalendarDetail(eventIndex: Int(elementId.dropFirst("cal_event_".count)) ?? -1)
+            showEventDetailPopover(eventIndex: Int(elementId.dropFirst("cal_event_".count)) ?? -1)
             return
         }
         rebuildPanel()
@@ -615,18 +618,70 @@ final class PanelController {
         return true
     }
 
-    /// 予定行のクリック・Enterでカレンダーの詳細ページをブラウザで開く。
-    /// フォーカスがブラウザへ移るためパネルは閉じる(戻すよりホットキー再表示のほうが楽。
-    /// 2026-07-19 タダシ決定)
-    private func openCalendarDetail(eventIndex: Int) {
+    /// 予定行のクリック・Enterで詳細ポップオーバーを表示する。
+    /// ポップオーバー内のボタンからカレンダー詳細ページやMeetを開ける
+    private func showEventDetailPopover(eventIndex: Int) {
         let eventRows: [CalendarEventRow] = calendarRows.compactMap {
             if case .event(let row) = $0 { return row } else { return nil }
         }
         guard eventIndex >= 0, eventIndex < eventRows.count,
-            let url = eventRows[eventIndex].detailURL
+            let panelView
         else { return }
-        NSWorkspace.shared.open(url)
-        hide()
+
+        dismissEventPopover()
+
+        let rect = eventRowRect(eventIndex: eventIndex)
+        guard rect != .zero else { return }
+
+        if let globalClickMonitor {
+            NSEvent.removeMonitor(globalClickMonitor)
+            self.globalClickMonitor = nil
+        }
+        if let localClickMonitor {
+            NSEvent.removeMonitor(localClickMonitor)
+            self.localClickMonitor = nil
+        }
+
+        let popover = EventDetailPopover(eventRow: eventRows[eventIndex])
+        popover.onDismiss = { [weak self] in
+            guard let self else { return }
+            self.eventPopover = nil
+            if self.visible {
+                self.installOutsideClickMonitors()
+            }
+        }
+        eventPopover = popover
+        popover.show(relativeTo: rect, of: panelView, preferredEdge: .maxX)
+    }
+
+    private func dismissEventPopover() {
+        eventPopover?.onDismiss = nil
+        eventPopover?.close()
+        eventPopover = nil
+    }
+
+    /// 予定セクション内の指定eventIndexの行の矩形(PanelView座標系)
+    private func eventRowRect(eventIndex: Int) -> NSRect {
+        let startY = PanelLayout.clockSectionHeight
+        var y = startY + PanelLayout.calendarSectionPaddingTop
+        let hasNowBand = PanelLayout.hasNowMarkerBand(rows: calendarRows)
+        var insertedNowBand = false
+        var currentEventIndex = 0
+        for row in calendarRows {
+            if hasNowBand, !insertedNowBand, case .event = row {
+                y += PanelLayout.calendarNowMarkerHeight
+                insertedNowBand = true
+            }
+            let rowHeight = PanelLayout.calendarRowHeight(row)
+            if case .event = row {
+                if currentEventIndex == eventIndex {
+                    return NSRect(x: 0, y: y, width: metrics.panelWidth, height: rowHeight)
+                }
+                currentEventIndex += 1
+            }
+            y += rowHeight
+        }
+        return .zero
     }
 
     private func screenForMousePosition() -> NSScreen {

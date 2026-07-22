@@ -83,6 +83,12 @@ public struct CalendarEventRow: Equatable, Sendable {
     /// 進行中か(開始済みで終了前)。重複時は先頭以外も進行中になり得るため各行で判定する。
     /// 描画は点のリング化+時刻の明暗反転で静かに区別する(色相は増やさない。2026-07-19 3人検討)
     public var isInProgress: Bool
+    /// 予定の説明文(popover表示用)
+    public var notes: String?
+    /// 会議URL(popover表示用)
+    public var meetURL: URL?
+    /// 参加者一覧(popover表示用)
+    public var attendees: [CalendarEvent.Attendee]
 
     public init(
         startText: String,
@@ -94,7 +100,10 @@ public struct CalendarEventRow: Equatable, Sendable {
         countdownUrgency: CalendarCountdownUrgency? = nil,
         gapStyle: CalendarGapStyle? = nil,
         isAlertTarget: Bool = false,
-        isInProgress: Bool = false
+        isInProgress: Bool = false,
+        notes: String? = nil,
+        meetURL: URL? = nil,
+        attendees: [CalendarEvent.Attendee] = []
     ) {
         self.startText = startText
         self.endText = endText
@@ -106,6 +115,9 @@ public struct CalendarEventRow: Equatable, Sendable {
         self.gapStyle = gapStyle
         self.isAlertTarget = isAlertTarget
         self.isInProgress = isInProgress
+        self.notes = notes
+        self.meetURL = meetURL
+        self.attendees = attendees
     }
 }
 
@@ -251,7 +263,10 @@ public enum CalendarSectionModel {
             endText: String(format: "%02d:%02d", end.hour ?? 0, end.minute ?? 0),
             title: event.title,
             locationText: event.location,
-            detailURL: detailURL(for: event, calendar: calendar))
+            detailURL: detailURL(for: event, calendar: calendar),
+            notes: NotesCleaner.clean(event.notes),
+            meetURL: event.meetURL,
+            attendees: event.attendees.sorted { a, _ in a.isOrganizer })
     }
 
     /// Googleカレンダーの予定詳細ページURL。

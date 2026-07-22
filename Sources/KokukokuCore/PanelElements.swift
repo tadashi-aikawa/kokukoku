@@ -100,9 +100,6 @@ public enum PanelElement: Equatable, Sendable {
         iconKey: String,
         scaling: PanelImageScaling,
         cornerRadius: Double = 0)
-    /// 非描画: ホバーでフルテキストを見せる領域。「…」で省略された文字列の全文を
-    /// Platform側がネイティブのツールチップとして表示する
-    case tooltip(frame: PanelFrame, text: String)
 }
 
 /// パネル上でインライン編集中の時間。編集中は該当の時刻テキストを描画せず、

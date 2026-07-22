@@ -392,8 +392,8 @@ public struct PanelElementsBuilder {
                 elements.append(.rectangle(
                     frame: .init(x: 0, y: y, w: metrics.panelWidth, h: rowHeight),
                     fillColor: rowFill,
-                    id: event.detailURL != nil ? id : nil,
-                    tracksMouse: event.detailURL != nil))
+                    id: id,
+                    tracksMouse: true))
 
                 let startHeight = measureTextHeight(event.startText, inputs.ui.monoFontName, 13)
                 let startY = y + centeredOffset(titleRowHeight, startHeight)
@@ -461,12 +461,6 @@ public struct PanelElementsBuilder {
                     fontName: inputs.ui.fontName,
                     fontSize: 13,
                     color: colors.text))
-                if measureTextWidth(event.title, inputs.ui.fontName, 13) > titleRight - titleX {
-                    elements.append(.tooltip(
-                        frame: .init(x: titleX, y: y, w: titleRight - titleX, h: titleRowHeight),
-                        text: event.title))
-                }
-
                 // 場所(下段): タイトルの下に小さめフォントで表示
                 if let locationText = event.locationText {
                     let text = locationText
@@ -482,15 +476,6 @@ public struct PanelElementsBuilder {
                         fontName: inputs.ui.fontName,
                         fontSize: 11,
                         color: colors.subText))
-                    if measureTextWidth(text, inputs.ui.fontName, 11)
-                        > locationRight - locationX
-                    {
-                        elements.append(.tooltip(
-                            frame: .init(
-                                x: locationX, y: locationY,
-                                w: locationRight - locationX, h: locationHeight),
-                            text: text))
-                    }
                 }
                 eventIndex += 1
 

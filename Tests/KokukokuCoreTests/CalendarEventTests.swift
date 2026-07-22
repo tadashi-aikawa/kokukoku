@@ -4,13 +4,19 @@ import Testing
 @testable import KokukokuCore
 
 private struct FakeAttendee: CalendarAttendeeSource {
+    var attendeeName: String?
+    var attendeeEmail: String?
     var attendeeStatus: CalendarEvent.ParticipationStatus
     var attendeeIsCurrentUser: Bool
 
     init(
+        name: String? = nil,
+        email: String? = nil,
         status: CalendarEvent.ParticipationStatus = .accepted,
         isCurrentUser: Bool = false
     ) {
+        self.attendeeName = name
+        self.attendeeEmail = email
         self.attendeeStatus = status
         self.attendeeIsCurrentUser = isCurrentUser
     }
@@ -68,9 +74,12 @@ struct CalendarEventConversionTests {
             location: "会議室A",
             notes: notes,
             attendees: [
-                FakeAttendee(status: .accepted, isCurrentUser: true),
-                FakeAttendee(status: .pending),
-            ])
+                FakeAttendee(
+                    name: "Taro", email: "taro@example.com",
+                    status: .accepted, isCurrentUser: true),
+                FakeAttendee(email: "guest@example.com", status: .pending),
+            ],
+            organizerURL: URL(string: "mailto:taro@example.com"))
 
         let event = try #require(CalendarEvent(source: source))
 
@@ -86,6 +95,13 @@ struct CalendarEventConversionTests {
         #expect(event.meetURL == URL(string: "https://meet.google.com/abc-defg-hij"))
         #expect(event.notes == notes)
         #expect(event.myStatus == .accepted)
+        #expect(event.attendees.count == 2)
+        #expect(event.attendees[0].name == "Taro")
+        #expect(event.attendees[0].email == "taro@example.com")
+        #expect(event.attendees[0].isCurrentUser == true)
+        #expect(event.attendees[0].isOrganizer == true)
+        #expect(event.attendees[1].displayName == "guest")
+        #expect(event.attendees[1].isOrganizer == false)
     }
 
     @Test("論理キー・開始・終了が欠けた予定はnilになる")
@@ -137,6 +153,54 @@ struct CalendarEventConversionTests {
         let event = try #require(CalendarEvent(source: source))
 
         #expect(event.organizerEmail == nil)
+    }
+
+    @Test("Attendee.displayNameはローカルパートを返す(名前がメアドでも@以降を除去)")
+    func attendeeDisplayName() {
+        #expect(CalendarEvent.Attendee(name: "Taro", email: "t@e.com").displayName == "Taro")
+        #expect(CalendarEvent.Attendee(name: "taro@example.com").displayName == "taro")
+        #expect(CalendarEvent.Attendee(email: "guest@example.com").displayName == "guest")
+        #expect(CalendarEvent.Attendee().displayName == "")
+    }
+}
+
+@Suite("NotesCleaner")
+struct NotesCleanerTests {
+    @Test("Google Calendarのボイラープレートセクションを除去する")
+    func stripBoilerplate() {
+        let notes = """
+            みんなで
+            エトキチランドに
+            行くで！！
+            -::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~-
+            Google Meet に参加: https://meet.google.com/xbr-xxxx-xxx
+
+            Meet の詳細: https://support.google.com/a/users/answer
+            このセクションは編集しないでください。
+            -::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~::~:~-
+            """
+
+        #expect(NotesCleaner.clean(notes) == "みんなで\nエトキチランドに\n行くで！！")
+    }
+
+    @Test("ボイラープレートがなければそのまま返す")
+    func noBoilerplate() {
+        #expect(NotesCleaner.clean("普通のメモ") == "普通のメモ")
+    }
+
+    @Test("ボイラープレートだけならnilになる")
+    func onlyBoilerplate() {
+        let notes = """
+            -::~:~::~:~::~:~::~:~-
+            Google Meet boilerplate
+            -::~:~::~:~::~:~::~:~-
+            """
+        #expect(NotesCleaner.clean(notes) == nil)
+    }
+
+    @Test("nilにはnilを返す")
+    func nilInput() {
+        #expect(NotesCleaner.clean(nil) == nil)
     }
 }
 

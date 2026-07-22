@@ -278,6 +278,12 @@ extension EKEvent: CalendarEventSource {
 }
 
 extension EKParticipant: CalendarAttendeeSource {
+    public var attendeeName: String? { name }
+    public var attendeeEmail: String? {
+        guard url.scheme?.lowercased() == "mailto" else { return nil }
+        let address = url.absoluteString.dropFirst("mailto:".count)
+        return address.isEmpty ? nil : String(address)
+    }
     public var attendeeIsCurrentUser: Bool { isCurrentUser }
     public var attendeeStatus: CalendarEvent.ParticipationStatus {
         switch participantStatus {

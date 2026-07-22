@@ -604,27 +604,6 @@ struct PanelElementsBuilderTests {
         })
     }
 
-    @Test("枠に収まらない予定名だけホバーで全文を見せるツールチップが付く")
-    func calendarTitleTooltip() {
-        let longTitle = String(repeating: "長", count: 45)
-        let rows: [CalendarSectionRow] = [
-            .event(.init(startText: "13:00", endText: "14:00", title: longTitle)),
-            .event(.init(startText: "14:00", endText: "15:00", title: "短い名前", gapStyle: .rail)),
-        ]
-        let elements = builder().build(inputs(calendarRows: rows))
-
-        // 溢れる1件目にはタイトル列の枠でツールチップが付く
-        let tooltips = elements.compactMap { element -> (PanelFrame, String)? in
-            guard case .tooltip(let frame, let text) = element else { return nil }
-            return (frame, text)
-        }
-        #expect(tooltips.count == 1)
-        #expect(tooltips.first?.1 == longTitle)
-        // タイトル列(x=32+96+8、右端=パネル幅480-12)と行高に一致する
-        #expect(tooltips.first?.0 == PanelFrame(
-            x: 136, y: 84 + 6 + 18, w: 332, h: PanelLayout.calendarEventRowHeight))
-    }
-
     @Test("エラー行は朱のメッセージだけを描く")
     func calendarErrorRow() {
         let rows: [CalendarSectionRow] = [.error(message: "カレンダー『一般』が見つかりません")]

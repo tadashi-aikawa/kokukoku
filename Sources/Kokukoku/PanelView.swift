@@ -6,24 +6,14 @@ import KokukokuCore
 @MainActor
 final class PanelView: NSView {
     var elements: [PanelElement] = [] {
-        didSet {
-            needsDisplay = true
-            updateTooltips()
-        }
+        didSet { needsDisplay = true }
     }
     var imageProvider: ((String) -> NSImage?)?
     var onMouseDown: ((String) -> Void)?
     var onHoverChange: ((String?) -> Void)?
 
     private var hoveredId: String?
-    /// ホバー追跡用に自前で張ったtracking area。updateTrackingAreasではこれだけを
-    /// 張り替える(全消しするとaddToolTipがAppKit内部で張るtracking areaまで壊れる)
     private var hoverTrackingArea: NSTrackingArea?
-    /// 登録済みツールチップ(枠と全文)。毎秒のelements再構築で内容が変わらない限り
-    /// 登録し直さない(表示中のツールチップが消えるのを防ぐ)
-    private var tooltipSpecs: [(rect: NSRect, text: String)] = []
-    /// addToolTipのownerは弱参照のため、表示文字列をここで保持する
-    private var tooltipOwners: [NSString] = []
 
     override var isFlipped: Bool { true }
 
@@ -108,8 +98,6 @@ final class PanelView: NSView {
                 ]
                 NSAttributedString(string: text, attributes: attributes)
                     .draw(in: nsRect(frame))
-            case .tooltip:
-                break  // 非描画(updateTooltipsでネイティブツールチップとして登録済み)
             case .image(let frame, let iconKey, let scaling, let cornerRadius):
                 guard let image = imageProvider?(iconKey) else { continue }
                 let rect = fitRect(for: image, in: nsRect(frame), scaling: scaling)
@@ -179,24 +167,6 @@ final class PanelView: NSView {
                 options: [])
         }
         context.restoreGState()
-    }
-
-    /// elements内の.tooltip要素をネイティブツールチップとして登録する。
-    /// ownerにNSStringを渡すとその文字列がそのまま表示される仕様を使う
-    private func updateTooltips() {
-        let specs: [(rect: NSRect, text: String)] = elements.compactMap { element in
-            guard case .tooltip(let frame, let text) = element else { return nil }
-            return (nsRect(frame), text)
-        }
-        guard specs.count != tooltipSpecs.count
-            || !zip(specs, tooltipSpecs).allSatisfy({ $0.rect == $1.rect && $0.text == $1.text })
-        else { return }
-        removeAllToolTips()
-        tooltipSpecs = specs
-        tooltipOwners = specs.map { $0.text as NSString }
-        for (spec, owner) in zip(specs, tooltipOwners) {
-            addToolTip(spec.rect, owner: owner, userData: nil)
-        }
     }
 
     override func mouseDown(with event: NSEvent) {

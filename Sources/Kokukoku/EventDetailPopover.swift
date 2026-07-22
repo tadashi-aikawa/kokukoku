@@ -31,6 +31,17 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
         onUserCloseRequest?() ?? true
     }
 
+    /// h/l・←→でpopover内のアクションボタンのフォーカスを移動し、結果を返す。
+    /// .closePopover(先頭ボタンからの後退)のときは呼び出し側がpopupを閉じる
+    func moveButtonFocus(_ delta: Int) -> EventPopoverButtonFocus.Move {
+        (contentViewController as? EventDetailViewController)?.moveButtonFocus(delta) ?? .none
+    }
+
+    /// フォーカス中のボタンを押す。フォーカスがなければfalse(呼び出し側の既定動作に任せる)
+    func activateFocusedButton() -> Bool {
+        (contentViewController as? EventDetailViewController)?.activateFocusedButton() ?? false
+    }
+
     func popoverDidClose(_ notification: Notification) {
         onDismiss?()
     }
@@ -40,6 +51,8 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
 private final class EventDetailViewController: NSViewController {
     private let eventRow: CalendarEventRow
     var onAction: (() -> Void)?
+    private var actionButtons: [NSButton] = []
+    private var focusedButtonIndex: Int?
 
     init(eventRow: CalendarEventRow) {
         self.eventRow = eventRow
@@ -116,6 +129,27 @@ private final class EventDetailViewController: NSViewController {
         ])
 
         self.view = container
+    }
+
+    /// フォーカス位置を移動し、フォーカス中のボタンをデフォルトボタン
+    /// (アクセントカラー)の見た目にして示す。移動結果を返し、
+    /// .closePopover の判断は呼び出し側に委ねる
+    func moveButtonFocus(_ delta: Int) -> EventPopoverButtonFocus.Move {
+        let move = EventPopoverButtonFocus.moved(
+            from: focusedButtonIndex, delta: delta, count: actionButtons.count)
+        if case .focus(let next) = move {
+            focusedButtonIndex = next
+            for (index, button) in actionButtons.enumerated() {
+                button.keyEquivalent = index == next ? "\r" : ""
+            }
+        }
+        return move
+    }
+
+    func activateFocusedButton() -> Bool {
+        guard let focusedButtonIndex else { return false }
+        actionButtons[focusedButtonIndex].performClick(nil)
+        return true
     }
 
     @objc private func openMeet() {
@@ -228,6 +262,7 @@ private final class EventDetailViewController: NSViewController {
         button.bezelStyle = .rounded
         button.controlSize = .small
         button.font = NSFont.systemFont(ofSize: 11)
+        actionButtons.append(button)
         return button
     }
 }

@@ -592,6 +592,32 @@ final class PanelController {
         // 編集中のキーはフィールド側が処理する(こぼれたキーでパネル操作が走らないよう飲む)
         if editingTarget != nil { return true }
 
+        // popover表示中はh/l・←→でpopover内ボタンのフォーカスを移動し
+        // (先頭ボタン・ボタン未フォーカスからのh/←はpopupを閉じてメインUIへ戻る)、
+        // Enterはフォーカス中のボタンがあればそれを押す(なければ従来のトグル閉じに落ちる)。
+        // popover非表示なら、予定行選択中のl/→でpopupを開く(フォーカスはメインのまま)
+        let characters = event.charactersIgnoringModifiers
+        let isForward = characters == "l" || event.keyCode == 124
+        let isBackward = characters == "h" || event.keyCode == 123
+        if let eventPopover {
+            if isForward {
+                _ = eventPopover.moveButtonFocus(1)
+                return true
+            }
+            if isBackward {
+                if eventPopover.moveButtonFocus(-1) == .closePopover {
+                    eventPopover.close()
+                }
+                return true
+            }
+            if event.keyCode == 36, eventPopover.activateFocusedButton() {
+                return true
+            }
+        } else if isForward, case .calendarEvent(let eventIndex)? = selectedTarget {
+            showEventDetailPopover(eventIndex: eventIndex)
+            return true
+        }
+
         let action = PanelKeyInterpreter.interpret(
             characters: event.charactersIgnoringModifiers,
             keyCode: event.keyCode,

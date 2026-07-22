@@ -6,8 +6,11 @@ import KokukokuCore
 @MainActor
 final class EventDetailPopover: NSPopover, NSPopoverDelegate {
     var onDismiss: (() -> Void)?
+    /// 表示中の予定のインデックス。同じ予定への再決定をトグル(閉じる)と判定するために持つ
+    let eventIndex: Int
 
-    init(eventRow: CalendarEventRow) {
+    init(eventRow: CalendarEventRow, eventIndex: Int) {
+        self.eventIndex = eventIndex
         super.init()
         let vc = EventDetailViewController(eventRow: eventRow)
         vc.onAction = { [weak self] in self?.close() }

@@ -619,8 +619,15 @@ final class PanelController {
     }
 
     /// 予定行のクリック・Enterで詳細ポップオーバーを表示する。
+    /// 同じ予定を再度決定したときはトグルとして閉じる。
     /// ポップオーバー内のボタンからカレンダー詳細ページやMeetを開ける
     private func showEventDetailPopover(eventIndex: Int) {
+        if let eventPopover, eventPopover.eventIndex == eventIndex {
+            // onDismissを生かしたまま閉じ、外クリック監視の復帰経路に乗せる
+            eventPopover.close()
+            return
+        }
+
         let eventRows: [CalendarEventRow] = calendarRows.compactMap {
             if case .event(let row) = $0 { return row } else { return nil }
         }
@@ -642,7 +649,7 @@ final class PanelController {
             self.localClickMonitor = nil
         }
 
-        let popover = EventDetailPopover(eventRow: eventRows[eventIndex])
+        let popover = EventDetailPopover(eventRow: eventRows[eventIndex], eventIndex: eventIndex)
         popover.onDismiss = { [weak self] in
             guard let self else { return }
             self.eventPopover = nil

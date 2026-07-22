@@ -602,11 +602,16 @@ final class PanelController {
             .command, .option, .control, .shift,
         ]
         let hasModifiers = !event.modifierFlags.intersection(navigationModifiers).isEmpty
-        let isCalendarEventSelected: Bool
-        if case .calendarEvent? = selectedTarget {
+        var isCalendarEventSelected = false
+        var isPopoverForSelectedEvent = false
+        if case .calendarEvent(let selectedIndex)? = selectedTarget {
             isCalendarEventSelected = true
-        } else {
-            isCalendarEventSelected = false
+            if let eventPopover,
+                let selectedRow = CalendarEventRowLookup.row(
+                    atEventIndex: selectedIndex, in: calendarRows)
+            {
+                isPopoverForSelectedEvent = selectedRow.eventKey == eventPopover.eventKey
+            }
         }
         let action = PanelKeyInterpreter.interpret(
             characters: event.charactersIgnoringModifiers,
@@ -614,7 +619,8 @@ final class PanelController {
             hasModifiers: hasModifiers,
             context: .init(
                 isEventPopoverVisible: eventPopover != nil,
-                isCalendarEventSelected: isCalendarEventSelected),
+                isCalendarEventSelected: isCalendarEventSelected,
+                isPopoverForSelectedEvent: isPopoverForSelectedEvent),
             keymap: keymap)
 
         switch action {

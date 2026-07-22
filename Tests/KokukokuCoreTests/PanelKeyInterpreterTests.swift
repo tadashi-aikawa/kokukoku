@@ -18,12 +18,35 @@ struct PanelKeyInterpreterTests {
 
     @Test("popover表示中はh/l・左右キーをボタンフォーカス移動として解釈する")
     func eventPopoverNavigation() {
-        let context = PanelKeyContext(isEventPopoverVisible: true)
+        let context = PanelKeyContext(
+            isEventPopoverVisible: true,
+            isCalendarEventSelected: true,
+            isPopoverForSelectedEvent: true)
 
         #expect(action("l", context: context) == .moveEventPopoverFocus(delta: 1))
         #expect(action("h", context: context) == .moveEventPopoverFocus(delta: -1))
         #expect(action(nil, keyCode: 124, context: context) == .moveEventPopoverFocus(delta: 1))
         #expect(action(nil, keyCode: 123, context: context) == .moveEventPopoverFocus(delta: -1))
+    }
+
+    @Test("popover表示中でもカーソルが別の予定ならl・右キーはpopover切替として解釈する")
+    func switchPopoverToSelectedEvent() {
+        let context = PanelKeyContext(
+            isEventPopoverVisible: true,
+            isCalendarEventSelected: true,
+            isPopoverForSelectedEvent: false)
+
+        #expect(action("l", context: context) == .showEventPopover)
+        #expect(action(nil, keyCode: 124, context: context) == .showEventPopover)
+        // h/左はカーソル位置にかかわらずフォーカス後退(popoverクローズ側)のまま
+        #expect(action("h", context: context) == .moveEventPopoverFocus(delta: -1))
+    }
+
+    @Test("popover表示中にカーソルが予定以外の行にあるときのl・右キーはフォーカスインする")
+    func focusInWhenNonEventSelected() {
+        let context = PanelKeyContext(isEventPopoverVisible: true)
+
+        #expect(action("l", context: context) == .moveEventPopoverFocus(delta: 1))
     }
 
     @Test("予定行選択中はl・右キーでpopoverを開く")

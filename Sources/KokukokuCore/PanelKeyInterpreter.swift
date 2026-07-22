@@ -23,13 +23,18 @@ public enum PanelKeyAction: Equatable, Sendable {
 public struct PanelKeyContext: Equatable, Sendable {
     public var isEventPopoverVisible: Bool
     public var isCalendarEventSelected: Bool
+    /// 表示中のpopoverが「選択カーソル配下の予定」を指しているか。
+    /// カーソルが別の予定へ移った後のl/→はフォーカスインではなくpopoverの切替になる
+    public var isPopoverForSelectedEvent: Bool
 
     public init(
         isEventPopoverVisible: Bool = false,
-        isCalendarEventSelected: Bool = false
+        isCalendarEventSelected: Bool = false,
+        isPopoverForSelectedEvent: Bool = false
     ) {
         self.isEventPopoverVisible = isEventPopoverVisible
         self.isCalendarEventSelected = isCalendarEventSelected
+        self.isPopoverForSelectedEvent = isPopoverForSelectedEvent
     }
 }
 
@@ -46,7 +51,13 @@ public enum PanelKeyInterpreter {
         if keyCode == 53 { return .dismiss }
         if keyCode == 36 { return .confirm }
         if characters == "l" || keyCode == 124 {
-            if context.isEventPopoverVisible { return .moveEventPopoverFocus(delta: 1) }
+            if context.isEventPopoverVisible {
+                // カーソルが別の予定に移っているなら、まずその予定のpopoverへ切り替える
+                if context.isCalendarEventSelected, !context.isPopoverForSelectedEvent {
+                    return .showEventPopover
+                }
+                return .moveEventPopoverFocus(delta: 1)
+            }
             if context.isCalendarEventSelected { return .showEventPopover }
             return .reserved
         }

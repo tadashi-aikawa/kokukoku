@@ -91,4 +91,44 @@ struct PanelSelectionTests {
         #expect(PanelSelection.next(current: nil, in: []) == nil)
         #expect(PanelSelection.previous(current: .project(index: 1), in: []) == nil)
     }
+
+    @Test("先頭へジャンプ(予定があれば予定の先頭)")
+    func first() {
+        let withEvents: [PanelSelectionTarget] = [
+            .calendarEvent(eventIndex: 0), .calendarEvent(eventIndex: 1),
+            .project(index: 1), .project(index: 2),
+        ]
+        #expect(PanelSelection.first(in: withEvents) == .calendarEvent(eventIndex: 0))
+
+        let projectsOnly: [PanelSelectionTarget] = [.project(index: 1), .project(index: 2)]
+        #expect(PanelSelection.first(in: projectsOnly) == .project(index: 1))
+
+        #expect(PanelSelection.first(in: []) == nil)
+    }
+
+    @Test("末尾へジャンプ")
+    func last() {
+        let targets: [PanelSelectionTarget] = [
+            .calendarEvent(eventIndex: 0), .project(index: 1), .project(index: 2),
+        ]
+        #expect(PanelSelection.last(in: targets) == .project(index: 2))
+        #expect(PanelSelection.last(in: []) == nil)
+    }
+
+    @Test("最初のプロジェクト行へジャンプ")
+    func firstProject() {
+        let targets: [PanelSelectionTarget] = [
+            .calendarEvent(eventIndex: 0), .calendarEvent(eventIndex: 1),
+            .calendarOverflow,
+            .project(index: 1), .project(index: 2),
+        ]
+        #expect(PanelSelection.firstProject(in: targets) == .project(index: 1))
+
+        let eventsOnly: [PanelSelectionTarget] = [
+            .calendarEvent(eventIndex: 0), .calendarOverflow,
+        ]
+        #expect(PanelSelection.firstProject(in: eventsOnly) == nil)
+
+        #expect(PanelSelection.firstProject(in: []) == nil)
+    }
 }

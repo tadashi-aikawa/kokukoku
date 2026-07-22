@@ -598,9 +598,8 @@ final class PanelController {
 
         // 矢印キーはOSが常に .function (と .numericPad) を立てて送ってくるため、
         // ここに .function を含めると矢印単押しまで「修飾キー付き」になってしまう
-        let navigationModifiers: NSEvent.ModifierFlags = [
-            .command, .option, .control, .shift,
-        ]
+        // ShiftはGなど大文字の固定キー入力に使うため、修飾キーとして扱わない
+        let navigationModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
         let hasModifiers = !event.modifierFlags.intersection(navigationModifiers).isEmpty
         var isCalendarEventSelected = false
         var isPopoverForSelectedEvent = false
@@ -637,6 +636,15 @@ final class PanelController {
         case .moveUp:
             selectedTarget = PanelSelection.previous(
                 current: selectedTarget, in: selectionTargets())
+            rebuildPanel()
+        case .moveToTop:
+            selectedTarget = PanelSelection.first(in: selectionTargets())
+            rebuildPanel()
+        case .moveToBottom:
+            selectedTarget = PanelSelection.last(in: selectionTargets())
+            rebuildPanel()
+        case .moveToFirstProject:
+            selectedTarget = PanelSelection.firstProject(in: selectionTargets())
             rebuildPanel()
         case .startBreak:
             resetConfirming = false

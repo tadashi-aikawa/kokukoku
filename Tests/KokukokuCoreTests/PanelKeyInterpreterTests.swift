@@ -70,6 +70,16 @@ struct PanelKeyInterpreterTests {
         }
     }
 
+    @Test("修飾キー付き文字キーはコンテキストにかかわらず消費しない")
+    func modifiedCharactersPassThrough() {
+        let context = PanelKeyContext(
+            isEventPopoverVisible: true, isCalendarEventSelected: true)
+
+        for characters in ["g", "G", "]", "h", "l", "j", "k", "0", "r", "o", "e", "E", "c", "3"] {
+            #expect(action(characters, hasModifiers: true, context: context) == .passthrough)
+        }
+    }
+
     @Test("h/lはキーマップより優先する予約キー")
     func reservedKeysPrecedeKeymap() {
         let keymap = ResolvedKeymap(
@@ -81,6 +91,38 @@ struct PanelKeyInterpreterTests {
         #expect(
             PanelKeyInterpreter.interpret(characters: "l", keyCode: 0, keymap: keymap)
                 == .reserved)
+    }
+
+    @Test("g/G/]でジャンプ操作を解釈する")
+    func jumpNavigation() {
+        #expect(action("g") == .moveToTop)
+        #expect(action("G") == .moveToBottom)
+        #expect(action("]") == .moveToFirstProject)
+    }
+
+    @Test("popover表示中もg/G/]でジャンプ操作を解釈する")
+    func jumpNavigationWhilePopoverVisible() {
+        let context = PanelKeyContext(isEventPopoverVisible: true)
+
+        #expect(action("g", context: context) == .moveToTop)
+        #expect(action("G", context: context) == .moveToBottom)
+        #expect(action("]", context: context) == .moveToFirstProject)
+    }
+
+    @Test("g/G/]はキーマップより優先する固定キー")
+    func jumpKeysPrecedeKeymap() {
+        let keymap = ResolvedKeymap(
+            keymap: .init(startBreak: "g", reset: "G", toggleCalendar: "]"))
+
+        #expect(
+            PanelKeyInterpreter.interpret(characters: "g", keyCode: 0, keymap: keymap)
+                == .moveToTop)
+        #expect(
+            PanelKeyInterpreter.interpret(characters: "G", keyCode: 0, keymap: keymap)
+                == .moveToBottom)
+        #expect(
+            PanelKeyInterpreter.interpret(characters: "]", keyCode: 0, keymap: keymap)
+                == .moveToFirstProject)
     }
 
     @Test("既定キーマップと固定キーを解釈する")

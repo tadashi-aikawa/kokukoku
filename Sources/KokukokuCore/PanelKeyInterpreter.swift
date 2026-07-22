@@ -14,6 +14,12 @@ public enum PanelKeyAction: Equatable, Sendable {
     case moveEventPopoverFocus(delta: Int)
     /// 選択中の予定の詳細popoverを開く
     case showEventPopover
+    /// 先頭へジャンプ(予定があれば予定の先頭)
+    case moveToTop
+    /// 末尾へジャンプ
+    case moveToBottom
+    /// 計測項目(プロジェクト行)の先頭へジャンプ
+    case moveToFirstProject
     /// h/lの予約キー。現在のコンテキストでは動作しないが他の操作には割り当てない
     case reserved
     case passthrough
@@ -48,6 +54,7 @@ public enum PanelKeyInterpreter {
     ) -> PanelKeyAction {
         // Command/Option等とのOS標準ショートカットを妨げない
         if hasModifiers, (123...126).contains(keyCode) { return .passthrough }
+        if hasModifiers, characters != nil { return .passthrough }
         if keyCode == 53 { return .dismiss }
         if keyCode == 36 { return .confirm }
         if characters == "l" || keyCode == 124 {
@@ -65,6 +72,9 @@ public enum PanelKeyInterpreter {
             if context.isEventPopoverVisible { return .moveEventPopoverFocus(delta: -1) }
             return .reserved
         }
+        if characters == "g" { return .moveToTop }
+        if characters == "G" { return .moveToBottom }
+        if characters == "]" { return .moveToFirstProject }
         if characters == "j" || keyCode == 125 { return .moveDown }
         if characters == "k" || keyCode == 126 { return .moveUp }
         if characters == keymap.startBreak { return .startBreak }

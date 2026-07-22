@@ -59,4 +59,19 @@ public enum PanelSelection {
         }
         return targets[(index - 1 + targets.count) % targets.count]
     }
+
+    /// 先頭の選択対象
+    public static func first(in targets: [PanelSelectionTarget]) -> PanelSelectionTarget? {
+        targets.first
+    }
+
+    /// 末尾の選択対象
+    public static func last(in targets: [PanelSelectionTarget]) -> PanelSelectionTarget? {
+        targets.last
+    }
+
+    /// 最初のプロジェクト行
+    public static func firstProject(in targets: [PanelSelectionTarget]) -> PanelSelectionTarget? {
+        targets.first { if case .project = $0 { return true } else { return false } }
+    }
 }

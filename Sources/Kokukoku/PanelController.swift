@@ -41,6 +41,8 @@ final class PanelController {
     private var calendarRows: [CalendarSectionRow] = []
     /// 通知モード: 開始前通知としての自動表示中(フォーカス非奪取・外クリックで閉じない)
     private(set) var notificationMode = false
+    /// show()のmakeKeyAndOrderFront直後のキー化ではフォーカスグローを出さない(表示自体がフィードバック)
+    private var suppressFocusGlow = false
     /// 通知で強調する予定
     private var highlightedKeys: Set<CalendarEvent.EventKey> = []
     /// 通知パネルが閉じたときに呼ばれる(中止告知のクリア用)
@@ -137,17 +139,20 @@ final class PanelController {
         visible = true
         rebuildPanel()
 
+        window.onBecomeKey = { [weak self] in self?.handleBecomeKey() }
+
         if notificationMode {
             // 通知パネルはキーボードフォーカスを奪わず、キー化前は外クリックでも閉じない
             // (気づく前に誤クリックで消えるのを防ぐ。パネルをクリックしてキーにした後は
             // 通常パネルと同じく外クリックで閉じる。閉じるボタンは1クリック目が
             // キー化に消費されて2クリック要る体験になるため廃止)
-            window.onBecomeKey = { [weak self] in self?.handleNotificationActivated() }
             window.orderFrontRegardless()
             playNotificationPulse()
             return
         }
+        suppressFocusGlow = true
         window.makeKeyAndOrderFront(nil)
+        suppressFocusGlow = false
         installOutsideClickMonitors()
     }
 
@@ -180,15 +185,15 @@ final class PanelController {
         }
     }
 
-    /// 通知パネルがクリックでキー化された: ユーザーが気づいたのでパルスを止め、
-    /// 以後は通常パネルと同じく外クリックで閉じるようにする
-    private func handleNotificationActivated() {
-        guard notificationMode else { return }
-        notificationPulseLayer?.removeFromSuperlayer()
-        notificationPulseLayer = nil
-        installOutsideClickMonitors()
-        // キー化=非フォーカス→フォーカスの遷移そのものなので、枠色(B)を即座に反映し
-        // 一撃グロー(C)で遷移の瞬間を知覚できるようにする
+    /// キー化(フォーカス獲得)の統一ハンドラ。マウスクリック・ホットキーを問わず
+    /// becomeKeyで発火する。通知モードのパルス停止・外クリック監視導入もここに統合
+    private func handleBecomeKey() {
+        if notificationMode {
+            notificationPulseLayer?.removeFromSuperlayer()
+            notificationPulseLayer = nil
+            installOutsideClickMonitors()
+        }
+        guard !suppressFocusGlow else { return }
         rebuildPanel()
         playFocusGlow()
     }
@@ -338,9 +343,9 @@ final class PanelController {
     }
 
     /// 表示中だが非フォーカスのパネルへキーボードでフォーカスを移す(閉じない)。
-    /// キー化により PanelWindow.onBecomeKey が発火し、通知モード中は
-    /// handleNotificationActivated が既存のクリック時と同じ流れ(パルス停止・
-    /// 外クリック監視の導入)に自然に乗る
+    /// makeKeyAndOrderFrontによりbecomeKey → handleBecomeKeyが発火し、
+    /// 枠色の切替とフォーカスグローが自動で走る。通知モード中はパルス停止・
+    /// 外クリック監視の導入も同じハンドラで処理される
     private func focus() {
         guard let window else { return }
         // キーボード操作でのフォーカス移動が目的なので、カーソル無しでは着地させない
@@ -349,7 +354,6 @@ final class PanelController {
         }
         window.makeKeyAndOrderFront(nil)
         rebuildPanel()
-        playFocusGlow()
     }
 
     /// show() / focus() で使う初期カーソル位置(アクティブプロジェクト行。通知モードはカーソルなし)

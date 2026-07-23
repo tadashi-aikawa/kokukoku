@@ -103,12 +103,7 @@ final class PanelController {
         resetConfirming = false
 
         // カーソル初期位置をアクティブプロジェクトに設定(通知モードはカーソルなし)
-        let state = callbacks.getState()
-        selectedTarget = notificationMode
-            ? nil
-            : state.activeProjectId.flatMap { activeId in
-                projects.firstIndex { $0.id == activeId }.map { .project(index: $0 + 1) }
-            }
+        selectedTarget = initialSelectedTarget()
 
         calendarRows = currentCalendarRows()
         let panelSize = NSSize(
@@ -287,12 +282,44 @@ final class PanelController {
         }
     }
 
+    /// ホットキー押下時の分岐(表示・フォーカス・Pinの状態から一意に決まる)。
+    /// 判定は KokukokuCore の PanelHotkeyDecision に委譲し、ここでは実行するだけ
     func toggle() {
-        if visible {
-            hide()
-        } else {
+        let action = PanelHotkeyDecision.decide(
+            visible: visible, focused: window?.isKeyWindow == true, pinned: pinned)
+        switch action {
+        case .show:
             show()
+        case .focus:
+            focus()
+        case .none:
+            break
+        case .hide:
+            hide()
         }
+    }
+
+    /// 表示中だが非フォーカスのパネルへキーボードでフォーカスを移す(閉じない)。
+    /// キー化により PanelWindow.onBecomeKey が発火し、通知モード中は
+    /// handleNotificationActivated が既存のクリック時と同じ流れ(パルス停止・
+    /// 外クリック監視の導入)に自然に乗る
+    private func focus() {
+        guard let window else { return }
+        // キーボード操作でのフォーカス移動が目的なので、カーソル無しでは着地させない
+        if selectedTarget == nil {
+            selectedTarget = initialSelectedTarget()
+        }
+        window.makeKeyAndOrderFront(nil)
+        rebuildPanel()
+    }
+
+    /// show() / focus() で使う初期カーソル位置(アクティブプロジェクト行。通知モードはカーソルなし)
+    private func initialSelectedTarget() -> PanelSelectionTarget? {
+        notificationMode
+            ? nil
+            : callbacks.getState().activeProjectId.flatMap { activeId in
+                projects.firstIndex { $0.id == activeId }.map { .project(index: $0 + 1) }
+            }
     }
 
     func update() {

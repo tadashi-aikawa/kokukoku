@@ -140,6 +140,7 @@ final class PanelController {
         rebuildPanel()
 
         window.onBecomeKey = { [weak self] in self?.handleBecomeKey() }
+        window.onResignKey = { [weak self] in self?.handleResignKey() }
 
         if notificationMode {
             // 通知パネルはキーボードフォーカスを奪わず、キー化前は外クリックでも閉じない
@@ -193,9 +194,18 @@ final class PanelController {
             notificationPulseLayer = nil
             installOutsideClickMonitors()
         }
+        if selectedTarget == nil {
+            selectedTarget = initialSelectedTarget()
+        }
         guard !suppressFocusGlow else { return }
         rebuildPanel()
         playFocusGlow()
+    }
+
+    private func handleResignKey() {
+        guard visible else { return }
+        selectedTarget = nil
+        rebuildPanel()
     }
 
     /// 登場の署名: 通知としての自動表示中、パネル輪郭を生成りのグローで

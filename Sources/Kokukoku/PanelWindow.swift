@@ -10,6 +10,7 @@ final class PanelWindow: NSPanel {
 
     var onKeyDown: ((NSEvent) -> Bool)?
     var onBecomeKey: (() -> Void)?
+    var onResignKey: (() -> Void)?
 
     init(contentRect: NSRect) {
         super.init(
@@ -33,6 +34,11 @@ final class PanelWindow: NSPanel {
     override func becomeKey() {
         super.becomeKey()
         onBecomeKey?()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        onResignKey?()
     }
 
     override func keyDown(with event: NSEvent) {

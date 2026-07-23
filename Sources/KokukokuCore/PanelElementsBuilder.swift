@@ -339,11 +339,7 @@ public struct PanelElementsBuilder {
 
         var y = startY + layout.calendarSectionPaddingTop
         var eventIndex = 0
-        // 進行中カウントダウンの右端スロット幅。1件でも表示があれば全行分を確保する
-        let countdownColumnWidth: Double = inputs.calendarRows.contains(where: { row in
-            guard case .event(let event) = row else { return false }
-            return event.isInProgress && event.countdownText != nil
-        }) ? 110 : 0
+        let countdownColumnWidth = 110.0
         // タイムラインの点の中心Yと、その予定の間隔表現(レール描画は行の後にまとめて行う)
         var dots:
             [(
@@ -450,8 +446,9 @@ public struct PanelElementsBuilder {
 
                 // タイトル(上段)
                 let titleX = layout.calendarContentX + layout.calendarTimeWidth + 8
+                let hasCountdown = event.isInProgress && event.countdownText != nil
                 let titleRight = metrics.panelWidth - layout.padding
-                    - (countdownColumnWidth > 0 ? countdownColumnWidth + 8 : 0)
+                    - (hasCountdown ? countdownColumnWidth + 8 : 0)
                 let titleHeight = measureTextHeight(event.title, inputs.ui.fontName, 13)
                 elements.append(.text(
                     frame: .init(

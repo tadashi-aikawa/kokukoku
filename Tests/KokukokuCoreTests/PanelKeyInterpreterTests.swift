@@ -58,6 +58,23 @@ struct PanelKeyInterpreterTests {
         #expect(action("h", context: context) == .reserved)
     }
 
+    @Test("Pin中のESCはpopover表示中ならpopoverだけ閉じ、popoverなしなら何もしない")
+    func escWhilePinned() {
+        let withPopover = PanelKeyContext(isEventPopoverVisible: true, isPinned: true)
+        #expect(action(nil, keyCode: 53, context: withPopover) == .dismissPopover)
+
+        let withoutPopover = PanelKeyContext(isEventPopoverVisible: false, isPinned: true)
+        #expect(action(nil, keyCode: 53, context: withoutPopover) == .reserved)
+    }
+
+    @Test("Pin中でなければESCは従来どおりパネルを閉じる")
+    func escWhileUnpinned() {
+        let withPopover = PanelKeyContext(isEventPopoverVisible: true, isPinned: false)
+        #expect(action(nil, keyCode: 53, context: withPopover) == .dismiss)
+
+        #expect(action(nil, keyCode: 53) == .dismiss)
+    }
+
     @Test("修飾キー付き矢印はコンテキストにかかわらず消費しない")
     func modifiedArrowsPassThrough() {
         let context = PanelKeyContext(
@@ -132,6 +149,7 @@ struct PanelKeyInterpreterTests {
         #expect(action("e") == .editTime)
         #expect(action("E") == .editContinuousTime)
         #expect(action("c") == .copyToClipboard)
+        #expect(action("p") == .togglePin)
         #expect(action("o") == .toggleCalendar)
         #expect(action("3") == .selectProject(index: 3))
         #expect(action("x") == .passthrough)

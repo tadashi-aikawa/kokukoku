@@ -16,7 +16,7 @@ struct PanelElementsBuilderTests {
     func representativeLayout() {
         let elements = builder().build(inputs())
 
-        #expect(elements.count == 26)
+        #expect(elements.count == 30)
         #expect(elements[0] == .rectangle(
             frame: .init(x: 0, y: 0, w: 480, h: 164),
             fillColor: PanelLayout.Colors.background, cornerRadius: 10))
@@ -49,9 +49,27 @@ struct PanelElementsBuilderTests {
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
         #expect(elements[25] == .rectangle(
+            frame: .init(x: 452, y: 6, w: 22, h: 22),
+            fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 5,
+            id: "btn_pin", tracksMouse: true))
+        #expect(elements[29] == .rectangle(
             frame: .init(x: 0.5, y: 0.5, w: 479, h: 163),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 10,
             strokeColor: PanelLayout.Colors.panelBorder, strokeWidth: 1))
+    }
+
+    @Test("Pinボタンは常設で、off時は鈍色の45度傾き・on時は生成りの垂直姿勢で描く")
+    func pinButton() {
+        let offElements = builder().build(inputs())
+        let onElements = builder().build(inputs(pinned: true))
+
+        // 頭のクロスバー(width 3の線)で姿勢と色を判定する
+        #expect(offElements[26] == .line(
+            from: .init(x: 464, y: 11), to: .init(x: 469, y: 16),
+            color: PanelLayout.Colors.subText, width: 3))
+        #expect(onElements[26] == .line(
+            from: .init(x: 459.5, y: 12.5), to: .init(x: 466.5, y: 12.5),
+            color: PanelLayout.Colors.text, width: 3))
     }
 
     @Test("絵文字アイコンをテキストとして描画する")
@@ -654,7 +672,8 @@ struct PanelElementsBuilderTests {
         resetConfirming: Bool = false,
         editingTarget: PanelEditingTarget? = nil,
         alertThresholds: [Int] = [],
-        calendarRows: [CalendarSectionRow] = []
+        calendarRows: [CalendarSectionRow] = [],
+        pinned: Bool = false
     ) -> PanelElementsBuilder.Inputs {
         .init(
             projects: [project], state: state,
@@ -662,7 +681,8 @@ struct PanelElementsBuilderTests {
             resetConfirming: resetConfirming,
             editingTarget: editingTarget,
             alertThresholds: alertThresholds,
-            calendarRows: calendarRows, ui: ui)
+            calendarRows: calendarRows, ui: ui,
+            pinned: pinned)
     }
 
     private func containsText(_ text: String, in elements: [PanelElement]) -> Bool {

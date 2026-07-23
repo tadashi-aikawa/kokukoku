@@ -205,6 +205,8 @@ public enum PanelLayout {
     public static let iconImageCornerRadius = iconImageSize / 2
     /// フッター中央の連続稼働時間の編集フィールド幅(HH:MM:SS入力が収まる幅)
     public static let continuousTimeWidth = 90.0
+    /// ヘッダー右上のPinボタン(クリック領域)の一辺
+    public static let pinButtonSize = 22.0
     /// 連続稼働ゲージの全幅。中央寄せで敷く
     public static let gaugeWidth = 180.0
     /// 行カプセル(ネオン・選択輪郭)のパネル端・行境界からのマージン。

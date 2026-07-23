@@ -47,6 +47,8 @@ final class PanelController {
     var onNotificationClosed: (() -> Void)?
     /// 「他◯件」クリックでの全件展開中(パネルを閉じると畳んだ状態に戻る)
     private var calendarExpanded = false
+    /// パネル固定(Pin): onのとき外クリックでパネルが閉じない
+    private var pinned = false
     /// 予定詳細ポップオーバー(表示中のみ保持)
     private var eventPopover: EventDetailPopover?
     /// 通知モードでループ再生中のパルスレイヤー(キー化で停止・除去する)
@@ -168,7 +170,12 @@ final class PanelController {
             guard let self else { return event }
             if event.type == .keyDown {
                 if self.eventPopover != nil, event.keyCode == 53 {  // ESC
-                    self.hide()
+                    // Pin中はホットキーと同じく閉じ抑止: popoverだけ閉じてパネルは維持する
+                    if self.pinned {
+                        self.dismissEventPopover()
+                    } else {
+                        self.hide()
+                    }
                     return nil
                 }
                 return event
@@ -235,6 +242,7 @@ final class PanelController {
     }
 
     private func hideIfClickedOutside() {
+        guard !pinned else { return }
         guard let window else { return }
         let location = NSEvent.mouseLocation
         if window.frame.contains(location) { return }
@@ -271,6 +279,7 @@ final class PanelController {
         hoveredId = nil
         resetConfirming = false
         calendarExpanded = false
+        pinned = false
         if notificationMode {
             notificationMode = false
             highlightedKeys = []
@@ -364,7 +373,8 @@ final class PanelController {
                 editingTarget: editingTarget,
                 alertThresholds: alertThresholds,
                 calendarRows: calendarRows,
-                ui: ui))
+                ui: ui,
+                pinned: pinned))
     }
 
     // MARK: - 操作の実行
@@ -573,6 +583,10 @@ final class PanelController {
         } else if elementId == "btn_reset" {
             handleResetAction()
             return
+        } else if elementId == "btn_pin" {
+            pinned.toggle()
+            rebuildPanel()
+            return
         } else if elementId == "cal_overflow" {
             calendarExpanded = true
             rebuildPanel()
@@ -619,12 +633,15 @@ final class PanelController {
             context: .init(
                 isEventPopoverVisible: eventPopover != nil,
                 isCalendarEventSelected: isCalendarEventSelected,
-                isPopoverForSelectedEvent: isPopoverForSelectedEvent),
+                isPopoverForSelectedEvent: isPopoverForSelectedEvent,
+                isPinned: pinned),
             keymap: keymap)
 
         switch action {
         case .dismiss:
             hide()
+        case .dismissPopover:
+            dismissEventPopover()
         case .confirm:
             if eventPopover?.activateFocusedButton() != true {
                 executeSelectedAction()
@@ -658,6 +675,9 @@ final class PanelController {
             editContinuousTime()
         case .copyToClipboard:
             copyToClipboard()
+        case .togglePin:
+            pinned.toggle()
+            rebuildPanel()
         case .toggleCalendar:
             toggleCalendarExpansion()
         case .selectProject(let index):
@@ -713,12 +733,14 @@ final class PanelController {
             guard let self, let event = NSApp.currentEvent else { return true }
             // ESC・パネル外クリック起因の閉じ要求は、popover単体のフェードを走らせず
             // パネルごと即時に閉じる(2段階の直列アニメーション防止)。
-            // close処理中の再入を避けるためhideは次のrunloopで実行する
+            // close処理中の再入を避けるためhideは次のrunloopで実行する。
+            // Pin中はホットキー・ESC単体と同じく閉じ抑止: パネルは閉じず、
+            // popover単体のクローズ(return true)に任せる
             let isEsc = event.type == .keyDown && event.keyCode == 53
             let isOutsidePanelClick =
                 event.type == .leftMouseDown
                 && self.window.map { !$0.frame.contains(NSEvent.mouseLocation) } == true
-            if isEsc || isOutsidePanelClick {
+            if (isEsc || isOutsidePanelClick), !self.pinned {
                 DispatchQueue.main.async { self.hide() }
                 return false
             }

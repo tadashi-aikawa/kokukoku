@@ -19,6 +19,7 @@ public struct PanelElementsBuilder {
         /// 本日の残予定セクションの行データ列(CalendarSectionModel.rows)。空ならセクション非表示
         public var calendarRows: [CalendarSectionRow]
         public var ui: ResolvedUIConfig
+        public var pinned: Bool
 
         public init(
             projects: [KokukokuConfig.Project],
@@ -29,7 +30,8 @@ public struct PanelElementsBuilder {
             editingTarget: PanelEditingTarget? = nil,
             alertThresholds: [Int] = [],
             calendarRows: [CalendarSectionRow] = [],
-            ui: ResolvedUIConfig
+            ui: ResolvedUIConfig,
+            pinned: Bool = false
         ) {
             self.projects = projects
             self.state = state
@@ -40,6 +42,7 @@ public struct PanelElementsBuilder {
             self.alertThresholds = alertThresholds
             self.calendarRows = calendarRows
             self.ui = ui
+            self.pinned = pinned
         }
     }
 
@@ -264,6 +267,8 @@ public struct PanelElementsBuilder {
             fontSize: 13,
             color: inputs.resetConfirming ? colors.text : colors.subText,
             alignment: .center))
+
+        appendPinButton(inputs, to: &elements)
 
         // 外周の縁取り(暗い背景でもパネルの輪郭が分かるように最前面へ)
         elements.append(.rectangle(
@@ -706,6 +711,42 @@ public struct PanelElementsBuilder {
                     fillColor: colors.calendarChain))
             }
         }
+    }
+
+    /// ヘッダー右上の押しピンボタン(クリックとpキーでPin切替)。
+    /// 掴む場所(ヘッダードラッグ)と留める場所を同じヘッダーに揃える。
+    /// 絵文字ではなく頭のクロスバー+軸+針の3本線で描き、時計と同じ線の文法に馴染ませる
+    /// (頭を円にすると虫眼鏡に見える)。off=鈍色で45度に傾き、on=生成りで垂直に刺さる
+    private func appendPinButton(_ inputs: Inputs, to elements: inout [PanelElement]) {
+        let layout = PanelLayout.self
+        let colors = PanelLayout.Colors.self
+        let size = layout.pinButtonSize
+        let rect = PanelFrame(x: metrics.panelWidth - size - 6, y: 6, w: size, h: size)
+        let hovered = inputs.hoveredId == "btn_pin"
+        elements.append(.rectangle(
+            frame: rect,
+            fillColor: hovered
+                ? colors.rowHoverBg : PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
+            cornerRadius: 5,
+            id: "btn_pin",
+            tracksMouse: true))
+
+        let color = inputs.pinned ? colors.text : colors.subText
+        let head: (PanelPoint, PanelPoint)
+        let shaft: (PanelPoint, PanelPoint)
+        let needle: (PanelPoint, PanelPoint)
+        if inputs.pinned {
+            head = (.init(x: rect.x + 7.5, y: rect.y + 6.5), .init(x: rect.x + 14.5, y: rect.y + 6.5))
+            shaft = (.init(x: rect.x + 11, y: rect.y + 6.5), .init(x: rect.x + 11, y: rect.y + 11.5))
+            needle = (.init(x: rect.x + 11, y: rect.y + 11.5), .init(x: rect.x + 11, y: rect.y + 15.5))
+        } else {
+            head = (.init(x: rect.x + 12, y: rect.y + 5), .init(x: rect.x + 17, y: rect.y + 10))
+            shaft = (.init(x: rect.x + 14.5, y: rect.y + 7.5), .init(x: rect.x + 11, y: rect.y + 11))
+            needle = (.init(x: rect.x + 11, y: rect.y + 11), .init(x: rect.x + 7.5, y: rect.y + 14.5))
+        }
+        elements.append(.line(from: head.0, to: head.1, color: color, width: 3))
+        elements.append(.line(from: shaft.0, to: shaft.1, color: color, width: 2))
+        elements.append(.line(from: needle.0, to: needle.1, color: color, width: 1))
     }
 
     /// 現在時刻段(アナログ時計+デジタル秒表示)を構築する

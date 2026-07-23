@@ -20,6 +20,8 @@ public struct PanelElementsBuilder {
         public var calendarRows: [CalendarSectionRow]
         public var ui: ResolvedUIConfig
         public var pinned: Bool
+        /// ウィンドウがキーウィンドウ(フォーカス中)か。外枠の色切替(B)に使う
+        public var focused: Bool
 
         public init(
             projects: [KokukokuConfig.Project],
@@ -31,7 +33,8 @@ public struct PanelElementsBuilder {
             alertThresholds: [Int] = [],
             calendarRows: [CalendarSectionRow] = [],
             ui: ResolvedUIConfig,
-            pinned: Bool = false
+            pinned: Bool = false,
+            focused: Bool = false
         ) {
             self.projects = projects
             self.state = state
@@ -43,6 +46,7 @@ public struct PanelElementsBuilder {
             self.calendarRows = calendarRows
             self.ui = ui
             self.pinned = pinned
+            self.focused = focused
         }
     }
 
@@ -270,12 +274,13 @@ public struct PanelElementsBuilder {
 
         appendPinButton(inputs, to: &elements)
 
-        // 外周の縁取り(暗い背景でもパネルの輪郭が分かるように最前面へ)
+        // 外周の縁取り(暗い背景でもパネルの輪郭が分かるように最前面へ)。
+        // フォーカス中は金茶系に切り替え、非フォーカス時と視覚的に区別する(B)
         elements.append(.rectangle(
             frame: .init(x: 0.5, y: 0.5, w: metrics.panelWidth - 1, h: panelHeight - 1),
             fillColor: PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
             cornerRadius: 10,
-            strokeColor: colors.panelBorder,
+            strokeColor: inputs.focused ? colors.panelBorderFocused : colors.panelBorder,
             strokeWidth: 1))
 
         // 計測中の合図は炎色ネオンのカプセル縁取り(文字ラベルは置かない)。

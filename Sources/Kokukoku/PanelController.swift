@@ -187,6 +187,10 @@ final class PanelController {
         notificationPulseLayer?.removeFromSuperlayer()
         notificationPulseLayer = nil
         installOutsideClickMonitors()
+        // キー化=非フォーカス→フォーカスの遷移そのものなので、枠色(B)を即座に反映し
+        // 一撃グロー(C)で遷移の瞬間を知覚できるようにする
+        rebuildPanel()
+        playFocusGlow()
     }
 
     /// 登場の署名: 通知としての自動表示中、パネル輪郭を生成りのグローで
@@ -234,6 +238,40 @@ final class PanelController {
             pulse.add(animation, forKey: "notificationPulse")
             CATransaction.commit()
         }
+    }
+
+    /// フォーカス獲得の合図: 「非フォーカス→フォーカス」の遷移が起きた瞬間だけ、
+    /// パネル外周を金茶系(panelBorderFocusedと同系色)のグローで一撃だけ光らせて消す
+    /// (300〜400ms)。通知パルスと違いループせず、完了後に自身を取り除く単発演出
+    private func playFocusGlow() {
+        guard let panelView else { return }
+        panelView.wantsLayer = true
+        guard let hostLayer = panelView.layer else { return }
+
+        let amber = NSColor(srgbRed: 0.67, green: 0.54, blue: 0.33, alpha: 1).cgColor
+        let glow = CAShapeLayer()
+        glow.path = CGPath(
+            roundedRect: panelView.bounds.insetBy(dx: 1, dy: 1),
+            cornerWidth: 10, cornerHeight: 10, transform: nil)
+        glow.fillColor = nil
+        glow.strokeColor = amber
+        glow.lineWidth = 2.5
+        glow.shadowColor = amber
+        glow.shadowOpacity = 0.9
+        glow.shadowRadius = 10
+        glow.shadowOffset = .zero
+        glow.opacity = 0
+        hostLayer.addSublayer(glow)
+
+        let animation = CAKeyframeAnimation(keyPath: "opacity")
+        animation.values = [0, 1, 0]
+        animation.keyTimes = [0, 0.3, 1]
+        animation.duration = 0.35
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak glow] in glow?.removeFromSuperlayer() }
+        glow.add(animation, forKey: "focusGlow")
+        CATransaction.commit()
     }
 
     private func hideIfClickedOutside() {
@@ -311,6 +349,7 @@ final class PanelController {
         }
         window.makeKeyAndOrderFront(nil)
         rebuildPanel()
+        playFocusGlow()
     }
 
     /// show() / focus() で使う初期カーソル位置(アクティブプロジェクト行。通知モードはカーソルなし)
@@ -401,7 +440,8 @@ final class PanelController {
                 alertThresholds: alertThresholds,
                 calendarRows: calendarRows,
                 ui: ui,
-                pinned: pinned))
+                pinned: pinned,
+                focused: window?.isKeyWindow == true))
     }
 
     // MARK: - 操作の実行

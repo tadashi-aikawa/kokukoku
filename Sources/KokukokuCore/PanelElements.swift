@@ -317,6 +317,9 @@ public enum PanelLayout {
         public static let resetConfirmBg = PanelColor(red: 0.48, green: 0.10, blue: 0.10, alpha: 1)
         /// パネル外周の縁取り(暗い背景でも輪郭が分かるよう生成りの低アルファ)
         public static let panelBorder = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 0.28)
+        /// フォーカス時のパネル外周(ゲージ始点と同じ金茶を高めのalphaで)。
+        /// フォーカスが来たことに気づけるよう非フォーカス時(生成り0.28)より明確に主張する
+        public static let panelBorderFocused = PanelColor(red: 0.67, green: 0.54, blue: 0.33, alpha: 0.55)
         public static let clockSecondHand = PanelColor(
             red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
         /// カウントダウン直前 (imminent) 用の明るい朱。

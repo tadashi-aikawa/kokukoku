@@ -214,11 +214,11 @@ final class PanelController {
         let cream = NSColor(srgbRed: 0.95, green: 0.91, blue: 0.83, alpha: 1).cgColor
         let pulse = CAShapeLayer()
         pulse.path = CGPath(
-            roundedRect: panelView.bounds.insetBy(dx: 1, dy: 1),
-            cornerWidth: 10, cornerHeight: 10, transform: nil)
+            roundedRect: panelView.bounds.insetBy(dx: 4, dy: 4),
+            cornerWidth: 8, cornerHeight: 8, transform: nil)
         pulse.fillColor = nil
         pulse.strokeColor = cream
-        pulse.lineWidth = 2.5
+        pulse.lineWidth = 6
         pulse.shadowColor = cream
         pulse.shadowOpacity = 0.9
         pulse.shadowRadius = 10
@@ -256,11 +256,11 @@ final class PanelController {
         let amber = NSColor(srgbRed: 0.67, green: 0.54, blue: 0.33, alpha: 1).cgColor
         let glow = CAShapeLayer()
         glow.path = CGPath(
-            roundedRect: panelView.bounds.insetBy(dx: 1, dy: 1),
-            cornerWidth: 10, cornerHeight: 10, transform: nil)
+            roundedRect: panelView.bounds.insetBy(dx: 4, dy: 4),
+            cornerWidth: 8, cornerHeight: 8, transform: nil)
         glow.fillColor = nil
         glow.strokeColor = amber
-        glow.lineWidth = 2.5
+        glow.lineWidth = 6
         glow.shadowColor = amber
         glow.shadowOpacity = 0.9
         glow.shadowRadius = 10

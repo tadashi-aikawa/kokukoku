@@ -14,6 +14,9 @@ final class PanelView: NSView {
 
     private var hoveredId: String?
     private var hoverTrackingArea: NSTrackingArea?
+    private var isDragging = false
+    private var dragStartScreenLocation: NSPoint = .zero
+    private var dragStartWindowOrigin: NSPoint = .zero
 
     override var isFlipped: Bool { true }
 
@@ -170,9 +173,46 @@ final class PanelView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if let id = trackedElementId(at: location(of: event)) {
+        let loc = location(of: event)
+        if let id = trackedElementId(at: loc) {
             onMouseDown?(id)
+            return
         }
+        if loc.y < PanelLayout.clockSectionHeight {
+            isDragging = true
+            dragStartScreenLocation = NSEvent.mouseLocation
+            dragStartWindowOrigin = window?.frame.origin ?? .zero
+        }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isDragging, let window else { return }
+        let current = NSEvent.mouseLocation
+        let dx = current.x - dragStartScreenLocation.x
+        let dy = current.y - dragStartScreenLocation.y
+        let newOrigin = NSPoint(
+            x: dragStartWindowOrigin.x + dx,
+            y: dragStartWindowOrigin.y + dy)
+        // 単一スクリーン矩形へのクランプは、ディスプレイ境界でクランプ先が切り替わった
+        // 瞬間に座標が跳ねてカクつく。クランプ計算はやめて「移動先でもヘッダー(ドラッグの
+        // 取っ手)がどこかの画面に掴み直せるだけ見えているか」の可否判定に置き換え、
+        // 見えなくなる移動だけ無視する(境界をまたぐ中間位置にも置け、死角にも置き去らない)
+        let size = window.frame.size
+        let headerRect = NSRect(
+            x: newOrigin.x,
+            y: newOrigin.y + size.height - PanelLayout.clockSectionHeight,
+            width: size.width,
+            height: PanelLayout.clockSectionHeight)
+        let grabbable = NSScreen.screens.contains { screen in
+            let visible = screen.visibleFrame.intersection(headerRect)
+            return visible.width >= 40 && visible.height >= 20
+        }
+        guard grabbable else { return }
+        window.setFrameOrigin(newOrigin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        isDragging = false
     }
 
     override func mouseMoved(with event: NSEvent) {

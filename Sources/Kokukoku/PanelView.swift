@@ -19,6 +19,7 @@ final class PanelView: NSView {
     private var dragStartWindowOrigin: NSPoint = .zero
 
     override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()

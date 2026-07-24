@@ -64,7 +64,7 @@ public enum PanelKeyInterpreter {
         // Command/Option等とのOS標準ショートカットを妨げない
         if hasModifiers, (123...126).contains(keyCode) { return .passthrough }
         if hasModifiers, characters != nil { return .passthrough }
-        if keyCode == 53 {
+        if keyCode == 53 || characters == "q" {
             // Pin中はホットキーと同じく閉じ抑止: popover表示中ならpopoverだけ閉じ、
             // popoverなしなら何もしない
             if context.isPinned {

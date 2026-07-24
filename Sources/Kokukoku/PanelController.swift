@@ -170,7 +170,9 @@ final class PanelController {
         { [weak self] event in
             guard let self else { return event }
             if event.type == .keyDown {
-                if self.eventPopover != nil, event.keyCode == 53 {  // ESC
+                if self.eventPopover != nil,
+                    event.keyCode == 53 || event.charactersIgnoringModifiers == "q"
+                {  // ESC or q
                     // Pin中はホットキーと同じく閉じ抑止: popoverだけ閉じてパネルは維持する
                     if self.pinned {
                         self.dismissEventPopover()
@@ -817,7 +819,9 @@ final class PanelController {
             // close処理中の再入を避けるためhideは次のrunloopで実行する。
             // Pin中はホットキー・ESC単体と同じく閉じ抑止: パネルは閉じず、
             // popover単体のクローズ(return true)に任せる
-            let isEsc = event.type == .keyDown && event.keyCode == 53
+            let isEsc =
+                event.type == .keyDown
+                && (event.keyCode == 53 || event.charactersIgnoringModifiers == "q")
             let isOutsidePanelClick =
                 event.type == .leftMouseDown
                 && self.window.map { !$0.frame.contains(NSEvent.mouseLocation) } == true

@@ -75,6 +75,20 @@ struct PanelKeyInterpreterTests {
         #expect(action(nil, keyCode: 53) == .dismiss)
     }
 
+    @Test("qキーはESCと同じ挙動をする")
+    func qActsAsEsc() {
+        #expect(action("q") == .dismiss)
+
+        let pinPopover = PanelKeyContext(isEventPopoverVisible: true, isPinned: true)
+        #expect(action("q", context: pinPopover) == .dismissPopover)
+
+        let pinNoPopover = PanelKeyContext(isEventPopoverVisible: false, isPinned: true)
+        #expect(action("q", context: pinNoPopover) == .reserved)
+
+        let unpinPopover = PanelKeyContext(isEventPopoverVisible: true, isPinned: false)
+        #expect(action("q", context: unpinPopover) == .dismiss)
+    }
+
     @Test("修飾キー付き矢印はコンテキストにかかわらず消費しない")
     func modifiedArrowsPassThrough() {
         let context = PanelKeyContext(
@@ -92,7 +106,7 @@ struct PanelKeyInterpreterTests {
         let context = PanelKeyContext(
             isEventPopoverVisible: true, isCalendarEventSelected: true)
 
-        for characters in ["g", "G", "]", "h", "l", "j", "k", "0", "r", "o", "e", "E", "c", "3"] {
+        for characters in ["g", "G", "]", "h", "l", "j", "k", "q", "0", "r", "o", "e", "E", "c", "3"] {
             #expect(action(characters, hasModifiers: true, context: context) == .passthrough)
         }
     }

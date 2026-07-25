@@ -70,6 +70,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         public var gapRailMinutes: Int?
         public var upcomingCountdownMaxMinutes: Int?
         public var ongoingCountdownMaxMinutes: Int?
+        public var ignoreTitles: [String]?
 
         public init(
             name: String,
@@ -78,7 +79,8 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             maxVisibleEvents: Int? = nil,
             gapRailMinutes: Int? = nil,
             upcomingCountdownMaxMinutes: Int? = nil,
-            ongoingCountdownMaxMinutes: Int? = nil
+            ongoingCountdownMaxMinutes: Int? = nil,
+            ignoreTitles: [String]? = nil
         ) {
             self.name = name
             self.refreshIntervalMinutes = refreshIntervalMinutes
@@ -87,6 +89,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             self.gapRailMinutes = gapRailMinutes
             self.upcomingCountdownMaxMinutes = upcomingCountdownMaxMinutes
             self.ongoingCountdownMaxMinutes = ongoingCountdownMaxMinutes
+            self.ignoreTitles = ignoreTitles
         }
     }
 
@@ -189,6 +192,8 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
     /// 進行中予定の「終了まで◯◯」を表示する残り時間の上限(分)。
     /// 既定30: 終わりが迫って急ぐ判断が要るときだけ出す
     public var ongoingCountdownMaxMinutes: Int
+    /// 取得時に捨てる予定名(完全一致)。自分で作業時間を確保する目的の予定を無視するために使う
+    public var ignoreTitles: [String]
 
     public init(calendar: KokukokuConfig.Calendar) {
         self.name = calendar.name
@@ -198,6 +203,7 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
         self.gapRailMinutes = calendar.gapRailMinutes ?? 1
         self.upcomingCountdownMaxMinutes = calendar.upcomingCountdownMaxMinutes ?? 120
         self.ongoingCountdownMaxMinutes = calendar.ongoingCountdownMaxMinutes ?? 30
+        self.ignoreTitles = calendar.ignoreTitles ?? []
     }
 }
 
@@ -278,6 +284,12 @@ public enum ConfigLoader {
             if let max = calendar.ongoingCountdownMaxMinutes, max < 1 {
                 throw ConfigError.invalid(
                     description: "calendar.ongoingCountdownMaxMinutes must be >= 1")
+            }
+            for (index, title) in (calendar.ignoreTitles ?? []).enumerated() {
+                if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw ConfigError.invalid(
+                        description: "calendar.ignoreTitles[\(index)] must be a non-empty string")
+                }
             }
         }
     }

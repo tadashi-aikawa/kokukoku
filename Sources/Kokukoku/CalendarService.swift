@@ -143,18 +143,23 @@ final class CalendarService {
             let predicate = eventStore.predicateForEvents(
                 withStart: dayStart, end: dayEnd, calendars: [calendar])
             // predicate は範囲に重なる予定を返すため「今日中に開始する予定」に絞る(生スナップショットの定義)
-            let events = eventStore.events(matching: predicate)
+            let fetched = eventStore.events(matching: predicate)
                 .compactMap { CalendarEvent(source: $0) }
                 .filter { $0.start >= dayStart && $0.start < dayEnd }
+            // ignoreTitles に一致する予定は同期時点で捨てる。生スナップショットに載せないことで
+            // 一覧・通知だけでなく中止告知(消滅の再照会)からも外れる
+            let (events, ignored) = CalendarIgnoreRule.partition(
+                fetched, ignoreTitles: config.ignoreTitles)
             let diff = snapshot.applySuccess(events: events, at: now)
             reportRemovals(diff.removedCandidates)
             if !diff.isEmpty || debugDump {
+                let ignoredNote = ignored.isEmpty ? "" : " 除外\(ignored.count)件"
                 log(
-                    "\(reason): 全\(events.count)件 (+\(diff.added.count) ~\(diff.changed.count) -\(diff.removedCandidates.count))"
+                    "\(reason): 全\(events.count)件 (+\(diff.added.count) ~\(diff.changed.count) -\(diff.removedCandidates.count))\(ignoredNote)"
                 )
             }
             if debugDump {
-                dumpSnapshot(now: now)
+                dumpSnapshot(now: now, ignored: ignored)
             }
             // 通知判定の一般規則: すべてのスナップショット更新時に評価する
             // (同期遅延で通知時刻経過後に取得された予定・寝ていた間の取りこぼし防止)
@@ -244,16 +249,25 @@ final class CalendarService {
         }
     }
 
-    /// 生スナップショット全件を出力し、表示フィルタを通る予定に * を付ける
-    private func dumpSnapshot(now: Date) {
+    /// 生スナップショット全件に取得時除外分を混ぜて時系列で出力する。
+    /// 表示フィルタを通る予定に *、ignoreTitles で捨てた予定に x を付ける
+    private func dumpSnapshot(now: Date, ignored: [CalendarEvent]) {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         let visibleKeys = Set(snapshot.visibleEvents(now: now).map(\.key))
-        for event in snapshot.rawEvents ?? [] {
+        let ignoredKeys = Set(ignored.map(\.key))
+        let all = CalendarSnapshotStore.stableSorted((snapshot.rawEvents ?? []) + ignored)
+        for event in all {
+            let mark: String
+            if ignoredKeys.contains(event.key) {
+                mark = "x"
+            } else {
+                mark = visibleKeys.contains(event.key) ? "*" : " "
+            }
             let place = event.meetURL.map { "meet: \($0.absoluteString)" }
                 ?? event.location ?? "-"
             log(
-                "  \(visibleKeys.contains(event.key) ? "*" : " ")"
+                "  \(mark)"
                     + " \(formatter.string(from: event.start))-\(formatter.string(from: event.end))"
                     + " \(event.title) [\(place)] \(event.myStatus)")
         }

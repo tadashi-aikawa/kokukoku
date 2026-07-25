@@ -367,6 +367,23 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.gapRailMinutes == 1)
         #expect(resolved.upcomingCountdownMaxMinutes == 120)
         #expect(resolved.ongoingCountdownMaxMinutes == 30)
+        #expect(resolved.ignoreTitles == [])
+    }
+
+    @Test("calendarの除外する予定名を読み込める(空文字はinvalidエラー)")
+    func parseCalendarIgnoreTitles() throws {
+        let config = try ConfigLoader.parse(
+            toml: "[calendar]\nname = \"一般\"\nignoreTitles = [\"確保\", \"出社業務\"]")
+        let resolved = ResolvedCalendarConfig(calendar: config.calendar!)
+
+        #expect(resolved.ignoreTitles == ["確保", "出社業務"])
+        #expect(
+            throws: ConfigError.invalid(
+                description: "calendar.ignoreTitles[1] must be a non-empty string")
+        ) {
+            try ConfigLoader.parse(
+                toml: "[calendar]\nname = \"一般\"\nignoreTitles = [\"確保\", \" \"]")
+        }
     }
 
     @Test("calendarのレール閾値が1未満ならinvalidエラーになる")

@@ -29,6 +29,59 @@ private func makeEvent(
         myStatus: myStatus)
 }
 
+@Suite("CalendarIgnoreRule")
+struct CalendarIgnoreRuleTests {
+    @Test("予定名が完全一致したら除外する")
+    func ignoresExactMatch() {
+        #expect(CalendarIgnoreRule.isIgnored(title: "確保", ignoreTitles: ["確保", "出社業務"]))
+        #expect(CalendarIgnoreRule.isIgnored(title: "出社業務", ignoreTitles: ["確保", "出社業務"]))
+    }
+
+    @Test("部分一致では除外しない")
+    func keepsPartialMatch() {
+        #expect(!CalendarIgnoreRule.isIgnored(title: "確保: 資料作成", ignoreTitles: ["確保"]))
+        #expect(!CalendarIgnoreRule.isIgnored(title: "席の確保について", ignoreTitles: ["確保"]))
+        #expect(!CalendarIgnoreRule.isIgnored(title: "保", ignoreTitles: ["確保"]))
+    }
+
+    @Test("前後の空白は無視して比較する")
+    func ignoresSurroundingWhitespace() {
+        #expect(CalendarIgnoreRule.isIgnored(title: " 確保 ", ignoreTitles: ["確保"]))
+        #expect(CalendarIgnoreRule.isIgnored(title: "確保", ignoreTitles: [" 確保"]))
+    }
+
+    @Test("設定が空なら何も除外しない")
+    func keepsAllWhenUnset() {
+        #expect(!CalendarIgnoreRule.isIgnored(title: "確保", ignoreTitles: []))
+        #expect(!CalendarIgnoreRule.isIgnored(title: "", ignoreTitles: []))
+    }
+
+    @Test("採用分と除外分に順序を保って分割する")
+    func partitionsKeepingOrder() {
+        let events = [
+            makeEvent(id: "a", title: "朝会", start: at(hour: 10), end: at(hour: 11)),
+            makeEvent(id: "b", title: "確保", start: at(hour: 11), end: at(hour: 12)),
+            makeEvent(id: "c", title: "MTG", start: at(hour: 12), end: at(hour: 13)),
+            makeEvent(id: "d", title: "出社業務", start: at(hour: 13), end: at(hour: 14)),
+        ]
+
+        let result = CalendarIgnoreRule.partition(events, ignoreTitles: ["確保", "出社業務"])
+
+        #expect(result.kept.map(\.key.externalIdentifier) == ["a", "c"])
+        #expect(result.ignored.map(\.key.externalIdentifier) == ["b", "d"])
+    }
+
+    @Test("設定が空なら全件を採用分として返す")
+    func partitionKeepsAllWhenUnset() {
+        let events = [makeEvent(id: "a", title: "確保", start: at(hour: 10), end: at(hour: 11))]
+
+        let result = CalendarIgnoreRule.partition(events, ignoreTitles: [])
+
+        #expect(result.kept.map(\.key.externalIdentifier) == ["a"])
+        #expect(result.ignored.isEmpty)
+    }
+}
+
 @Suite("CalendarDisplayFilter")
 struct CalendarDisplayFilterTests {
     let now = at(hour: 12)

@@ -95,6 +95,38 @@ public struct CalendarSnapshotStore: Equatable, Sendable {
     }
 }
 
+/// 取得時除外(docs/calendar-integration.md「取得時除外」)。
+/// 表示フィルタと違い、除外された予定は生スナップショットにも載らない = 差分検知の対象外になり、
+/// 一覧・通知だけでなく中止告知からも自動的に外れる
+public enum CalendarIgnoreRule {
+    /// 予定名が `ignoreTitles` のいずれかと一致するか。前後の空白を無視した完全一致で判定する
+    public static func isIgnored(title: String, ignoreTitles: [String]) -> Bool {
+        guard !ignoreTitles.isEmpty else { return false }
+        let normalized = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ignoreTitles.contains {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines) == normalized
+        }
+    }
+
+    /// 取得結果を「生スナップショットへ載せる予定」と「除外した予定」に分ける(順序は保つ)。
+    /// 除外分は `--calendar-debug` のダンプにのみ使う
+    public static func partition(_ events: [CalendarEvent], ignoreTitles: [String])
+        -> (kept: [CalendarEvent], ignored: [CalendarEvent])
+    {
+        guard !ignoreTitles.isEmpty else { return (events, []) }
+        var kept: [CalendarEvent] = []
+        var ignored: [CalendarEvent] = []
+        for event in events {
+            if isIgnored(title: event.title, ignoreTitles: ignoreTitles) {
+                ignored.append(event)
+            } else {
+                kept.append(event)
+            }
+        }
+        return (kept, ignored)
+    }
+}
+
 /// 表示フィルタ(docs/calendar-integration.md「表示フィルタ」)
 public enum CalendarDisplayFilter {
     /// 1. 終日予定は除外

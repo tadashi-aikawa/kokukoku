@@ -10,6 +10,10 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
     /// falseを返すとpopover自身のアニメーション付きクローズを止められる
     /// (呼び出し側がパネルごと即時に閉じる場合に使う)。プログラムからの close() では呼ばれない
     var onUserCloseRequest: (() -> Bool)?
+    /// アクションボタン(カレンダー・Meetを開く)の押下直後に呼ばれ、
+    /// falseを返すとpopover自身のクローズを止められる
+    /// (呼び出し側がパネルごと閉じる場合に使う)。未設定ならpopoverだけ閉じる
+    var onActionPerformed: (() -> Bool)?
     /// 表示中の予定を再描画後も追跡するための安定ID
     let eventKey: CalendarEvent.EventKey
     /// 表示中の予定の現在の表示インデックス
@@ -21,7 +25,10 @@ final class EventDetailPopover: NSPopover, NSPopoverDelegate {
         super.init()
         let vc = EventDetailViewController(
             eventRow: eventRow, maximumContentHeight: maximumContentHeight)
-        vc.onAction = { [weak self] in self?.close() }
+        vc.onAction = { [weak self] in
+            guard let self else { return }
+            if self.onActionPerformed?() ?? true { self.close() }
+        }
         contentViewController = vc
         contentSize = vc.preferredContentSize
         behavior = .transient
@@ -300,17 +307,20 @@ private final class EventDetailViewController: NSViewController {
     }
 
     @objc private func openMeet() {
-        if let url = eventRow.meetURL {
-            NSWorkspace.shared.open(url)
-            onAction?()
-        }
+        if let url = eventRow.meetURL { openExternally(url) }
     }
 
     @objc private func openCalendar() {
-        if let url = eventRow.detailURL {
-            NSWorkspace.shared.open(url)
-            onAction?()
-        }
+        if let url = eventRow.detailURL { openExternally(url) }
+    }
+
+    /// 閉じ処理を先に通知してから外部アプリを開く。開いてから通知すると、
+    /// アプリ切替に伴ってtransientなpopoverが先に閉じた場合に通知先が
+    /// 解放されており、パネルが閉じ残る。URLは先に取り出しておくため、
+    /// 通知の中で自身が解放されても以降でselfには触れない
+    private func openExternally(_ url: URL) {
+        onAction?()
+        NSWorkspace.shared.open(url)
     }
 
     private func attendeeText(_ attendee: CalendarEvent.Attendee) -> String {

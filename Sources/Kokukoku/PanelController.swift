@@ -1110,6 +1110,16 @@ final class PanelController {
         popover.onDismiss = { [weak self] in
             self?.eventPopover = nil
         }
+        popover.onActionPerformed = { [weak self] in
+            guard let self else { return true }
+            // カレンダー・Meetを開いたら他アプリへ移る意思表示とみなし、パネルごと畳む
+            // (パネルは.floatingで開いた先に被り続けるうえ、外クリックするまで閉じない)。
+            // Pin中は「出したままにする」意思表示なのでpopoverだけ閉じる。
+            // close処理中の再入を避けるためhideは次のrunloopで実行する
+            guard !self.pinned else { return true }
+            DispatchQueue.main.async { self.hide() }
+            return false
+        }
         popover.onUserCloseRequest = { [weak self] in
             guard let self, let event = NSApp.currentEvent else { return true }
             // ESC・パネル外クリック起因の閉じ要求は、popover単体のフェードを走らせず

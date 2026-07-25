@@ -16,39 +16,43 @@ struct PanelElementsBuilderTests {
     func representativeLayout() {
         let elements = builder().build(inputs())
 
-        #expect(elements.count == 29)
+        #expect(elements.count == 24)
         #expect(elements[0] == .rectangle(
             frame: .init(x: 0, y: 0, w: 480, h: 164),
             fillColor: PanelLayout.Colors.background, cornerRadius: 10))
         #expect(elements[1] == .rectangle(
             frame: .init(x: 0, y: 0, w: 480, h: 84),
             fillColor: PanelLayout.Colors.headerBg, cornerRadius: 10))
-        #expect(elements[3] == .circle(
-            center: metrics.clockCenter, radius: 28,
-            fillColor: PanelLayout.Colors.rowBg,
-            strokeColor: PanelLayout.Colors.separator, strokeWidth: 1))
-        #expect(elements[14] == .rectangle(
+        // 文字盤は時刻に依らないSVG。針(elements[4])とは別レイヤーで持つ
+        guard case .svg(let dialFrame, _, let dialCacheKey) = elements[3] else {
+            Issue.record("文字盤がSVGで構築されていない")
+            return
+        }
+        #expect(dialFrame == .init(
+            x: metrics.clockCenter.x - 31, y: metrics.clockCenter.y - 31, w: 62, h: 62))
+        #expect(dialCacheKey == "clock-dial")
+        #expect(elements[9] == .rectangle(
             frame: .init(x: 0, y: 84, w: 480, h: 40),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
-        #expect(elements[15] == .text(
+        #expect(elements[10] == .text(
             frame: .init(x: 24, y: 94, w: 14, h: 21), text: "1",
             fontName: "Menlo", fontSize: 13, color: PanelLayout.Colors.subText))
-        #expect(elements[17] == .text(
+        #expect(elements[12] == .text(
             frame: .init(x: 74, y: 92, w: 270, h: 24), text: "Work",
             fontName: ".AppleSystemUIFont", fontSize: 16, color: PanelLayout.Colors.text))
-        #expect(elements[19] == .rectangle(
+        #expect(elements[14] == .rectangle(
             frame: .init(x: 0, y: 124, w: 480, h: 1),
             fillColor: PanelLayout.Colors.separator))
         // 閾値未設定のデフォルトでは蝋燭は立たず、フッターにはリセットだけが残る
-        #expect(elements[22] == .rectangle(
+        #expect(elements[17] == .rectangle(
             frame: .init(x: 372, y: 131, w: 96, h: 26),
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
-        #expect(elements[24] == .rectangle(
+        #expect(elements[19] == .rectangle(
             frame: .init(x: 452, y: 6, w: 22, h: 22),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 5,
             id: "btn_pin", tracksMouse: true))
-        #expect(elements[28] == .rectangle(
+        #expect(elements[23] == .rectangle(
             frame: .init(x: 0.5, y: 0.5, w: 479, h: 163),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 10,
             strokeColor: PanelLayout.Colors.panelBorder, strokeWidth: 1))
@@ -60,10 +64,10 @@ struct PanelElementsBuilderTests {
         let onElements = builder().build(inputs(pinned: true))
 
         // 頭のクロスバー(width 3の線)で姿勢と色を判定する
-        #expect(offElements[25] == .line(
+        #expect(offElements[20] == .line(
             from: .init(x: 464, y: 11), to: .init(x: 469, y: 16),
             color: PanelLayout.Colors.subText, width: 3))
-        #expect(onElements[25] == .line(
+        #expect(onElements[20] == .line(
             from: .init(x: 459.5, y: 12.5), to: .init(x: 466.5, y: 12.5),
             color: PanelLayout.Colors.text, width: 3))
     }
@@ -75,7 +79,7 @@ struct PanelElementsBuilderTests {
             return .none
         }).build(inputs())
 
-        #expect(elements[16] == .text(
+        #expect(elements[11] == .text(
             frame: .init(x: 42, y: 92, w: 24, h: 25), text: "🔵",
             fontName: ".AppleSystemUIFont", fontSize: 17,
             color: PanelLayout.Colors.text, alignment: .center))
@@ -86,7 +90,7 @@ struct PanelElementsBuilderTests {
         let elements = builder(resolveIcon: { icon in .image(key: "cached:\(icon)") })
             .build(inputs(project: .init(id: "work", name: "Work", icon: "/tmp/work.png")))
 
-        #expect(elements[16] == .image(
+        #expect(elements[11] == .image(
             frame: .init(x: 42, y: 92, w: 24, h: 24),
             iconKey: "cached:/tmp/work.png", scaling: .scaleProportionally,
             cornerRadius: 12))
@@ -122,14 +126,14 @@ struct PanelElementsBuilderTests {
         let hoveredReset = builder().build(inputs(hoveredId: "btn_reset"))
         let confirming = builder().build(inputs(resetConfirming: true))
 
-        #expect(hovered[14] == .rectangle(
+        #expect(hovered[9] == .rectangle(
             frame: .init(x: 0, y: 84, w: 480, h: 40),
             fillColor: PanelLayout.Colors.rowHoverBg, id: "row_work", tracksMouse: true))
-        #expect(hoveredReset[22] == .rectangle(
+        #expect(hoveredReset[17] == .rectangle(
             frame: .init(x: 372, y: 131, w: 96, h: 26),
             fillColor: PanelLayout.Colors.footerHoverBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
-        #expect(confirming[22] == .rectangle(
+        #expect(confirming[17] == .rectangle(
             frame: .init(x: 372, y: 131, w: 96, h: 26),
             fillColor: PanelLayout.Colors.resetConfirmBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
@@ -140,7 +144,7 @@ struct PanelElementsBuilderTests {
     func selectionOutline() {
         let selected = builder().build(inputs(selectedTarget: .project(index: 1)))
 
-        #expect(selected[14] == .rectangle(
+        #expect(selected[9] == .rectangle(
             frame: .init(x: 0, y: 84, w: 480, h: 40),
             fillColor: PanelLayout.Colors.rowBg, id: "row_work", tracksMouse: true))
         #expect(selected.last == .rectangle(
@@ -220,10 +224,10 @@ struct PanelElementsBuilderTests {
             glowRadius: 7))
         #expect(!containsText("▶ 計測中", in: active))
         // 行背景と文字はアクティブ配色になる
-        #expect(active[14] == .rectangle(
+        #expect(active[9] == .rectangle(
             frame: .init(x: 0, y: 84, w: 480, h: 40),
             fillColor: PanelLayout.Colors.activeRowBg, id: "row_work", tracksMouse: true))
-        #expect(active[17] == .text(
+        #expect(active[12] == .text(
             frame: .init(x: 74, y: 92, w: 270, h: 24), text: "Work",
             fontName: ".AppleSystemUIFont", fontSize: 16,
             color: PanelLayout.Colors.activeText))
@@ -281,7 +285,7 @@ struct PanelElementsBuilderTests {
             state: .init(continuousElapsedBase: 0, continuousStartedAt: 1_000),
             alertThresholds: [3_600]))
 
-        #expect(!none.contains { if case .svg = $0 { return true } else { return false } })
+        #expect(!containsCandle(in: none))
         // 経過1800秒 = 最大閾値3600の半分 → 残量0.5の蝋燭がフッター中央に立つ
         let expected = metrics.candleFrame(projectCount: 1)
         #expect(elements.contains { element in
@@ -297,7 +301,7 @@ struct PanelElementsBuilderTests {
             editingTarget: .continuous,
             alertThresholds: [3_600]))
 
-        #expect(!elements.contains { if case .svg = $0 { return true } else { return false } })
+        #expect(!containsCandle(in: elements))
     }
 
     @Test("休憩中は連続稼働が止まるため、蝋燭は満丈のまま消灯する")
@@ -355,55 +359,46 @@ struct PanelElementsBuilderTests {
     func digitalClock() {
         let elements = builder(localTime: .init(hour: 9, minute: 5, second: 7)).build(inputs())
 
-        #expect(elements[12] == .text(
+        #expect(elements[7] == .text(
             frame: metrics.clockDigitalFrame, text: "09:05:07",
             fontName: "Menlo", fontSize: PanelLayout.clockDigitalFontSize,
             color: PanelLayout.Colors.text))
     }
 
-    @Test("アナログ針の先端を時刻の一周比から計算する")
-    func clockHandGeometry() {
-        let center = PanelPoint(x: 100, y: 100)
-
-        // 12時=真上・3時=右・6時=真下・9時=左(isFlippedのy下向き座標)
-        expectNear(
-            PanelElementsBuilder.clockHandPoint(center: center, length: 10, fraction: 0),
-            .init(x: 100, y: 90))
-        expectNear(
-            PanelElementsBuilder.clockHandPoint(center: center, length: 10, fraction: 0.25),
-            .init(x: 110, y: 100))
-        expectNear(
-            PanelElementsBuilder.clockHandPoint(center: center, length: 10, fraction: 0.5),
-            .init(x: 100, y: 110))
-        expectNear(
-            PanelElementsBuilder.clockHandPoint(center: center, length: 10, fraction: 0.75),
-            .init(x: 90, y: 100))
-    }
-
-    @Test("針は時針=時+分・分針=分+秒・秒針=秒の一周比で回る")
-    func clockHands() {
-        let center = metrics.clockCenter
+    @Test("針の絵は分ごとにしか変わらないため、秒が進んでもキャッシュが効き続ける")
+    func clockHandsCacheKey() {
         let elements = builder(localTime: .init(hour: 9, minute: 30, second: 45)).build(inputs())
+        let later = builder(localTime: .init(hour: 9, minute: 30, second: 46)).build(inputs())
 
-        guard case .line(let hourFrom, let hourTo, _, _) = elements[8],
-            case .line(_, let minuteTo, _, _) = elements[9],
-            case .line(_, let secondTo, let secondColor, _) = elements[10]
+        guard case .svg(_, let handsSVG, let handsKey) = elements[4],
+            case .svg(_, let laterSVG, let laterKey) = later[4]
         else {
-            Issue.record("針のline要素が想定位置にない")
+            Issue.record("針がSVGで構築されていない")
             return
         }
-        #expect(hourFrom == center)
-        // 9時30分: 時針は9時と10時の中間 = 一周比 (9 + 0.5) / 12
-        expectNear(
-            hourTo,
-            PanelElementsBuilder.clockHandPoint(center: center, length: 14, fraction: 9.5 / 12))
-        expectNear(
-            minuteTo,
-            PanelElementsBuilder.clockHandPoint(center: center, length: 20, fraction: 30.75 / 60))
-        expectNear(
-            secondTo,
-            PanelElementsBuilder.clockHandPoint(center: center, length: 23, fraction: 45 / 60))
-        #expect(secondColor == PanelLayout.Colors.clockSecondHand)
+        #expect(handsKey == "clock-hands:9:30")
+        #expect(laterKey == handsKey)
+        #expect(laterSVG == handsSVG)
+    }
+
+    @Test("秒は針ではなく朱の日輪が刻む。にじみを敷いた二層で盤の上を巡る")
+    func clockSun() {
+        let center = metrics.clockCenter
+        // 45秒 = 一周比 0.75 = 9時方向(isFlippedのy下向き座標では左)
+        let elements = builder(localTime: .init(hour: 9, minute: 30, second: 45)).build(inputs())
+        let expected = PanelPoint(x: center.x - 28 * 0.62, y: center.y)
+
+        guard case .circle(let haloCenter, let haloRadius, let haloColor, _, _) = elements[5],
+            case .circle(let sunCenter, let sunRadius, let sunColor, _, _) = elements[6]
+        else {
+            Issue.record("日輪のcircle要素が想定位置にない")
+            return
+        }
+        expectNear(haloCenter, expected)
+        expectNear(sunCenter, expected)
+        #expect(haloRadius > sunRadius)
+        #expect(haloColor == PanelLayout.Colors.clockSunHalo)
+        #expect(sunColor == PanelLayout.Colors.clockSecondHand)
     }
 
     @Test("予定セクションはヘッダー直下に入り、行エリアとフッターが下へずれる")
@@ -648,12 +643,20 @@ struct PanelElementsBuilderTests {
             pinned: pinned)
     }
 
-    /// 蝋燭要素のキャッシュキー(残量・点灯状態がそのまま読める)。無ければnil
+    /// 蝋燭要素のキャッシュキー(残量・点灯状態がそのまま読める)。無ければnil。
+    /// ヘッダー時計も同じSVG要素で描かれるため、キーの接頭辞で選り分ける
     private func candleCacheKey(in elements: [PanelElement]) -> String? {
         for element in elements {
-            if case .svg(_, _, let cacheKey) = element { return cacheKey }
+            if case .svg(_, _, let cacheKey) = element, cacheKey.hasPrefix("candle:") {
+                return cacheKey
+            }
         }
         return nil
+    }
+
+    /// 蝋燭が立っているか。時計のSVGを蝋燭と取り違えないよう接頭辞で判定する
+    private func containsCandle(in elements: [PanelElement]) -> Bool {
+        candleCacheKey(in: elements) != nil
     }
 
     private func containsText(_ text: String, in elements: [PanelElement]) -> Bool {

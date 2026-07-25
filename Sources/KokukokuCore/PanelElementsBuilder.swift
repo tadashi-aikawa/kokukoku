@@ -725,42 +725,34 @@ public struct PanelElementsBuilder {
         elements.append(.line(from: needle.0, to: needle.1, color: color, width: 1))
     }
 
-    /// 現在時刻段(アナログ時計+デジタル秒表示)を構築する
+    /// 現在時刻段(ロゴの意匠のアナログ時計+デジタル秒表示)を構築する。
+    ///
+    /// 文字盤と針をSVGで分けて持つのは、分ごとにしか変わらない絵を
+    /// 毎秒動く日輪のために作り直さずに済ませるため(キャッシュキーの粒度が違う)
     private func appendClock(_ inputs: Inputs, to elements: inout [PanelElement]) {
         let layout = PanelLayout.self
         let colors = PanelLayout.Colors.self
         let center = metrics.clockCenter
-        let radius = layout.clockRadius
         let time = localTime()
+        let frame = PanelFrame(
+            x: center.x - ClockArt.canvas / 2, y: center.y - ClockArt.canvas / 2,
+            w: ClockArt.canvas, h: ClockArt.canvas)
 
+        elements.append(.svg(
+            frame: frame, svg: ClockArt.dialSVG(), cacheKey: "clock-dial"))
+        elements.append(.svg(
+            frame: frame,
+            svg: ClockArt.handsSVG(hour: time.hour, minute: time.minute),
+            cacheKey: ClockArt.handsCacheKey(hour: time.hour, minute: time.minute)))
+
+        // 秒は三本目の針ではなく、盤の上を巡る朱の日輪が刻む
+        // (ロゴが二針であり、針を足すと意匠が崩れるため)
+        let sun = ClockArt.sunOffset(second: time.second)
+        let sunCenter = PanelPoint(x: center.x + sun.x, y: center.y + sun.y)
         elements.append(.circle(
-            center: center, radius: radius,
-            fillColor: colors.rowBg, strokeColor: colors.separator, strokeWidth: 1))
-
-        // 12・3・6・9時の目盛
-        for fraction in [0.0, 0.25, 0.5, 0.75] {
-            elements.append(.line(
-                from: Self.clockHandPoint(center: center, length: radius - 5, fraction: fraction),
-                to: Self.clockHandPoint(center: center, length: radius - 1, fraction: fraction),
-                color: colors.subText, width: 1))
-        }
-
-        let hourFraction = (Double(time.hour % 12) + Double(time.minute) / 60) / 12
-        let minuteFraction = (Double(time.minute) + Double(time.second) / 60) / 60
-        let secondFraction = Double(time.second) / 60
-        elements.append(.line(
-            from: center,
-            to: Self.clockHandPoint(center: center, length: radius - 14, fraction: hourFraction),
-            color: colors.text, width: 3))
-        elements.append(.line(
-            from: center,
-            to: Self.clockHandPoint(center: center, length: radius - 8, fraction: minuteFraction),
-            color: colors.text, width: 2))
-        elements.append(.line(
-            from: center,
-            to: Self.clockHandPoint(center: center, length: radius - 5, fraction: secondFraction),
-            color: colors.clockSecondHand, width: 1))
-        elements.append(.circle(center: center, radius: 2.5, fillColor: colors.text))
+            center: sunCenter, radius: ClockArt.sunHaloRadius, fillColor: colors.clockSunHalo))
+        elements.append(.circle(
+            center: sunCenter, radius: ClockArt.sunRadius, fillColor: colors.clockSecondHand))
 
         elements.append(.text(
             frame: metrics.clockDigitalFrame,
@@ -770,16 +762,6 @@ public struct PanelElementsBuilder {
             color: colors.text))
     }
 
-
-    /// 文字盤中心から針の先端座標を求める。fractionは12時起点で時計回りの一周比(0.0〜1.0)
-    static func clockHandPoint(center: PanelPoint, length: Double, fraction: Double)
-        -> PanelPoint
-    {
-        let angle = fraction * 2 * Double.pi - Double.pi / 2
-        return PanelPoint(
-            x: center.x + length * cos(angle),
-            y: center.y + length * sin(angle))
-    }
 
     private func appendIcon(
         _ icon: String,

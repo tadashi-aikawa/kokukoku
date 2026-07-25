@@ -136,7 +136,10 @@ final class PanelView: NSView {
     private func svgImage(_ svg: String, cacheKey: String) -> NSImage? {
         if let cached = svgCache[cacheKey] { return cached }
         guard let image = NSImage(data: Data(svg.utf8)) else { return nil }
-        // 蝋燭は残量ぶんしか種類が無いが、設定変更等で際限なく溜まらないよう上限を設ける
+        // 際限なく溜まらないよう上限を設ける。時計の針は毎分キーが増えるため
+        // (12時間で720通り)数時間に一度ここで全消しになるが、
+        // キャッシュが狙うのは「同じ分の間に来る毎秒の再描画」であり、
+        // 消えた側は一枚0.6ms程度で焼き直せるので凝った追い出しは要らない
         if svgCache.count > 256 { svgCache.removeAll() }
         svgCache[cacheKey] = image
         return image

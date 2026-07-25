@@ -346,6 +346,14 @@ public enum PanelLayout {
         public static let panelBorderFocused = PanelColor(red: 0.67, green: 0.54, blue: 0.33, alpha: 0.55)
         public static let clockSecondHand = PanelColor(
             red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
+        /// ヘッダーの時計をロゴの意匠で描くための色(アプリロゴから実測)。
+        /// 和紙 #F7E9D1・墨 #32322E で、どちらもパレットの既存色と血が繋がっている
+        /// (生成りの text がほぼ和紙、日輪の朱は clockSecondHand をそのまま使う)
+        public static let clockWashi = PanelColor(red: 0.969, green: 0.914, blue: 0.820, alpha: 1)
+        public static let clockSumi = PanelColor(red: 0.196, green: 0.196, blue: 0.180, alpha: 1)
+        /// 秒を刻む日輪のにじみ。朱は面で使わず点で置くパレットの掟に従い、光の気配だけを広げる
+        public static let clockSunHalo = PanelColor(
+            red: 0.855, green: 0.349, blue: 0.196, alpha: 0.22)
         /// カウントダウン直前 (imminent) 用の明るい朱。
         /// 秒針の朱は暗背景上で activeText (橙) より輝度が低く、テキストに使うと
         /// 緊急度と目立ち度が逆転するため、色相は朱のまま輝度を橙と同格以上に上げた版

@@ -128,6 +128,157 @@ struct CandleArtTests {
         #expect(box!.y < frame.y + frame.h / 2)
     }
 
+    @Test("煙は蝋燭の枠を越えて上へ突き抜ける(枠内では小さすぎて気づけない)")
+    func smokeOutgrowsCandleFrame() {
+        let frame = PanelFrame(x: 100, y: 200, w: 38, h: 38)
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+        let box = try? #require(CandleArt.smokeBox(burntOut, in: frame))
+
+        // 蝋燭の枠の2倍強の高さ。枠の縮尺に縛られていたのが地味さの正体だった
+        #expect(box!.h > frame.h * 2)
+        // 幅は細い一筋の儚さを残すため蝋燭より狭い
+        #expect(box!.w < frame.w)
+        // 根本は蝋だまり(枠の下寄り)、先は枠の上端より上
+        #expect(box!.y + box!.h > frame.y + frame.h * 0.7)
+        #expect(box!.y < frame.y)
+    }
+
+    @Test("煙の絵の余りは見える範囲の下に置き、上へ流す(逆だと流れた先で根本が空く)")
+    func smokeArtHasSpareBelow() {
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+        let frame = PanelFrame(x: 100, y: 200, w: 38, h: 38)
+        let box = try! #require(CandleArt.smokeBox(burntOut, in: frame))
+        let scroll = CandleArt.smokeScroll
+
+        // 上へ1周期ぶん動かしても下端が空かないだけの余りを持つ
+        #expect(
+            scroll.artHeight
+                == box.h + CandleArt.smokeScrollPeriod + CandleArt.smokeArtFootroom)
+        // 絵は枠の上端に揃える。余りが出るのは枠の**下**側
+        #expect(scroll.artTopOffset == 0)
+        let spareBelow = scroll.artTopOffset + scroll.artHeight - box.h
+        #expect(spareBelow > 0)
+        // 進む向きは上(負)。流す距離はくねり1周期そのもの:
+        // ここがずれるとループの継ぎ目で絵が飛ぶ
+        #expect(scroll.translation < 0)
+        #expect(abs(scroll.translation) == CandleArt.smokeScrollPeriod)
+        #expect(abs(scroll.translation) <= spareBelow)
+
+        // 絵の座標系は見える範囲ではなく絵の全長
+        let svg = try! #require(CandleArt.smokeSVG(burntOut))
+        #expect(svg.contains("viewBox=\"0 0 \(CandleArt.smokeWidth) \(scroll.artHeight)\""))
+    }
+
+    private struct TracedPath {
+        /// 曲線の通過点(各コマンドの終点)
+        var anchors: [(x: Double, y: Double)] = []
+        /// 通過点＋制御点。はみ出し判定に使う(ベジェは制御点に届かないので安全側)
+        var all: [(x: Double, y: Double)] = []
+    }
+
+    /// 相対コマンド(q)で書かれたパスを辿る。数値の最大値を見るだけでは
+    /// 縦横の区別も相対座標の累積もできず、はみ出しの防波堤にならないため
+    private func trace(in svg: String) -> [TracedPath] {
+        svg.components(separatedBy: "d=\"").dropFirst().compactMap { chunk in
+            guard let d = chunk.components(separatedBy: "\"").first else { return nil }
+            let numbers = d.split(whereSeparator: { " \n".contains($0) })
+                .compactMap {
+                    Double($0.trimmingCharacters(in: CharacterSet(charactersIn: "MqCLZz")))
+                }
+            guard numbers.count >= 2 else { return nil }
+            var path = TracedPath()
+            var x = numbers[0], y = numbers[1]
+            path.anchors.append((x, y))
+            path.all.append((x, y))
+            var i = 2
+            while i + 3 < numbers.count {
+                path.all.append((x + numbers[i], y + numbers[i + 1]))
+                x += numbers[i + 2]
+                y += numbers[i + 3]
+                path.anchors.append((x, y))
+                path.all.append((x, y))
+                i += 4
+            }
+            return path
+        }
+    }
+
+    private func pathBounds(in svg: String)
+        -> (minX: Double, maxX: Double, minY: Double, maxY: Double)?
+    {
+        let points = trace(in: svg).flatMap(\.all)
+        guard !points.isEmpty else { return nil }
+        return (
+            points.map(\.x).min()!, points.map(\.x).max()!,
+            points.map(\.y).min()!, points.map(\.y).max()!
+        )
+    }
+
+    @Test("くねりは1周期ごとに同じ位相へ戻る(ループの継ぎ目が合う条件)")
+    func smokeWiggleRepeatsPerPeriod() {
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+        let svg = try! #require(CandleArt.smokeSVG(burntOut))
+        let period = CandleArt.smokeScrollPeriod
+        let paths = trace(in: svg)
+        #expect(paths.count >= 2)  // 主筋と副筋
+
+        // 1周期ぶん上がった点では横位置が根本と一致していること。
+        // 太さや振れ幅を変えるときに周期を崩すと、ここで落ちる
+        for path in paths {
+            let start = try! #require(path.anchors.first)
+            for step in 1...2 {
+                let target = start.y - period * Double(step)
+                let point = path.anchors.first { abs($0.y - target) < 0.001 }
+                #expect(point != nil, "y=\(target) を通過していない")
+                #expect(abs((point?.x ?? .infinity) - start.x) < 0.001)
+            }
+        }
+    }
+
+    @Test("煙の描画は絵の枠の中に収まり、なお流し切った先まで根本を供給できる")
+    func smokeDrawingStaysInsideArt() {
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+        let frame = PanelFrame(x: 100, y: 200, w: 38, h: 38)
+        let box = try! #require(CandleArt.smokeBox(burntOut, in: frame))
+        let svg = try! #require(CandleArt.smokeSVG(burntOut))
+        let bounds = try! #require(pathBounds(in: svg))
+        // 線の太さとぼかしの裾(3σ)の分だけ内側に収まっていること
+        let margin = CandleArt.smokeArtFootroom
+
+        #expect(bounds.minX - margin >= 0)
+        #expect(bounds.maxX + margin <= CandleArt.smokeWidth)
+        // 上端は絵の外へ出てよい(マスクで消える)。下端は裾ごと絵に収まっていること
+        #expect(bounds.maxY + margin <= CandleArt.smokeArtHeight)
+        // かつ筋の根本は、1周期ぶん流し切ったときの枠の下端まで届いていること。
+        // 裾の余白を稼ぐために根本を内側へ寄せすぎると、ここで根本が空く
+        let scroll = CandleArt.smokeScroll
+        #expect(bounds.maxY >= box.h + abs(scroll.translation))
+    }
+
+    @Test("煙の濃淡は絵に焼かずマスクで作る(焼くと根本の濃さが流れて煙が絶える)")
+    func smokeShadingLivesInMask() {
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+        let svg = try! #require(CandleArt.smokeSVG(burntOut))
+
+        // 絵にグラデーションを持たせると、絵と一緒に濃淡が流れて
+        // 「先端から煙が出ていない瞬間」ができてしまう
+        #expect(!svg.contains("linearGradient"))
+
+        // 濃淡はマスク側の停止点が持つ。根本(0)から先端(1)へ向かって薄れる
+        let stops = CandleArt.smokeMaskStops
+        #expect(stops.first?.location == 0)
+        #expect(stops.last?.location == 1)
+        #expect(stops.map(\.location) == stops.map(\.location).sorted())
+        // 両端は透かす。下端を不透明にするとマスクの縁で煙が切れて断面が出る
+        #expect(stops.first?.opacity == 0)
+        #expect(stops.last?.opacity == 0)
+        // いちばん濃いのは根本寄り(先端へ向かって単調に薄れる)
+        let peak = try! #require(stops.max(by: { $0.opacity < $1.opacity }))
+        #expect(peak.location < 0.2)
+        let afterPeak = stops.filter { $0.location > peak.location }
+        #expect(afterPeak.map(\.opacity) == afterPeak.map(\.opacity).sorted(by: >))
+    }
+
     @Test("溶けたたれは燃えるほど増える")
     func dripsGrowWithBurn() {
         func dripCount(_ remain: Double) -> Int {
@@ -140,6 +291,21 @@ struct CandleArtTests {
         #expect(dripCount(0.5) < dripCount(0.2))
     }
 
+    /// SVG文字列から描画座標の数値だけを拾う。座標以外の数値を先に落とす:
+    /// svg開始タグ(名前空間URL・width・height・viewBoxの枠寸法そのもの)・
+    /// 色コード(#DA5932)・フィルタ領域の百分率(260%)が紛れ込むため
+    private func coordinates(in svg: String) -> [Double] {
+        svg
+            .replacingOccurrences(
+                of: "<svg[^>]*>", with: "", options: .regularExpression)
+            .replacingOccurrences(
+                of: "#[0-9A-Fa-f]{6}", with: "", options: .regularExpression)
+            .replacingOccurrences(
+                of: "-?[0-9.]+%", with: "", options: .regularExpression)
+            .components(separatedBy: CharacterSet(charactersIn: "0123456789.-").inverted)
+            .compactMap(Double.init)
+    }
+
     @Test("どの残量でも蝋燭の描画がキャンバスをはみ出さない")
     func bodyStaysWithinCanvas() {
         // 溶けたたれが丈より長くなると台を突き抜け、下端で不自然に切れる
@@ -147,24 +313,33 @@ struct CandleArtTests {
             let remain = Double(step) / 20
             for lit in [true, false] {
                 let svg = CandleArt.bodySVG(.init(remain: remain, lit: lit))
-                // 座標以外の数値を落としてから拾う: 名前空間URL(…/2000/svg)・
-                // 色コード(#DA5932)・フィルタ領域の百分率(260%)が紛れ込むため
-                let coordinatesOnly = svg
-                    .replacingOccurrences(
-                        of: "xmlns=\"[^\"]*\"", with: "", options: .regularExpression)
-                    .replacingOccurrences(
-                        of: "#[0-9A-Fa-f]{6}", with: "", options: .regularExpression)
-                    .replacingOccurrences(
-                        of: "-?[0-9.]+%", with: "", options: .regularExpression)
-                let numbers = coordinatesOnly
-                    .components(separatedBy: CharacterSet(charactersIn: "0123456789.-").inverted)
-                    .compactMap(Double.init)
-                let maxValue = numbers.max() ?? 0
+                let maxValue = coordinates(in: svg).max() ?? 0
                 #expect(
                     maxValue <= CandleArt.canvas,
                     "remain=\(remain) lit=\(lit) で \(maxValue) がキャンバス外へ出た")
             }
         }
+    }
+
+    @Test("煙の根本は蝋だまりへ沈めて、マスクの縁が切れて見えないようにする")
+    func smokeRootSinksIntoWaxPool() {
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+        let frame = PanelFrame(x: 100, y: 200, w: 38, h: 38)
+        let box = try! #require(CandleArt.smokeBox(burntOut, in: frame))
+
+        // 枠の下端(マスクが煙を切る縁)は、蝋だまりの位置より下に潜っている
+        let scale = min(frame.w, frame.h) / CandleArt.canvas
+        let waxPool = frame.y + (CandleArt.baseY - CandleArt.smokeRootInset) * scale
+        #expect(box.y + box.h > waxPool)
+        #expect(box.y + box.h - waxPool == CandleArt.smokeRootSink)
+
+        // 細い筋とぼかしが左右へはみ出さない(はみ出すと縦の縁で切れる)
+        let svg = try! #require(CandleArt.smokeSVG(burntOut))
+        #expect(svg.contains("stroke-width=\"\(CandleArt.smokeStrokeWidth)\""))
+        #expect(svg.contains("stdDeviation=\"\(CandleArt.smokeBlur)\""))
+        let margin = CandleArt.smokeStrokeWidth / 2 + CandleArt.smokeBlur * 3
+        // くねりの振れ幅(±4pt)と副筋のずれ(+2.5pt)を足した最も外側
+        #expect(CandleArt.smokeWidth / 2 - (4 + 2.5) > margin)
     }
 
     @Test("炎の枠は蝋の上端に乗り、蝋が短くなるほど下がる")

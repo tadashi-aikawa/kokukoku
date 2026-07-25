@@ -63,7 +63,9 @@ final class PanelController {
     /// 連続稼働の蝋燭のうち動く部分(動かすためだけに本体と分けたレイヤー)
     private var candleFlameLayer: CALayer?
     private var candleFlameKey: String?
+    /// 煙は枠(マスク付き)と、その中を上へ流れる絵の二段構え
     private var candleSmokeLayer: CALayer?
+    private var candleSmokeArtLayer: CALayer?
     private var candleSmokeKey: String?
     /// パネルがフォーカスを得る直前に前面だったアプリ(Pin中のESC/q・ホットキーで戻す先)。
     /// パネルは.nonactivatingPanelでアプリ自体をアクティブ化しないため、
@@ -373,9 +375,7 @@ final class PanelController {
         candleFlameLayer?.removeFromSuperlayer()
         candleFlameLayer = nil
         candleFlameKey = nil
-        candleSmokeLayer?.removeFromSuperlayer()
-        candleSmokeLayer = nil
-        candleSmokeKey = nil
+        discardSmokeLayer()
         window?.orderOut(nil)
         window?.alphaValue = 1
         window = nil
@@ -549,14 +549,101 @@ final class PanelController {
             anchorY: CandleArt.flameAnchorY,
             in: panelView,
             configure: addFlameAnimations)
-        syncCandleLayer(
-            &candleSmokeLayer, key: &candleSmokeKey,
+        syncSmokeLayer(
             svg: candle.flatMap(CandleArt.smokeSVG),
             box: candle.flatMap { CandleArt.smokeBox($0, in: candleFrame) },
             cacheKey: (candle?.cacheKey ?? "") + ":smoke",
-            anchorY: 1,
-            in: panelView,
-            configure: addSmokeAnimations)
+            in: panelView)
+    }
+
+    /// 燃え尽きた後の煙。周期パターンの絵を1周期ぶん上へ流し続けてループさせる。
+    ///
+    /// 「上ほど薄れる」濃淡は絵に焼かず、**マスクレイヤーに持たせて静止**させる。
+    /// 絵に焼くと濃淡ごと流れて根本の濃さが上下し、先端から煙が絶える瞬間ができるため
+    /// (実物の蝋燭は芯がくすぶる間は煙が絶えない)。
+    /// 絵は枠より下に1周期ぶん長く、流れた分を下から供給し続ける
+    private func syncSmokeLayer(
+        svg: String?, box: PanelFrame?, cacheKey: String, in panelView: PanelView
+    ) {
+        guard let svg, let box else {
+            discardSmokeLayer()
+            return
+        }
+
+        panelView.wantsLayer = true
+        guard let hostLayer = panelView.layer else { return }
+
+        // 閉じて開き直すとPanelViewごと作り直されるため、ホストが変わっていたら作り直す
+        let container: CALayer
+        let art: CALayer
+        if let existing = candleSmokeLayer, existing.superlayer === hostLayer,
+            let existingArt = candleSmokeArtLayer
+        {
+            container = existing
+            art = existingArt
+        } else {
+            discardSmokeLayer()
+            let created = CALayer()
+            created.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            let createdArt = CALayer()
+            createdArt.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            created.addSublayer(createdArt)
+            created.mask = smokeMaskLayer()
+            hostLayer.addSublayer(created)
+            candleSmokeLayer = created
+            candleSmokeArtLayer = createdArt
+            addSmokeAnimations(to: created, art: createdArt)
+            container = created
+            art = createdArt
+        }
+
+        let backingScale = window?.backingScaleFactor ?? 2
+        let scroll = CandleArt.smokeScroll
+        let artHeight = scroll.artHeight
+        let newKey = "\(cacheKey)|\(box.w)x\(box.h)@\(backingScale)"
+        // 位置とcontentsの差し替えで暗黙アニメーションが走ると、
+        // 1分ごとに絵がぬるりと移動して落ち着かないため切っておく
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        container.bounds = CGRect(x: 0, y: 0, width: box.w, height: box.h)
+        container.position = CGPoint(x: box.x + box.w / 2, y: box.y + box.h / 2)
+        container.mask?.bounds = container.bounds
+        container.mask?.position = CGPoint(x: box.w / 2, y: box.h / 2)
+        // 絵は枠の上端に揃えて置く。余りは枠の下(マスクの外)へはみ出させる
+        art.bounds = CGRect(x: 0, y: 0, width: box.w, height: artHeight)
+        art.position = CGPoint(x: box.w / 2, y: scroll.artTopOffset + artHeight / 2)
+        art.contentsScale = backingScale
+        if candleSmokeKey != newKey {
+            var proposed = CGRect(
+                x: 0, y: 0, width: box.w * backingScale * 2, height: artHeight * backingScale * 2)
+            let image = NSImage(data: Data(svg.utf8))
+            art.contents = image?.cgImage(forProposedRect: &proposed, context: nil, hints: nil)
+            art.contentsGravity = .resizeAspect
+            candleSmokeKey = newKey
+        }
+        CATransaction.commit()
+    }
+
+    /// 煙のレイヤーを捨てる。枠を外せばマスクも絵も一緒に消える
+    private func discardSmokeLayer() {
+        candleSmokeLayer?.removeFromSuperlayer()
+        candleSmokeLayer = nil
+        candleSmokeArtLayer = nil
+        candleSmokeKey = nil
+    }
+
+    /// 煙の濃淡を作るマスク。ホストレイヤーがisGeometryFlippedのため単位座標の
+    /// y=1側が視覚的な下端になる。根本(下端)から先端(上端)へ向けて薄れさせる
+    private func smokeMaskLayer() -> CAGradientLayer {
+        let mask = CAGradientLayer()
+        mask.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        mask.startPoint = CGPoint(x: 0.5, y: 1)
+        mask.endPoint = CGPoint(x: 0.5, y: 0)
+        mask.colors = CandleArt.smokeMaskStops.map {
+            NSColor(white: 1, alpha: $0.opacity).cgColor
+        }
+        mask.locations = CandleArt.smokeMaskStops.map { NSNumber(value: $0.location) }
+        return mask
     }
 
     /// SVGを載せたレイヤーを枠へ同期する。描くものが無ければ破棄する。
@@ -623,36 +710,33 @@ final class PanelController {
         CATransaction.commit()
     }
 
-    /// 燃え尽きた後の煙。根本から湧いて上へ立ち上り、薄れて消えるのを繰り返す。
-    /// 静止した煙だと超過に気づけないため、動きで「もう休め」を伝える(2026-07-25 タダシ要望)。
-    /// ゆっくり長い周期にして、慌ただしさではなく気だるさとして目に入るようにする
-    private func addSmokeAnimations(to layer: CALayer) {
-        let rise = CABasicAnimation(keyPath: "transform.translation.y")
-        rise.fromValue = 0
-        // ホストがisGeometryFlippedのため、視覚的な上方向は負
-        rise.toValue = -14
-        rise.duration = 4.2
-        rise.repeatCount = .greatestFiniteMagnitude
-        rise.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(rise, forKey: "smokeRise")
+    /// 燃え尽きた後の煙の動き。絵を1周期ぶん**等速で**上へ流し、動かした先で元の位置へ
+    /// 戻す。くねりが周期的なので継ぎ目が一致し、無限に立ち上り続けて見える。
+    /// 実物の煙は上へ流れる速さがほぼ一定なので、緩急(easing)は付けない
+    private func addSmokeAnimations(to container: CALayer, art: CALayer) {
+        let scroll = CABasicAnimation(keyPath: "transform.translation.y")
+        scroll.fromValue = 0
+        // 進む向き(視覚的な上方向が負)はKokukokuCore側の値に従う
+        scroll.toValue = CandleArt.smokeScroll.translation
+        scroll.duration = smokeScrollDuration
+        scroll.repeatCount = .greatestFiniteMagnitude
+        scroll.timingFunction = CAMediaTimingFunction(name: .linear)
+        art.add(scroll, forKey: "smokeScroll")
 
-        // 立ち上るにつれ薄れる。上りきる前に消えることで、次の周回の頭出しが目立たない
-        let fade = CAKeyframeAnimation(keyPath: "opacity")
-        fade.values = [0, 0.9, 0.75, 0]
-        fade.keyTimes = [0, 0.22, 0.55, 1]
-        fade.duration = 4.2
-        fade.repeatCount = .greatestFiniteMagnitude
-        layer.add(fade, forKey: "smokeFade")
-
+        // 全体の横揺れ。くねりの反復が機械的に見えないよう、スクロールと無関係な周期にする
         let waver = CABasicAnimation(keyPath: "transform.translation.x")
-        waver.fromValue = -1.1
-        waver.toValue = 1.1
-        waver.duration = 2.6
+        waver.fromValue = -1.3
+        waver.toValue = 1.3
+        waver.duration = 2.9
         waver.autoreverses = true
         waver.repeatCount = .greatestFiniteMagnitude
         waver.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        layer.add(waver, forKey: "smokeWaver")
+        container.add(waver, forKey: "smokeWaver")
     }
+
+    /// くねり1周期ぶんを上るのにかける時間。実物の蝋燭の煙はそれなりの速さで上がるため、
+    /// 13pt毎秒あたりに置く(遅すぎると幽玄になり、煙に見えない。2026-07-25 タダシ選択)
+    private var smokeScrollDuration: Double { 3.0 }
 
     /// 炎の揺らぎ。和ろうそくは芯が太く空気を多く食うため、丈の伸び縮みより
     /// **左右へたなびく**動きが姿の特徴になる(2026-07-25 タダシ指摘)。

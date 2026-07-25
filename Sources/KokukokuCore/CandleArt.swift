@@ -93,7 +93,6 @@ public enum CandleArt {
         let shade = colors.candleWaxShade.hexString
         let holder = colors.candleHolder.hexString
         let wick = colors.candleWick.hexString
-        let smoke = colors.candleSmoke.hexString
         let ember = colors.candleEmber.hexString
 
         let stand = """
@@ -232,52 +231,129 @@ public enum CandleArt {
         """
     }
 
-    /// 燃え尽きた後に立ち上る煙。炎と同じくレイヤーへ分けて上へ流す。
-    /// 静止した煙より動きのほうが周辺視野に引っかかり、「もう休め」に気づける
-    /// (2026-07-25 タダシ要望)。燃え尽きていなければnil
+    /// 燃え尽きた後に立ち上る煙。周期的なくねりを繰り返す一本の細い筋として描き、
+    /// ホストがこれを**1周期ぶん上へ流してループ**させる(2026-07-25 タダシ要望)。
+    /// 燃え尽きていなければnil。
+    ///
+    /// 濃淡を絵に焼き込まないのが要点。焼き込むと絵ごと濃淡が流れて根本の濃さが上下し、
+    /// 「先端から煙が出ていない瞬間」が生まれてしまう。実物の蝋燭は芯がくすぶる間
+    /// 煙が絶えないため、そこが崩れると途端に嘘に見える(タダシ指摘)。
+    /// 上ほど薄れる濃淡はホスト側が静止したマスクで作る(smokeMaskStops)
     public static func smokeSVG(_ state: State) -> String? {
         guard state.isBurntOut else { return nil }
         let smoke = PanelLayout.Colors.candleSmoke.hexString
-        let w = smokeBoxWidth
-        let h = smokeBoxHeight
+        let w = smokeWidth
+        let h = smokeArtHeight
         let cx = w / 2
-        // 下ほど濃く、上ほど薄れる二筋。太い筋と細い筋でくねりの位相をずらす
+        // くねりは1周期(smokeScrollPeriod)で左右へ一往復し、絵を埋めるまで繰り返す。
+        // **繰り返しの単位が周期と一致していること**がループの継ぎ目が見えない条件。
+        // 太さは変更前の儚さに寄せて細く保つ(太いと炎に見える。2026-07-25 タダシ指摘)
+        let span = smokeScrollPeriod / 2
+        let mainUnit = " q-4 -\(span / 2) 0 -\(span) q4 -\(span / 2) 0 -\(span)"
+        let main = String(
+            repeating: mainUnit, count: Int((h / smokeScrollPeriod).rounded(.up)))
+        // 副筋は半分の周期で細かく振れる。周期が整数比なのでループの継ぎ目は合ったまま
+        let subUnit = " q3 -\(span / 4) 0.5 -\(span / 2) q-3 -\(span / 4) -0.5 -\(span / 2)"
+        let sub = String(repeating: subUnit, count: Int((h / span).rounded(.up)))
+        // 筋の根本。絵の下端そのものではなく、裾の余白のぶん内側から始める
+        let root = h - smokeArtFootroom
         return """
         <svg xmlns="http://www.w3.org/2000/svg" width="\(w)" height="\(h)" viewBox="0 0 \(w) \(h)">
         <defs>
-          <linearGradient id="fade" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0" stop-color="\(smoke)" stop-opacity="0.85"/>
-            <stop offset="0.55" stop-color="\(smoke)" stop-opacity="0.45"/>
-            <stop offset="1" stop-color="\(smoke)" stop-opacity="0"/>
-          </linearGradient>
+          <filter id="soft" x="-80%" y="-20%" width="260%" height="150%">
+            <feGaussianBlur stdDeviation="\(smokeBlur)"/>
+          </filter>
         </defs>
-        <path d="M\(cx) \(h - 1) q-5 -\(h * 0.2) 0 -\(h * 0.34) q5 -\(h * 0.18) 0 -\(h * 0.32) \
-        q-4 -\(h * 0.12) -1 -\(h * 0.26)" stroke="url(#fade)" stroke-width="2.8" fill="none"
-        stroke-linecap="round"/>
-        <path d="M\(cx + 4) \(h - 3) q4 -\(h * 0.18) 1 -\(h * 0.3) q-3 -\(h * 0.16) 0 -\(h * 0.28)"
-        stroke="url(#fade)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7"/>
+        <g filter="url(#soft)">
+        <path d="M\(cx) \(root)\(main)" stroke="\(smoke)" stroke-width="\(smokeStrokeWidth)"
+        fill="none" stroke-linecap="round" opacity="0.9"/>
+        <path d="M\(cx + 2.5) \(root)\(sub)" stroke="\(smoke)"
+        stroke-width="\(smokeSubStrokeWidth)" fill="none" stroke-linecap="round" opacity="0.5"/>
+        </g>
         </svg>
         """
     }
 
-    /// 煙レイヤーの寸法(SVG内部座標)。立ち上る余地を取るため縦に長い
-    static let smokeBoxWidth = 26.0
-    static let smokeBoxHeight = 40.0
+    /// 煙の幅(pt)。蝋燭の枠(38pt)の縮尺には縛らないが、細い一筋の儚さは保つ
+    public static let smokeWidth = 30.0
+    /// 煙の見える高さ(pt)。蝋燭の枠の2倍強(2026-07-25 タダシ指定)。
+    /// 枠に収めていた頃は実表示10x16ptで燃え尽きに気づけなかったため、
+    /// 上の計測リストへ突き抜けるのはタダシ許諾済み(「割り込みも上等」)
+    public static let smokeVisibleHeight = 84.0
+    /// くねり1周期の長さ(pt)。ホストはこの分だけ絵を上へ動かしてループさせる
+    public static let smokeScrollPeriod = 40.0
+    static let smokeStrokeWidth = 2.2
+    static let smokeSubStrokeWidth = 1.5
+    static let smokeBlur = 0.8
+    /// 絵の下端に残す余白。丸端の線の半径とぼかしの裾(3σ)がラスタライズ範囲の外へ
+    /// はみ出すと、そこで切れて断面になる。**この余白を確保するために絵を伸ばす**のが要点で、
+    /// 筋の開始点を内側へ寄せて済ませると供給が足りず、流し切った先で根本が空く
+    static let smokeArtFootroom = smokeStrokeWidth / 2 + smokeBlur * 3
 
-    /// 煙レイヤーを置く枠。蝋だまりの上端から上へ伸ばす。燃え尽きていなければnil
+    /// 煙の絵の高さ。見える範囲の**下**に1周期ぶん(＋裾の余白)を隠し持つ。
+    /// 上へ流れた分を下から供給し続けるための余りで、これが無いと
+    /// 流れた先で根本が空いてしまう(2026-07-25 タダシ指摘で修正)
+    public static let smokeArtHeight =
+        smokeVisibleHeight + smokeScrollPeriod + smokeArtFootroom
+    /// 煙の根本を蝋だまりのどれだけ上に置くか(蝋燭側のSVG座標)
+    static let smokeRootInset = 5.0
+    /// 根本を蝋だまりへ沈める分(pt)。マスクの下端で煙が切れる縁を蝋だまりに隠す
+    static let smokeRootSink = 4.0
+
+    /// 煙の絵の置き方と流し方。枠(smokeBox)に対して絵をどこに置き、どれだけ動かすか。
+    /// ホストのレイヤー操作に埋めるとテストが効かないため、値としてここに置く
+    public struct SmokeScroll: Equatable, Sendable {
+        /// 絵の高さ
+        public let artHeight: Double
+        /// 枠の上端から見た絵の上端のずれ。0 = 枠の上端に揃える
+        public let artTopOffset: Double
+        /// ひと巡りで動かす距離。視覚的な上方向が負
+        public let translation: Double
+    }
+
+    /// 絵は枠の**上端に揃えて**置き、余りを枠の下(マスクの外)へはみ出させる。
+    /// 上へ流れた分をその余りが下から供給するため、下揃えにすると流れた先で根本が空く
+    /// (2026-07-25 タダシ指摘で修正した箇所そのもの)
+    public static var smokeScroll: SmokeScroll {
+        .init(artHeight: smokeArtHeight, artTopOffset: 0, translation: -smokeScrollPeriod)
+    }
+
+    /// 「上ほど薄れる」濃淡。ホストはこれをマスクとして**静止**させる。
+    /// 絵ではなくマスクに持たせるのは、絵と一緒に濃淡が流れると根本の濃さが上下して
+    /// 煙が絶える瞬間ができるため。locationは根本(0)から先端(1)まで
+    public struct SmokeMaskStop: Equatable, Sendable {
+        public let location: Double
+        public let opacity: Double
+
+        public init(location: Double, opacity: Double) {
+            self.location = location
+            self.opacity = opacity
+        }
+    }
+
+    public static let smokeMaskStops: [SmokeMaskStop] = [
+        // 下端は透かす。ここを不透明にするとマスクの縁で煙が切れて平らな断面が出る
+        .init(location: 0, opacity: 0),
+        .init(location: 0.06, opacity: 0.92),
+        .init(location: 0.5, opacity: 0.6),
+        .init(location: 1, opacity: 0),
+    ]
+
+    /// 煙の見える枠(マスクの領域)。蝋だまりの少し上を根本にして、そこから上へ伸ばす。
+    /// 絵はこの枠より下に1周期ぶん長く、はみ出した分はマスクで隠れる。
+    /// 燃え尽きていなければnil
     public static func smokeBox(_ state: State, in frame: PanelFrame) -> PanelFrame? {
         guard state.isBurntOut else { return nil }
         let side = min(frame.w, frame.h)
         let scale = side / canvas
-        let originX = frame.x + (frame.w - side) / 2
         let originY = frame.y + (frame.h - side) / 2
-        // 煙の根本は蝋だまりの少し上
-        let rootY = baseY - 6
+        // 根本だけは蝋だまりに合わせる必要があるため、蝋燭側の縮尺で位置を求める
+        let rootY = originY + (baseY - smokeRootInset) * scale + smokeRootSink
         return PanelFrame(
-            x: originX + (centerX - smokeBoxWidth / 2) * scale,
-            y: originY + (rootY - smokeBoxHeight) * scale,
-            w: smokeBoxWidth * scale,
-            h: smokeBoxHeight * scale)
+            x: frame.x + frame.w / 2 - smokeWidth / 2,
+            y: rootY - smokeVisibleHeight,
+            w: smokeWidth,
+            h: smokeVisibleHeight)
     }
 
     /// 炎レイヤーの一辺(SVG内部座標)。和ろうそくの炎は胴に対して大きいうえ、

@@ -22,10 +22,11 @@ public enum PanelKeyAction: Equatable, Sendable {
     case moveToFirstProject
     /// パネル固定(Pin)のon/off切替
     case togglePin
-    /// 予定詳細popoverだけを閉じる(パネル自体は維持)。Pin中にpopover表示中でESCが押されたとき
-    case dismissPopover
-    /// 現在のコンテキストでは動作しないが、他の操作には割り当てない(h/lの予約キー、
-    /// Pin中でpopoverなしのESCなど、意図的に無効化するキー)
+    /// パネルは残したまま、フォーカスだけ直前のアプリへ返す(popover表示中なら同時に閉じる)。
+    /// Pin中にESCが押されたとき
+    case returnFocus
+    /// 現在のコンテキストでは動作しないが、他の操作には割り当てない(h/lの予約キーなど、
+    /// 意図的に無効化するキー)
     case reserved
     case passthrough
 }
@@ -65,11 +66,9 @@ public enum PanelKeyInterpreter {
         if hasModifiers, (123...126).contains(keyCode) { return .passthrough }
         if hasModifiers, characters != nil { return .passthrough }
         if keyCode == 53 || characters == "q" {
-            // Pin中はホットキーと同じく閉じ抑止: popover表示中ならpopoverだけ閉じ、
-            // popoverなしなら何もしない
-            if context.isPinned {
-                return context.isEventPopoverVisible ? .dismissPopover : .reserved
-            }
+            // Pin中はホットキーと同じく閉じ抑止: パネルは残したまま、
+            // popoverが出ていれば閉じたうえでフォーカスを直前のアプリへ返す
+            if context.isPinned { return .returnFocus }
             return .dismiss
         }
         if keyCode == 36 { return .confirm }

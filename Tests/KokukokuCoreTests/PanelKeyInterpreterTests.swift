@@ -58,13 +58,13 @@ struct PanelKeyInterpreterTests {
         #expect(action("h", context: context) == .reserved)
     }
 
-    @Test("Pin中のESCはpopover表示中ならpopoverだけ閉じ、popoverなしなら何もしない")
+    @Test("Pin中のESCはpopoverの有無にかかわらずフォーカスを直前のアプリへ返す")
     func escWhilePinned() {
         let withPopover = PanelKeyContext(isEventPopoverVisible: true, isPinned: true)
-        #expect(action(nil, keyCode: 53, context: withPopover) == .dismissPopover)
+        #expect(action(nil, keyCode: 53, context: withPopover) == .returnFocus)
 
         let withoutPopover = PanelKeyContext(isEventPopoverVisible: false, isPinned: true)
-        #expect(action(nil, keyCode: 53, context: withoutPopover) == .reserved)
+        #expect(action(nil, keyCode: 53, context: withoutPopover) == .returnFocus)
     }
 
     @Test("Pin中でなければESCは従来どおりパネルを閉じる")
@@ -80,10 +80,10 @@ struct PanelKeyInterpreterTests {
         #expect(action("q") == .dismiss)
 
         let pinPopover = PanelKeyContext(isEventPopoverVisible: true, isPinned: true)
-        #expect(action("q", context: pinPopover) == .dismissPopover)
+        #expect(action("q", context: pinPopover) == .returnFocus)
 
         let pinNoPopover = PanelKeyContext(isEventPopoverVisible: false, isPinned: true)
-        #expect(action("q", context: pinNoPopover) == .reserved)
+        #expect(action("q", context: pinNoPopover) == .returnFocus)
 
         let unpinPopover = PanelKeyContext(isEventPopoverVisible: true, isPinned: false)
         #expect(action("q", context: unpinPopover) == .dismiss)

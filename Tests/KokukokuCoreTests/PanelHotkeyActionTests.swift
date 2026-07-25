@@ -24,10 +24,10 @@ struct PanelHotkeyActionTests {
         }
     }
 
-    @Test("表示中かつフォーカスありでPin onなら何もしない")
-    func doesNothingWhenVisibleFocusedAndPinned() {
+    @Test("表示中かつフォーカスありでPin onなら閉じずにフォーカスを直前のアプリへ返す")
+    func returnsFocusWhenVisibleFocusedAndPinned() {
         #expect(
-            PanelHotkeyDecision.decide(visible: true, focused: true, pinned: true) == .none)
+            PanelHotkeyDecision.decide(visible: true, focused: true, pinned: true) == .returnFocus)
     }
 
     @Test("表示中かつフォーカスありでPin offなら閉じる")

@@ -55,6 +55,10 @@ final class PanelController {
     private var eventPopover: EventDetailPopover?
     /// 通知モードでループ再生中のパルスレイヤー(キー化で停止・除去する)
     private var notificationPulseLayer: CAShapeLayer?
+    /// パネルがフォーカスを得る直前に前面だったアプリ(Pin中のESC/q・ホットキーで戻す先)。
+    /// パネルは.nonactivatingPanelでアプリ自体をアクティブ化しないため、
+    /// キー化の時点でもfrontmostApplicationは直前のアプリのまま残っている
+    private var previousApplication: NSRunningApplication?
 
     init(
         projects: [KokukokuConfig.Project],
@@ -173,9 +177,10 @@ final class PanelController {
                 if self.eventPopover != nil,
                     event.keyCode == 53 || event.charactersIgnoringModifiers == "q"
                 {  // ESC or q
-                    // Pin中はホットキーと同じく閉じ抑止: popoverだけ閉じてパネルは維持する
+                    // Pin中はホットキーと同じく閉じ抑止: パネルは維持したまま
+                    // popoverを閉じてフォーカスを直前のアプリへ返す
                     if self.pinned {
-                        self.dismissEventPopover()
+                        self.returnFocusToPreviousApp()
                     } else {
                         self.hide()
                     }
@@ -191,6 +196,7 @@ final class PanelController {
     /// キー化(フォーカス獲得)の統一ハンドラ。マウスクリック・ホットキーを問わず
     /// becomeKeyで発火する。通知モードのパルス停止・外クリック監視導入もここに統合
     private func handleBecomeKey() {
+        rememberPreviousApplication()
         if notificationMode {
             notificationPulseLayer?.removeFromSuperlayer()
             notificationPulseLayer = nil
@@ -208,6 +214,37 @@ final class PanelController {
         guard visible else { return }
         selectedTarget = nil
         rebuildPanel()
+    }
+
+    /// フォーカスを返す先を控える。通知クリック起動などで自アプリが前面のときは
+    /// 戻り先にならないため、先に控えた相手をそのまま維持する
+    private func rememberPreviousApplication() {
+        guard let front = NSWorkspace.shared.frontmostApplication,
+            front != NSRunningApplication.current
+        else { return }
+        previousApplication = front
+    }
+
+    /// パネルは残したまま、フォーカスだけ直前のアプリへ返す(popover表示中なら先に閉じる)。
+    /// Pin中のESC/q・ホットキーで使う。戻り先を控えていない・既に終了しているときは
+    /// 何もしない(パネルはフォーカスを保持したまま)
+    private func returnFocusToPreviousApp() {
+        guard let window, let target = previousApplication, !target.isTerminated,
+            target != NSRunningApplication.current
+        else { return }
+        dismissEventPopover()
+        // パネルは.nonactivatingPanelで相手アプリをアクティブにしたまま奪キーするため、
+        // activate()だけでは(相手が既にアクティブで no-op になり)キーの座を明け渡せない。
+        // いったんorderOutしてキーを相手へ返し、キー化を伴わないorderFrontRegardlessで出し直す
+        let targetWasActive = target.isActive
+        window.orderOut(nil)
+        window.orderFrontRegardless()
+        // 相手が非アクティブなとき(パネル表示中にアプリが切り替わった等)だけ明示的に戻す
+        if !targetWasActive {
+            target.activate(options: [])
+        }
+        // 控えた相手は消さない(次のESC/qで再試行でき、パネルへフォーカスが戻れば
+        // handleBecomeKeyが最新の相手で上書きする)
     }
 
     /// 登場の署名: 通知としての自動表示中、パネル輪郭を生成りのグローで
@@ -330,6 +367,7 @@ final class PanelController {
         resetConfirming = false
         calendarExpanded = false
         pinned = false
+        previousApplication = nil
         if notificationMode {
             notificationMode = false
             highlightedKeys = []
@@ -347,8 +385,8 @@ final class PanelController {
             show()
         case .focus:
             focus()
-        case .none:
-            break
+        case .returnFocus:
+            returnFocusToPreviousApp()
         case .hide:
             hide()
         }
@@ -723,8 +761,8 @@ final class PanelController {
         switch action {
         case .dismiss:
             hide()
-        case .dismissPopover:
-            dismissEventPopover()
+        case .returnFocus:
+            returnFocusToPreviousApp()
         case .confirm:
             if eventPopover?.activateFocusedButton() != true {
                 executeSelectedAction()
@@ -817,8 +855,8 @@ final class PanelController {
             // ESC・パネル外クリック起因の閉じ要求は、popover単体のフェードを走らせず
             // パネルごと即時に閉じる(2段階の直列アニメーション防止)。
             // close処理中の再入を避けるためhideは次のrunloopで実行する。
-            // Pin中はホットキー・ESC単体と同じく閉じ抑止: パネルは閉じず、
-            // popover単体のクローズ(return true)に任せる
+            // Pin中は閉じ抑止: パネルは閉じずpopover単体のクローズ(return true)に任せる
+            // (Pin中のESC/qはローカルモニタが横取りするため、ここへは外クリックだけが来る)
             let isEsc =
                 event.type == .keyDown
                 && (event.keyCode == 53 || event.charactersIgnoringModifiers == "q")

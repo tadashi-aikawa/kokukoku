@@ -60,6 +60,11 @@ final class PanelController {
     private var eventPopover: EventDetailPopover?
     /// 通知モードでループ再生中のパルスレイヤー(キー化で停止・除去する)
     private var notificationPulseLayer: CAShapeLayer?
+    /// 連続稼働の蝋燭のうち動く部分(動かすためだけに本体と分けたレイヤー)
+    private var candleFlameLayer: CALayer?
+    private var candleFlameKey: String?
+    private var candleSmokeLayer: CALayer?
+    private var candleSmokeKey: String?
     /// パネルがフォーカスを得る直前に前面だったアプリ(Pin中のESC/q・ホットキーで戻す先)。
     /// パネルは.nonactivatingPanelでアプリ自体をアクティブ化しないため、
     /// キー化の時点でもfrontmostApplicationは直前のアプリのまま残っている
@@ -363,6 +368,14 @@ final class PanelController {
         }
         notificationPulseLayer?.removeFromSuperlayer()
         notificationPulseLayer = nil
+        // 再表示ではPanelViewごと作り直されるため、古いホストに紐づいたままの
+        // 蝋燭レイヤーを持ち越すと次に火が点かない
+        candleFlameLayer?.removeFromSuperlayer()
+        candleFlameLayer = nil
+        candleFlameKey = nil
+        candleSmokeLayer?.removeFromSuperlayer()
+        candleSmokeLayer = nil
+        candleSmokeKey = nil
         window?.orderOut(nil)
         window?.alphaValue = 1
         window = nil
@@ -489,10 +502,11 @@ final class PanelController {
             resolveIcon: { [iconStore] icon in iconStore.resolve(icon) },
             metrics: metrics
         )
+        let state = callbacks.getState()
         panelView.elements = builder.build(
             .init(
                 projects: projects,
-                state: callbacks.getState(),
+                state: state,
                 selectedTarget: selectedTarget,
                 hoveredId: hoveredId,
                 resetConfirming: resetConfirming,
@@ -502,6 +516,166 @@ final class PanelController {
                 ui: ui,
                 pinned: pinned,
                 focused: window?.isKeyWindow == true))
+        updateCandleFlame(state: state, metrics: metrics)
+    }
+
+    /// 蝋燭の動く部分(炎と、燃え尽きた後の煙)。本体(蝋・台)と違って動かしたいため、
+    /// 要素描画ではなくレイヤーで重ねる。SVGの<animate>はNSImageでは効かないが、
+    /// CoreAnimationに乗せればGPU側で回り、1秒tickとは無関係に動き続けてCPUを食わない。
+    /// 遊び心の表示なので動きは控えめにし、他の情報から視線を奪わないようにする
+    private func updateCandleFlame(state: TimerState, metrics: PanelMetrics) {
+        guard let panelView else { return }
+
+        var continuousElapsed = state.continuousElapsedBase
+        if let startedAt = state.continuousStartedAt {
+            continuousElapsed += now() - startedAt
+        }
+        let candle = editingTarget == .continuous
+            ? nil
+            : CandleArt.state(
+                continuousElapsed: continuousElapsed,
+                thresholds: alertThresholds,
+                isRunning: state.continuousStartedAt != nil)
+        let candleFrame = metrics.candleFrame(
+            projectCount: projects.count,
+            calendarSectionHeight: PanelLayout.calendarSectionHeight(rows: calendarRows))
+
+        // 炎と煙は排他(燃えている間は炎だけ、燃え尽きた後は煙だけ)
+        syncCandleLayer(
+            &candleFlameLayer, key: &candleFlameKey,
+            svg: candle.flatMap(CandleArt.flameSVG),
+            box: candle.flatMap { CandleArt.flameBox($0, in: candleFrame) },
+            cacheKey: candle?.cacheKey ?? "",
+            anchorY: CandleArt.flameAnchorY,
+            in: panelView,
+            configure: addFlameAnimations)
+        syncCandleLayer(
+            &candleSmokeLayer, key: &candleSmokeKey,
+            svg: candle.flatMap(CandleArt.smokeSVG),
+            box: candle.flatMap { CandleArt.smokeBox($0, in: candleFrame) },
+            cacheKey: (candle?.cacheKey ?? "") + ":smoke",
+            anchorY: 1,
+            in: panelView,
+            configure: addSmokeAnimations)
+    }
+
+    /// SVGを載せたレイヤーを枠へ同期する。描くものが無ければ破棄する。
+    /// アニメーションはレイヤーの生成時にだけ仕込む(毎秒付け直すと動きが巻き戻る)
+    private func syncCandleLayer(
+        _ stored: inout CALayer?,
+        key: inout String?,
+        svg: String?,
+        box: PanelFrame?,
+        cacheKey: String,
+        anchorY: Double,
+        in panelView: PanelView,
+        configure: (CALayer) -> Void
+    ) {
+        guard let svg, let box else {
+            stored?.removeFromSuperlayer()
+            stored = nil
+            key = nil
+            return
+        }
+
+        panelView.wantsLayer = true
+        guard let hostLayer = panelView.layer else { return }
+
+        // panelViewはisFlippedのため、AppKitがホストレイヤーのisGeometryFlippedを立てる。
+        // つまりサブレイヤーの座標も左上原点で、PanelElementの座標をそのまま渡せばよい
+        // (手で反転すると二重反転になる)。同じ理由でanchorPointの上下も反転して読まれるため、
+        // 根本(視覚的な下端)を軸にするにはy=1側を指定する。
+        // 閉じて開き直すとPanelViewごと作り直されるため、レイヤーを持ち越すと
+        // 古いホストに付いたままになり何も見えない。hide()でも破棄しているが、
+        // ホストが変わっていたら作り直す形にして経路の取りこぼしを塞ぐ
+        let layer: CALayer
+        if let existing = stored, existing.superlayer === hostLayer {
+            layer = existing
+        } else {
+            stored?.removeFromSuperlayer()
+            let created = CALayer()
+            created.anchorPoint = CGPoint(x: 0.5, y: anchorY)
+            hostLayer.addSublayer(created)
+            stored = created
+            key = nil
+            configure(created)
+            layer = created
+        }
+
+        let backingScale = window?.backingScaleFactor ?? 2
+        // 解像度が変わったディスプレイへ移した場合も焼き直せるよう、倍率をキーに含める
+        let newKey = "\(cacheKey)|\(box.w)x\(box.h)@\(backingScale)"
+        // 位置とcontentsの差し替えで暗黙アニメーションが走ると、
+        // 1分ごとに絵がぬるりと移動して落ち着かないため切っておく
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.bounds = CGRect(x: 0, y: 0, width: box.w, height: box.h)
+        layer.position = CGPoint(x: box.x + box.w / 2, y: box.y + box.h * anchorY)
+        layer.contentsScale = backingScale
+        if key != newKey {
+            var proposed = CGRect(
+                x: 0, y: 0, width: box.w * backingScale * 2, height: box.h * backingScale * 2)
+            let image = NSImage(data: Data(svg.utf8))
+            layer.contents = image?.cgImage(forProposedRect: &proposed, context: nil, hints: nil)
+            layer.contentsGravity = .resizeAspect
+            key = newKey
+        }
+        CATransaction.commit()
+    }
+
+    /// 燃え尽きた後の煙。根本から湧いて上へ立ち上り、薄れて消えるのを繰り返す。
+    /// 静止した煙だと超過に気づけないため、動きで「もう休め」を伝える(2026-07-25 タダシ要望)。
+    /// ゆっくり長い周期にして、慌ただしさではなく気だるさとして目に入るようにする
+    private func addSmokeAnimations(to layer: CALayer) {
+        let rise = CABasicAnimation(keyPath: "transform.translation.y")
+        rise.fromValue = 0
+        // ホストがisGeometryFlippedのため、視覚的な上方向は負
+        rise.toValue = -14
+        rise.duration = 4.2
+        rise.repeatCount = .greatestFiniteMagnitude
+        rise.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(rise, forKey: "smokeRise")
+
+        // 立ち上るにつれ薄れる。上りきる前に消えることで、次の周回の頭出しが目立たない
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [0, 0.9, 0.75, 0]
+        fade.keyTimes = [0, 0.22, 0.55, 1]
+        fade.duration = 4.2
+        fade.repeatCount = .greatestFiniteMagnitude
+        layer.add(fade, forKey: "smokeFade")
+
+        let waver = CABasicAnimation(keyPath: "transform.translation.x")
+        waver.fromValue = -1.1
+        waver.toValue = 1.1
+        waver.duration = 2.6
+        waver.autoreverses = true
+        waver.repeatCount = .greatestFiniteMagnitude
+        waver.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(waver, forKey: "smokeWaver")
+    }
+
+    /// 炎の揺らぎ。和ろうそくは芯が太く空気を多く食うため、丈の伸び縮みより
+    /// **左右へたなびく**動きが姿の特徴になる(2026-07-25 タダシ指摘)。
+    /// そこで首振りを主役に据え、横流れを**わざと違う周期**で重ねて
+    /// 反復が機械的に見えないようにする(単一周期だと点滅のように読めてしまう)
+    private func addFlameAnimations(to layer: CALayer) {
+        let sway = CABasicAnimation(keyPath: "transform.rotation.z")
+        sway.fromValue = -0.10
+        sway.toValue = 0.10
+        sway.duration = 1.3
+        sway.autoreverses = true
+        sway.repeatCount = .greatestFiniteMagnitude
+        sway.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(sway, forKey: "candleSway")
+
+        let drift = CABasicAnimation(keyPath: "transform.translation.x")
+        drift.fromValue = -0.7
+        drift.toValue = 0.7
+        drift.duration = 0.83
+        drift.autoreverses = true
+        drift.repeatCount = .greatestFiniteMagnitude
+        drift.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(drift, forKey: "candleDrift")
     }
 
     // MARK: - 操作の実行

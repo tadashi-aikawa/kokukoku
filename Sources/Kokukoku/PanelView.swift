@@ -14,6 +14,9 @@ final class PanelView: NSView {
 
     private var hoveredId: String?
     private var hoverTrackingArea: NSTrackingArea?
+    /// SVG要素のラスタライズ結果。蝋燭は分単位でしか変わらないため、
+    /// 毎秒の再描画でパースが走らないようキーで使い回す
+    private var svgCache: [String: NSImage] = [:]
     private var isDragging = false
     private var dragStartScreenLocation: NSPoint = .zero
     private var dragStartWindowOrigin: NSPoint = .zero
@@ -119,8 +122,24 @@ final class PanelView: NSView {
                 if cornerRadius > 0 {
                     NSGraphicsContext.current?.restoreGraphicsState()
                 }
+            case .svg(let frame, let svg, let cacheKey):
+                guard let image = svgImage(svg, cacheKey: cacheKey) else { continue }
+                image.draw(
+                    in: nsRect(frame), from: .zero, operation: .sourceOver, fraction: 1,
+                    respectFlipped: true, hints: nil)
             }
         }
+    }
+
+    /// SVG文字列をNSImageへ。macOS 13以降のAppKitはSVGをベクターのまま読めるため、
+    /// 表示サイズに応じて綺麗にラスタライズされる
+    private func svgImage(_ svg: String, cacheKey: String) -> NSImage? {
+        if let cached = svgCache[cacheKey] { return cached }
+        guard let image = NSImage(data: Data(svg.utf8)) else { return nil }
+        // 蝋燭は残量ぶんしか種類が無いが、設定変更等で際限なく溜まらないよう上限を設ける
+        if svgCache.count > 256 { svgCache.removeAll() }
+        svgCache[cacheKey] = image
+        return image
     }
 
     /// ネオン管の輝き: 広い朱のにじみ→内側の強い光の二層グローの上へ、

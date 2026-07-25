@@ -194,56 +194,27 @@ public struct PanelElementsBuilder {
             frame: .init(x: 0, y: footerY, w: metrics.panelWidth, h: 10),
             fillColor: colors.footerBg))
 
-        // 連続稼働ラベル(フッター中央)。秒のカウントアップは時計・計測行と三重に
-        // 視線を引くため、分単位の日本語表記(タイムラインの「あと◯分」と同語彙)に留める
+        // 連続稼働の蝋燭(フッター中央)。数字は出さない: 連続稼働は「そろそろヤバいか否か」
+        // しか語らない目安で、分単位の値を読む用途が無いため(累積時間とは役割が違う)。
+        // 遊び心の表示なので声量は抑え、他の情報を邪魔しない範囲で楽しませるに留める。
+        // 炎だけは揺らすためにここでは描かず、Platform側がレイヤーとして重ねる
         var continuousElapsed = inputs.state.continuousElapsedBase
         if let startedAt = inputs.state.continuousStartedAt {
             continuousElapsed += now() - startedAt
         }
-        if inputs.editingTarget != .continuous {
-            let text = "連続稼働 " + Self.minuteDuration(continuousElapsed)
-            let fontSize = 14.0
-            let width = measureTextWidth(text, inputs.ui.fontName, fontSize)
-            let textHeight = measureTextHeight(text, inputs.ui.fontName, fontSize)
-            let textY = footerY + centeredOffset(layout.footerHeight - 8, textHeight)
-            // 超過量の併記はリセットボタンに食い込むため、超過中はラベル自体を朱にして語らせる。
-            // 通常時は計測中でも沈み色に固定する(計測中は行のカプセルが既に語っており、
-            // フッターは脇役に徹して沈んだ色から朱へ跳ねるコントラストを稼ぐ)
-            let over = Self.isOverThreshold(
-                elapsed: continuousElapsed, thresholds: inputs.alertThresholds)
-            let color = over ? colors.gaugeEnd : colors.subText
-            elements.append(.text(
-                frame: .init(x: (metrics.panelWidth - width) / 2, y: textY, w: width, h: textHeight),
-                text: text,
-                fontName: inputs.ui.fontName,
-                fontSize: fontSize,
-                color: color))
-        }
-
-        // 連続稼働ゲージ(ラベル直下のエンバーライン)。最大閾値までの全行程を1本で表し、
-        // 進むほど金茶から朱へ燃える。閾値が複数なら中間閾値の位置に区切りを入れて
-        // セグメント化し、アラート何回分を消費したかが読めるようにする(超過後は朱に張り付く)
-        if let progress = Self.gaugeProgress(
-            continuousElapsed: continuousElapsed, thresholds: inputs.alertThresholds)
+        if inputs.editingTarget != .continuous,
+            let candle = CandleArt.state(
+                continuousElapsed: continuousElapsed,
+                thresholds: inputs.alertThresholds,
+                isRunning: inputs.state.continuousStartedAt != nil)
         {
-            let track = PanelFrame(
-                x: (metrics.panelWidth - layout.gaugeWidth) / 2,
-                y: footerY + layout.footerHeight - 5,
-                w: layout.gaugeWidth, h: 3)
-            elements.append(.rectangle(
-                frame: track, fillColor: colors.gaugeTrack, cornerRadius: 1.5))
-            if progress > 0 {
-                elements.append(.rectangle(
-                    frame: .init(x: track.x, y: track.y, w: track.w * progress, h: track.h),
-                    fillColor: Self.gaugeColor(fraction: progress),
-                    cornerRadius: 1.5))
-            }
-            for position in Self.gaugeSeparatorPositions(thresholds: inputs.alertThresholds) {
-                elements.append(.rectangle(
-                    frame: .init(
-                        x: track.x + track.w * position - 1, y: track.y, w: 2, h: track.h),
-                    fillColor: colors.footerBg))
-            }
+            let frame = metrics.candleFrame(
+                projectCount: inputs.projects.count,
+                calendarSectionHeight: calendarHeight)
+            elements.append(.svg(
+                frame: frame,
+                svg: CandleArt.bodySVG(candle),
+                cacheKey: candle.cacheKey))
         }
 
         // リセットは小さな文字ボタン(枠線なし・ホバーとリセット確認時だけ背景が浮かぶ)。
@@ -799,45 +770,6 @@ public struct PanelElementsBuilder {
             color: colors.text))
     }
 
-    /// 連続稼働ゲージの進行率(0.0〜1.0)。最大閾値までの全行程を基準にし、
-    /// 超過後は1.0(朱)に張り付く。閾値が無い場合はnil(ゲージ非表示)
-    static func gaugeProgress(continuousElapsed: Int, thresholds: [Int]) -> Double? {
-        guard let last = thresholds.filter({ $0 > 0 }).max() else { return nil }
-        return min(Double(continuousElapsed) / Double(last), 1)
-    }
-
-    /// ゲージのセグメント区切り位置(0.0〜1.0)。中間閾値ごとに1本。
-    /// 閾値が1本なら区切りなし(従来の1本ゲージと同じ見た目に退化する)
-    static func gaugeSeparatorPositions(thresholds: [Int]) -> [Double] {
-        let sorted = Set(thresholds.filter { $0 > 0 }).sorted()
-        guard sorted.count > 1, let last = sorted.last else { return [] }
-        return sorted.dropLast().map { Double($0) / Double(last) }
-    }
-
-    /// 最大閾値を超過中か(ラベルを朱へ切り替える判定)。閾値なしなら常にfalse
-    static func isOverThreshold(elapsed: Int, thresholds: [Int]) -> Bool {
-        guard let last = thresholds.filter({ $0 > 0 }).max() else { return false }
-        return elapsed >= last
-    }
-
-    /// 分単位(切り捨て)の日本語表記。1時間未満は「◯分」、以上は「◯時間◯分」
-    static func minuteDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        return hours > 0 ? "\(hours)時間\(minutes)分" : "\(minutes)分"
-    }
-
-    /// ゲージの火の色。進行に応じて金茶から朱へ線形補間する
-    static func gaugeColor(fraction: Double) -> PanelColor {
-        let t = min(max(fraction, 0), 1)
-        let from = PanelLayout.Colors.gaugeStart
-        let to = PanelLayout.Colors.gaugeEnd
-        return PanelColor(
-            red: from.red + (to.red - from.red) * t,
-            green: from.green + (to.green - from.green) * t,
-            blue: from.blue + (to.blue - from.blue) * t,
-            alpha: 1)
-    }
 
     /// 文字盤中心から針の先端座標を求める。fractionは12時起点で時計回りの一周比(0.0〜1.0)
     static func clockHandPoint(center: PanelPoint, length: Double, fraction: Double)

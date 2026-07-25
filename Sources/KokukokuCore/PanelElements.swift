@@ -12,6 +12,14 @@ public struct PanelColor: Equatable, Sendable {
         self.blue = blue
         self.alpha = alpha
     }
+
+    /// SVG文字列へ埋め込むための "#RRGGBB"。alphaはSVG側の属性で別に指定する
+    public var hexString: String {
+        func channel(_ value: Double) -> Int {
+            Int((min(max(value, 0), 1) * 255).rounded())
+        }
+        return String(format: "#%02X%02X%02X", channel(red), channel(green), channel(blue))
+    }
 }
 
 public struct PanelPoint: Equatable, Sendable {
@@ -100,6 +108,10 @@ public enum PanelElement: Equatable, Sendable {
         iconKey: String,
         scaling: PanelImageScaling,
         cornerRadius: Double = 0)
+    /// SVG文字列をその場でラスタライズして描く要素(連続稼働の蝋燭)。
+    /// macOSのNSImageがSVGを直接読めるためアセット同梱が要らず、丈も色もコードで作れる。
+    /// cacheKeyが同じなら同じ絵として描画側がキャッシュを使い回す
+    case svg(frame: PanelFrame, svg: String, cacheKey: String)
 }
 
 /// パネル上でインライン編集中の時間。編集中は該当の時刻テキストを描画せず、
@@ -172,6 +184,17 @@ public struct PanelMetrics: Equatable, Sendable {
             y: footerY + 10, w: PanelLayout.continuousTimeWidth, h: 28)
     }
 
+    /// フッター中央の蝋燭の枠。炎レイヤーの位置決めにもこの枠を使う
+    public func candleFrame(projectCount: Int, calendarSectionHeight: Double = 0) -> PanelFrame {
+        let footerY = PanelLayout.clockSectionHeight + Double(projectCount) * PanelLayout.rowHeight
+            + calendarSectionHeight
+        let size = PanelLayout.candleSize
+        return .init(
+            x: (panelWidth - size) / 2,
+            y: footerY + (PanelLayout.footerHeight - size) / 2,
+            w: size, h: size)
+    }
+
     /// プロジェクト行の累積時間テキストの枠(同上)。
     /// 行エリアは予定セクション(ヘッダー直下)の分だけ下へずれる
     public func accumulatedTimeFrame(rowOffset: Int, calendarSectionHeight: Double = 0)
@@ -207,8 +230,9 @@ public enum PanelLayout {
     public static let continuousTimeWidth = 90.0
     /// ヘッダー右上のPinボタン(クリック領域)の一辺
     public static let pinButtonSize = 22.0
-    /// 連続稼働ゲージの全幅。中央寄せで敷く
-    public static let gaugeWidth = 180.0
+    /// 連続稼働の蝋燭の一辺。フッター高(40px)にちょうど収まり、
+    /// 炎の揺れが上へはみ出しても切れない大きさ
+    public static let candleSize = 38.0
     /// 行カプセル(ネオン・選択輪郭)のパネル端・行境界からのマージン。
     /// 端に密着させると窮屈に見えるため左右に余白を取る
     public static let capsuleInsetX = 8.0
@@ -344,10 +368,19 @@ public enum PanelLayout {
         public static let calendarOngoing = PanelColor(red: 1.0, green: 0.66, blue: 0.28, alpha: 1)
         public static let calendarOngoingGlow = PanelColor(
             red: 1.0, green: 0.66, blue: 0.28, alpha: 0.18)
-        /// 連続稼働ゲージ: 溝は沈めた無彩色、火は金茶から始まり閾値に近づくほど朱へ燃える
-        public static let gaugeTrack = PanelColor(red: 0.20, green: 0.20, blue: 0.17, alpha: 1)
-        public static let gaugeStart = PanelColor(red: 0.67, green: 0.54, blue: 0.33, alpha: 1)
-        public static let gaugeEnd = PanelColor(red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
+        /// 連続稼働の蝋燭。蝋は生成り、受け皿は金茶。
+        /// 炎は点けたての明るい橙金から燃え尽き際の朱へ倒れ、燃え尽きた後は
+        /// 蝋だまりに熾火の朱だけが残る(超過の合図。煙だけでは静まり返ってしまうため)
+        public static let candleWax = PanelColor(red: 0.95, green: 0.91, blue: 0.83, alpha: 1)
+        public static let candleWaxShade = PanelColor(red: 0.78, green: 0.72, blue: 0.62, alpha: 1)
+        public static let candleHolder = PanelColor(red: 0.67, green: 0.54, blue: 0.33, alpha: 1)
+        public static let candleWick = PanelColor(red: 0.29, green: 0.23, blue: 0.16, alpha: 1)
+        public static let candleFlameFresh = PanelColor(red: 1.0, green: 0.78, blue: 0.36, alpha: 1)
+        public static let candleFlameSpent = PanelColor(
+            red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
+        public static let candleFlameCore = PanelColor(red: 1.0, green: 0.96, blue: 0.85, alpha: 1)
+        public static let candleSmoke = PanelColor(red: 0.43, green: 0.41, blue: 0.34, alpha: 1)
+        public static let candleEmber = PanelColor(red: 0.855, green: 0.349, blue: 0.196, alpha: 1)
     }
 }
 

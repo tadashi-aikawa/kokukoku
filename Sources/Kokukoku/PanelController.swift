@@ -25,6 +25,11 @@ final class PanelController {
     private let iconStore = IconStore()
     private let metrics: PanelMetrics
     private let now: () -> Int = { Int(Date().timeIntervalSince1970) }
+    /// パネル操作として扱わない修飾キー(Cmd-Q等のOS標準ショートカットを妨げないための判定)。
+    /// 矢印キーはOSが常に .function (と .numericPad) を立てて送ってくるため、
+    /// ここに .function を含めると矢印単押しまで「修飾キー付き」になってしまう。
+    /// ShiftはGなど大文字の固定キー入力に使うため、修飾キーとして扱わない
+    private static let navigationModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
 
     private var window: PanelWindow?
     private var panelView: PanelView?
@@ -175,8 +180,9 @@ final class PanelController {
             guard let self else { return event }
             if event.type == .keyDown {
                 if self.eventPopover != nil,
+                    event.modifierFlags.intersection(Self.navigationModifiers).isEmpty,
                     event.keyCode == 53 || event.charactersIgnoringModifiers == "q"
-                {  // ESC or q
+                {  // ESC or q(Cmd-Q等の修飾キー付きはOS標準ショートカットへ通す)
                     // Pin中はホットキーと同じく閉じ抑止: パネルは維持したまま
                     // popoverを閉じてフォーカスを直前のアプリへ返す
                     if self.pinned {
@@ -731,11 +737,7 @@ final class PanelController {
         // 編集中のキーはフィールド側が処理する(こぼれたキーでパネル操作が走らないよう飲む)
         if editingTarget != nil { return true }
 
-        // 矢印キーはOSが常に .function (と .numericPad) を立てて送ってくるため、
-        // ここに .function を含めると矢印単押しまで「修飾キー付き」になってしまう
-        // ShiftはGなど大文字の固定キー入力に使うため、修飾キーとして扱わない
-        let navigationModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
-        let hasModifiers = !event.modifierFlags.intersection(navigationModifiers).isEmpty
+        let hasModifiers = !event.modifierFlags.intersection(Self.navigationModifiers).isEmpty
         var isCalendarEventSelected = false
         var isPopoverForSelectedEvent = false
         if case .calendarEvent(let selectedIndex)? = selectedTarget {
@@ -859,6 +861,7 @@ final class PanelController {
             // (Pin中のESC/qはローカルモニタが横取りするため、ここへは外クリックだけが来る)
             let isEsc =
                 event.type == .keyDown
+                && event.modifierFlags.intersection(Self.navigationModifiers).isEmpty
                 && (event.keyCode == 53 || event.charactersIgnoringModifiers == "q")
             let isOutsidePanelClick =
                 event.type == .leftMouseDown

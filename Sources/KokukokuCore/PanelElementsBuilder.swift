@@ -219,7 +219,11 @@ public struct PanelElementsBuilder {
 
         // リセットは小さな文字ボタン(枠線なし・ホバーとリセット確認時だけ背景が浮かぶ)。
         // 休憩ボタンは廃止(計測中プロジェクトの再選択トグルで休憩に入れるため)。
-        // 絵文字(青い🔄・⚠️)は墨絵パレットから浮くため、生成りの「↺」に統一する
+        //
+        // 文言は「ご破算」。リセットの日本語の語源そのもので説明が要らず、
+        // 時計・蝋燭と並べても「時と数を扱う和の道具」で道具立てが揃う。
+        // ただし確認は「本当に?」のまま置く: 累積も連続稼働も全部消える操作なので、
+        // ここを古風な言い回し(「よろしいか」等)に寄せると警告としての声量が落ちる
         let resetHovered = inputs.hoveredId == "btn_reset"
         let resetColor = inputs.resetConfirming
             ? colors.resetConfirmBg : (resetHovered ? colors.footerHoverBg : colors.footerBg)
@@ -231,17 +235,31 @@ public struct PanelElementsBuilder {
             cornerRadius: 13,
             id: "btn_reset",
             tracksMouse: true))
-        let resetText = inputs.resetConfirming ? "↺ 本当に?" : "↺ リセット"
+        let resetText = inputs.resetConfirming ? "本当に?" : "ご破算"
+        let resetTextColor = inputs.resetConfirming ? colors.text : colors.subText
         let resetHeight = measureTextHeight(resetText, inputs.ui.fontName, 13)
+        // そろばんと文言をひとかたまりとして中央に置く(文字だけの中央寄せでは
+        // アイコンを足したぶん全体が右へずれる)
+        let resetTextWidth = measureTextWidth(resetText, inputs.ui.fontName, 13)
+        let sorobanX = resetFrame.x
+            + (resetFrame.w - (layout.sorobanWidth + layout.sorobanTextGap + resetTextWidth)) / 2
+        elements.append(.svg(
+            frame: .init(
+                x: sorobanX,
+                y: resetFrame.y + centeredOffset(resetFrame.h, layout.sorobanHeight),
+                w: layout.sorobanWidth, h: layout.sorobanHeight),
+            svg: SorobanArt.svg(color: resetTextColor),
+            cacheKey: SorobanArt.cacheKey(color: resetTextColor)))
         elements.append(.text(
             frame: .init(
-                x: resetFrame.x, y: resetFrame.y + centeredOffset(resetFrame.h, resetHeight),
-                w: resetFrame.w, h: resetHeight),
+                x: sorobanX + layout.sorobanWidth + layout.sorobanTextGap,
+                y: resetFrame.y + centeredOffset(resetFrame.h, resetHeight),
+                w: resetTextWidth, h: resetHeight),
             text: resetText,
             fontName: inputs.ui.fontName,
             fontSize: 13,
-            color: inputs.resetConfirming ? colors.text : colors.subText,
-            alignment: .center))
+            color: resetTextColor,
+            alignment: .left))
 
         appendPinButton(inputs, to: &elements)
 
@@ -689,40 +707,31 @@ public struct PanelElementsBuilder {
         }
     }
 
-    /// ヘッダー右上の押しピンボタン(クリックとpキーでPin切替)。
-    /// 掴む場所(ヘッダードラッグ)と留める場所を同じヘッダーに揃える。
-    /// 絵文字ではなく頭のクロスバー+軸+針の3本線で描き、時計と同じ線の文法に馴染ませる
-    /// (頭を円にすると虫眼鏡に見える)。off=鈍色で45度に傾き、on=生成りで垂直に刺さる
+    /// ヘッダー右上のPinボタン(クリックとpキーでPin切替)。
+    /// 掴む場所(ヘッダードラッグはヘッダー内でしか始まらない)と留める場所を同じヘッダーに揃える。
+    /// フッター左下へ移す案も検討したが、掴む手と留める手が上下に分かれるうえ、
+    /// 簪は「上に挿す」道具なので、蝋燭が足元で燃え時計が上にある重力の秩序から外れる。
+    ///
+    /// 絵は KanzashiArt(一本足の花簪・常時30度)。状態は色だけで分け、姿は動かさない
+    /// (理由は KanzashiArt のコメントを参照)
     private func appendPinButton(_ inputs: Inputs, to elements: inout [PanelElement]) {
         let layout = PanelLayout.self
         let colors = PanelLayout.Colors.self
-        let size = layout.pinButtonSize
-        let rect = PanelFrame(x: metrics.panelWidth - size - 6, y: 6, w: size, h: size)
+        let rect = PanelFrame(
+            x: metrics.panelWidth - layout.pinButtonWidth - 6, y: 6,
+            w: layout.pinButtonWidth, h: layout.pinButtonHeight)
         let hovered = inputs.hoveredId == "btn_pin"
         elements.append(.rectangle(
             frame: rect,
             fillColor: hovered
                 ? colors.rowHoverBg : PanelColor(red: 0, green: 0, blue: 0, alpha: 0),
-            cornerRadius: 5,
+            cornerRadius: 8,
             id: "btn_pin",
             tracksMouse: true))
-
-        let color = inputs.pinned ? colors.text : colors.subText
-        let head: (PanelPoint, PanelPoint)
-        let shaft: (PanelPoint, PanelPoint)
-        let needle: (PanelPoint, PanelPoint)
-        if inputs.pinned {
-            head = (.init(x: rect.x + 7.5, y: rect.y + 6.5), .init(x: rect.x + 14.5, y: rect.y + 6.5))
-            shaft = (.init(x: rect.x + 11, y: rect.y + 6.5), .init(x: rect.x + 11, y: rect.y + 11.5))
-            needle = (.init(x: rect.x + 11, y: rect.y + 11.5), .init(x: rect.x + 11, y: rect.y + 15.5))
-        } else {
-            head = (.init(x: rect.x + 12, y: rect.y + 5), .init(x: rect.x + 17, y: rect.y + 10))
-            shaft = (.init(x: rect.x + 14.5, y: rect.y + 7.5), .init(x: rect.x + 11, y: rect.y + 11))
-            needle = (.init(x: rect.x + 11, y: rect.y + 11), .init(x: rect.x + 7.5, y: rect.y + 14.5))
-        }
-        elements.append(.line(from: head.0, to: head.1, color: color, width: 3))
-        elements.append(.line(from: shaft.0, to: shaft.1, color: color, width: 2))
-        elements.append(.line(from: needle.0, to: needle.1, color: color, width: 1))
+        elements.append(.svg(
+            frame: rect,
+            svg: KanzashiArt.svg(pinned: inputs.pinned),
+            cacheKey: KanzashiArt.cacheKey(pinned: inputs.pinned)))
     }
 
     /// 現在時刻段(ロゴの意匠のアナログ時計+デジタル秒表示)を構築する。

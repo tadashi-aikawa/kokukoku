@@ -228,8 +228,20 @@ public enum PanelLayout {
     public static let iconImageCornerRadius = iconImageSize / 2
     /// フッター中央の連続稼働時間の編集フィールド幅(HH:MM:SS入力が収まる幅)
     public static let continuousTimeWidth = 90.0
-    /// ヘッダー右上のPinボタン(クリック領域)の一辺
-    public static let pinButtonSize = 22.0
+    /// ヘッダー右上のPinボタン(クリック領域)。簪は常時30度傾いているので、
+    /// 回転後の外接(KanzashiArt.canvasW : canvasH)と同じ縦横比で持つ
+    /// この値は外接の高さで、目を引く大玉の直径はその1/5(40なら7.9px)しかない。
+    /// いちど34まで落としたが実機で控えめすぎた: 玉簪は玉しか目に入らないため、
+    /// 外接の数字ほど大きく見えない(花簪だった頃は40の枠に花が12.8pxあった)。
+    /// 40へ戻しても花簪より静かなまま、留めている紅が目に入る大きさになる
+    public static let pinButtonHeight = 40.0
+    public static let pinButtonWidth =
+        pinButtonHeight * KanzashiArt.canvasW / KanzashiArt.canvasH
+    /// リセット文言に前置するそろばんの高さ(幅は道具の実比率で決まる)
+    public static let sorobanHeight = 16.0
+    public static let sorobanWidth = sorobanHeight * SorobanArt.canvasW / SorobanArt.canvasH
+    /// そろばんとリセット文言の間隔
+    public static let sorobanTextGap = 6.0
     /// 連続稼働の蝋燭の一辺。フッター高(40px)にちょうど収まり、
     /// 炎の揺れが上へはみ出しても切れない大きさ
     public static let candleSize = 38.0
@@ -351,6 +363,20 @@ public enum PanelLayout {
         /// (生成りの text がほぼ和紙、日輪の朱は clockSecondHand をそのまま使う)
         public static let clockWashi = PanelColor(red: 0.969, green: 0.914, blue: 0.820, alpha: 1)
         public static let clockSumi = PanelColor(red: 0.196, green: 0.196, blue: 0.180, alpha: 1)
+        /// Pinの玉簪(KanzashiArt)。玉の紅は朱ではない: 同じパネル内に秒の日輪とご破算の確認で
+        /// 既に朱があり、そこへ三つ目の朱を足すと「朱は警告と点睛のみ」の掟が濁る。
+        /// 色相を青寄りへずらした紅にすることで、押しピンの赤を持ち込みつつ意味を分ける
+        public static let kanzashiBeni = PanelColor(red: 0.788, green: 0.192, blue: 0.298, alpha: 1)
+        /// 上端の小玉と蜻蛉玉の巻き模様の金。留めているときだけ灯る
+        public static let kanzashiKin = PanelColor(red: 0.851, green: 0.706, blue: 0.361, alpha: 1)
+        /// 軸の鼈甲。簪の実素材で、金茶(panelBorderFocused)と血が繋がっている
+        public static let kanzashiBekko = PanelColor(red: 0.788, green: 0.627, blue: 0.388, alpha: 1)
+        /// 留めていないときの燻し。subTextより一段沈めて明度で状態を分ける
+        public static let kanzashiIbushi = PanelColor(red: 0.478, green: 0.420, blue: 0.322, alpha: 1)
+        /// 燻しの陰。off でも小玉と巻き模様は形として残し、色だけ沈める
+        /// (消すと玉と軸だけの絵になり、簪の構造が読めなくなる)
+        public static let kanzashiIbushiShade = PanelColor(
+            red: 0.361, green: 0.322, blue: 0.251, alpha: 1)
         /// 秒を刻む日輪のにじみ。朱は面で使わず点で置くパレットの掟に従い、光の気配だけを広げる
         public static let clockSunHalo = PanelColor(
             red: 0.855, green: 0.349, blue: 0.196, alpha: 0.22)

@@ -16,7 +16,7 @@ struct PanelElementsBuilderTests {
     func representativeLayout() {
         let elements = builder().build(inputs())
 
-        #expect(elements.count == 24)
+        #expect(elements.count == 23)
         #expect(elements[0] == .rectangle(
             frame: .init(x: 0, y: 0, w: 480, h: 164),
             fillColor: PanelLayout.Colors.background, cornerRadius: 10))
@@ -48,28 +48,73 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 372, y: 131, w: 96, h: 26),
             fillColor: PanelLayout.Colors.footerBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
-        #expect(elements[19] == .rectangle(
-            frame: .init(x: 452, y: 6, w: 22, h: 22),
-            fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 5,
+        // リセットは そろばん(elements[18]) + 文言 の2つをひとかたまりで中央に置く
+        #expect(elements[19] == .text(
+            frame: .init(
+                x: 423.4814285714286, y: 134, w: 24.18, h: 21), text: "ご破算",
+            fontName: ".AppleSystemUIFont", fontSize: 13,
+            color: PanelLayout.Colors.subText, alignment: .left))
+        #expect(elements[20] == .rectangle(
+            frame: .init(
+                x: 480 - PanelLayout.pinButtonWidth - 6, y: 6,
+                w: PanelLayout.pinButtonWidth, h: PanelLayout.pinButtonHeight),
+            fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 8,
             id: "btn_pin", tracksMouse: true))
-        #expect(elements[23] == .rectangle(
+        #expect(elements[22] == .rectangle(
             frame: .init(x: 0.5, y: 0.5, w: 479, h: 163),
             fillColor: .init(red: 0, green: 0, blue: 0, alpha: 0), cornerRadius: 10,
             strokeColor: PanelLayout.Colors.panelBorder, strokeWidth: 1))
     }
 
-    @Test("Pinボタンは常設で、off時は鈍色の45度傾き・on時は生成りの垂直姿勢で描く")
+    @Test("Pinの簪は姿を変えず、留めているかは紅と燻しの色で分ける")
     func pinButton() {
         let offElements = builder().build(inputs())
         let onElements = builder().build(inputs(pinned: true))
 
-        // 頭のクロスバー(width 3の線)で姿勢と色を判定する
-        #expect(offElements[20] == .line(
-            from: .init(x: 464, y: 11), to: .init(x: 469, y: 16),
-            color: PanelLayout.Colors.subText, width: 3))
-        #expect(onElements[20] == .line(
-            from: .init(x: 459.5, y: 12.5), to: .init(x: 466.5, y: 12.5),
-            color: PanelLayout.Colors.text, width: 3))
+        guard case .svg(let frame, let offSVG, let offKey) = offElements[21],
+            case .svg(_, let onSVG, let onKey) = onElements[21]
+        else {
+            Issue.record("簪がSVGで構築されていない")
+            return
+        }
+        #expect(frame == .init(
+            x: 480 - PanelLayout.pinButtonWidth - 6, y: 6,
+            w: PanelLayout.pinButtonWidth, h: PanelLayout.pinButtonHeight))
+        #expect(offKey == "kanzashi:off")
+        #expect(onKey == "kanzashi:on")
+        // 姿(30度の傾き)は状態で変えない。押しピンの記号であって状態表現ではないため
+        #expect(offSVG.contains("rotate(30.00"))
+        #expect(onSVG.contains("rotate(30.00"))
+        // 状態は色だけが担う: onは紅と金の点睛、offは燻し一色
+        #expect(onSVG.contains(PanelLayout.Colors.kanzashiBeni.hexString))
+        #expect(onSVG.contains(PanelLayout.Colors.kanzashiKin.hexString))
+        #expect(!offSVG.contains(PanelLayout.Colors.kanzashiBeni.hexString))
+        #expect(offSVG.contains(PanelLayout.Colors.kanzashiIbushi.hexString))
+    }
+
+    @Test("リセットはご破算のそろばんを前置し、文言と一体で中央に置く")
+    func resetSoroban() {
+        let elements = builder().build(inputs())
+        let confirming = builder().build(inputs(resetConfirming: true))
+
+        guard case .svg(let frame, _, let key) = elements[18],
+            case .svg(_, _, let confirmKey) = confirming[18]
+        else {
+            Issue.record("そろばんがSVGで構築されていない")
+            return
+        }
+        #expect(frame.w == PanelLayout.sorobanWidth)
+        #expect(frame.h == PanelLayout.sorobanHeight)
+        // 確認中は文言と同じ生成りへ切り替わる(色ごとにキャッシュを分ける)
+        #expect(key == "soroban:\(PanelLayout.Colors.subText.hexString)")
+        #expect(confirmKey == "soroban:\(PanelLayout.Colors.text.hexString)")
+        // そろばん+間隔+文言のかたまりが、ボタン(x=372, w=96)の中央に載る
+        guard case .text(let textFrame, _, _, _, _, _) = elements[19] else {
+            Issue.record("リセット文言がテキストで構築されていない")
+            return
+        }
+        let total = frame.w + PanelLayout.sorobanTextGap + textFrame.w
+        #expect(abs((frame.x + total / 2) - (372 + 96 / 2.0)) < 0.001)
     }
 
     @Test("絵文字アイコンをテキストとして描画する")
@@ -137,7 +182,7 @@ struct PanelElementsBuilderTests {
             frame: .init(x: 372, y: 131, w: 96, h: 26),
             fillColor: PanelLayout.Colors.resetConfirmBg, cornerRadius: 13,
             id: "btn_reset", tracksMouse: true))
-        #expect(containsText("↺ 本当に?", in: confirming))
+        #expect(containsText("本当に?", in: confirming))
     }
 
     @Test("キーボード選択はカプセル輪郭で示し行背景は変えない")

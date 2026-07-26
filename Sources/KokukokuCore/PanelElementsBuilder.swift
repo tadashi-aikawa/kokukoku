@@ -712,8 +712,8 @@ public struct PanelElementsBuilder {
     /// フッター左下へ移す案も検討したが、掴む手と留める手が上下に分かれるうえ、
     /// 簪は「上に挿す」道具なので、蝋燭が足元で燃え時計が上にある重力の秩序から外れる。
     ///
-    /// 絵は KanzashiArt(一本足の花簪・常時30度)。状態は色だけで分け、姿は動かさない
-    /// (理由は KanzashiArt のコメントを参照)
+    /// 絵は KanzashiArt(玉簪・常時30度・軸は挿し込まれて薄墨に溶ける)。
+    /// 姿は挿した形で固定し、状態は色だけで分ける(理由は KanzashiArt のコメントを参照)
     private func appendPinButton(_ inputs: Inputs, to elements: inout [PanelElement]) {
         let layout = PanelLayout.self
         let colors = PanelLayout.Colors.self

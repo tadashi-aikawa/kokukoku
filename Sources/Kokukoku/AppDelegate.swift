@@ -102,23 +102,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // [calendar] 設定がない場合はカレンダー連携を完全に無効にする(権限要求もしない)
         if let calendarConfig = config.calendar {
             let service = CalendarService(config: ResolvedCalendarConfig(calendar: calendarConfig))
-            // 開始前通知: パネルを自動表示して該当予定を強調する
-            service.onNotification = { [weak self] keys in
-                self?.panel?.showCalendarNotification(keys: keys)
+            // 開始前・終了前通知: パネルを自動表示して該当予定を強調する
+            service.onNotification = { [weak self] keys, endKeys in
+                self?.panel?.showCalendarNotification(keys: keys, endKeys: endKeys)
             }
             panel.onNotificationClosed = { [weak service] in service?.clearNotices() }
             service.start()
             calendarService = service
 
-            // --test-calendar-notification: 次の未開始予定で開始前通知の見た目
-            // (対象の点のハロー・入場パルス)を実際の通知時刻を待たずに確認する
+            // --test-calendar-notification: 次の未開始予定(開始前)と進行中の先頭予定(終了前)で
+            // 通知の見た目(対象の点のハロー・入場パルス)を実際の通知時刻を待たずに確認する
             if CommandLine.arguments.contains("--test-calendar-notification") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
                     guard let self, let service = self.calendarService else { return }
-                    let upcoming = service.snapshot.visibleEvents(now: Date())
-                        .filter { $0.start > Date() }
-                    guard let first = upcoming.first else { return }
-                    self.panel?.showCalendarNotification(keys: [first.key])
+                    let now = Date()
+                    let events = service.snapshot.visibleEvents(now: now)
+                    let upcoming = events.first { $0.start > now }
+                    let ongoing = events.first { $0.start <= now }
+                    guard upcoming != nil || ongoing != nil else { return }
+                    self.panel?.showCalendarNotification(
+                        keys: Set([upcoming?.key].compactMap { $0 }),
+                        endKeys: Set([ongoing?.key].compactMap { $0 }))
                 }
             }
         }

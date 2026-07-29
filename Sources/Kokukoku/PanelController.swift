@@ -48,8 +48,10 @@ final class PanelController {
     private(set) var notificationMode = false
     /// show()のmakeKeyAndOrderFront直後のキー化ではフォーカスグローを出さない(表示自体がフィードバック)
     private var suppressFocusGlow = false
-    /// 通知で強調する予定
+    /// 通知で強調する予定(開始前通知の対象)
     private var highlightedKeys: Set<CalendarEvent.EventKey> = []
+    /// 通知で強調する予定(終了前通知の対象。進行中の間だけハローが灯る)
+    private var endHighlightedKeys: Set<CalendarEvent.EventKey> = []
     /// 通知パネルが閉じたときに呼ばれる(中止告知のクリア用)
     var onNotificationClosed: (() -> Void)?
     /// 「他◯件」クリックでの全件展開中(パネルを閉じると畳んだ状態に戻る)
@@ -98,12 +100,16 @@ final class PanelController {
 
     // MARK: - 公開操作 (show / hide / toggle / update)
 
-    /// 開始前通知としてパネルを自動表示する(該当予定を強調)。
+    /// 開始前・終了前通知としてパネルを自動表示する(該当予定を強調)。
     /// 既に通知パネル表示中なら同じパネルにまとめて強調を足す。
     /// 通常パネル表示中なら畳んで通知パネルとして出し直す
-    func showCalendarNotification(keys: Set<CalendarEvent.EventKey>) {
+    func showCalendarNotification(
+        keys: Set<CalendarEvent.EventKey>,
+        endKeys: Set<CalendarEvent.EventKey> = []
+    ) {
         if visible, notificationMode {
             highlightedKeys.formUnion(keys)
+            endHighlightedKeys.formUnion(endKeys)
             rebuildPanel()
             // 表示中のパネルへの合流も新しい通知の到着なので、署名をもう一撃打つ
             playNotificationPulse()
@@ -112,6 +118,7 @@ final class PanelController {
         if visible { hide() }
         notificationMode = true
         highlightedKeys = keys
+        endHighlightedKeys = endKeys
         show()
     }
 
@@ -390,6 +397,7 @@ final class PanelController {
         if notificationMode {
             notificationMode = false
             highlightedKeys = []
+            endHighlightedKeys = []
             onNotificationClosed?()
         }
     }
@@ -446,6 +454,7 @@ final class PanelController {
         guard var state = callbacks.getCalendarState() else { return [] }
         if notificationMode {
             state.highlightedKeys = highlightedKeys
+            state.endHighlightedKeys = endHighlightedKeys
         } else {
             state.notices = []
         }

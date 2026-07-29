@@ -15,8 +15,10 @@ public struct CalendarPanelState: Equatable, Sendable {
     public var ongoingCountdownMaxMinutes: Int
     /// 最後に取得成功した時刻(通知パネルの鮮度表示に使う)
     public var lastSuccessAt: Date?
-    /// 通知の対象予定(通知モードのみ。タイムラインの点のハロー表示に使う)
+    /// 開始前通知の対象予定(通知モードのみ。タイムラインの点のハロー表示に使う)
     public var highlightedKeys: Set<CalendarEvent.EventKey>
+    /// 終了前通知の対象予定(通知モードのみ。進行中の間だけ点のハローを灯す)
+    public var endHighlightedKeys: Set<CalendarEvent.EventKey>
     /// 中止(または確認不能)になった予定の告知(通知予約済み・表示中の予定のみ対象)
     public var notices: [String]
 
@@ -26,6 +28,7 @@ public struct CalendarPanelState: Equatable, Sendable {
         maxVisibleEvents: Int = 2,
         lastSuccessAt: Date? = nil,
         highlightedKeys: Set<CalendarEvent.EventKey> = [],
+        endHighlightedKeys: Set<CalendarEvent.EventKey> = [],
         notices: [String] = [],
         gapRailMinutes: Int = 1,
         upcomingCountdownMaxMinutes: Int = 120,
@@ -36,6 +39,7 @@ public struct CalendarPanelState: Equatable, Sendable {
         self.maxVisibleEvents = maxVisibleEvents
         self.lastSuccessAt = lastSuccessAt
         self.highlightedKeys = highlightedKeys
+        self.endHighlightedKeys = endHighlightedKeys
         self.notices = notices
         self.gapRailMinutes = gapRailMinutes
         self.upcomingCountdownMaxMinutes = upcomingCountdownMaxMinutes
@@ -77,10 +81,11 @@ public struct CalendarEventRow: Equatable, Sendable {
     public var countdownUrgency: CalendarCountdownUrgency?
     /// 直前の予定との間隔の表現。先頭は nil
     public var gapStyle: CalendarGapStyle?
-    /// 開始前通知の対象か(通知モードの未開始予定のみ)。
+    /// 通知の対象か(通知モードで、開始前通知は未開始の間・終了前通知は進行中の間のみ)。
     /// 情報は行が既に語っているため文字は足さず、タイムラインの点のハローで「指す」だけにする
     /// (バナー帯は行とほぼ同内容の二度言いになり不採用。2026-07-19 タダシ決定)。
-    /// 開始後はハローを消して進行中表示へ引き継ぐ
+    /// 開始前通知のハローは開始後に消して進行中表示へ引き継ぎ、
+    /// 終了前通知のハローは進行中の間だけ灯す(終了後は行ごと消える)
     public var isAlertTarget: Bool
     /// 進行中か(開始済みで終了前)。重複時は先頭以外も進行中になり得るため各行で判定する。
     /// 描画は点のリング化+時刻の明暗反転で静かに区別する(色相は増やさない。2026-07-19 3人検討)
@@ -168,7 +173,9 @@ public enum CalendarSectionModel {
             ? state.events : Array(state.events.prefix(state.maxVisibleEvents))
         for (index, event) in shown.enumerated() {
             var row = eventRow(for: event, calendar: calendar)
-            row.isAlertTarget = state.highlightedKeys.contains(event.key) && event.start > now
+            row.isAlertTarget =
+                (state.highlightedKeys.contains(event.key) && event.start > now)
+                || (state.endHighlightedKeys.contains(event.key) && event.start <= now)
             // 表示対象は「終了が現在より後」なので、開始済み=進行中
             row.isInProgress = event.start <= now
             if index == 0 {

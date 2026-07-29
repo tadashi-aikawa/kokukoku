@@ -48,7 +48,7 @@ swift build
 swift test
 ```
 
-動作確認は `swift run Kokukoku` (即パネル表示は `--show-panel` 付き) で行います。予定開始前通知の見た目 (対象の点のハロー・入場パルス) は `--test-calendar-notification` 付きで起動すると、次の未開始予定を使って通知時刻を待たずに確認できます。
+動作確認は `swift run Kokukoku` (即パネル表示は `--show-panel` 付き) で行います。予定の開始前・終了前通知の見た目 (対象の点のハロー・入場パルス) は `--test-calendar-notification` 付きで起動すると、次の未開始予定 (開始前) と進行中の先頭予定 (終了前) を使って通知時刻を待たずに確認できます。
 通知まわり (アイコン表示・クリックでパネル起動) はバンドル実行が前提のため、`./scripts/make-app.sh` で組んだ `.build/KOKUKOKU.app` で確認します (テスト通知は `--test-notification` 付きで起動)。日常利用も `.app` 起動を標準とします。
 
 ## リリース方法

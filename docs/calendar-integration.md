@@ -40,6 +40,9 @@ name = "一般"
 refreshIntervalMinutes = 5
 # 通知を出すタイミング: 予定開始の何分前か。省略時 5
 notificationLeadMinutes = 5
+# 終了前通知を出すタイミング: 進行中予定の終了の何分前か。省略時は通知しない
+# (MTGを締めて次の行動へ移る準備の合図。望んで設定した人だけに鳴らす。2026-07-29 タダシ要望)
+endNotificationLeadMinutes = 5
 # 展開前に表示する予定数の上限。超過分は「他◯件」に畳む。省略時 2
 # (パネルの本業は計測操作のため控えめの既定。2026-07-19 タダシ決定)
 maxVisibleEvents = 2
@@ -57,10 +60,10 @@ ignoreTitles = ["確保", "出社業務"]
 ```
 
 - `name` が空文字の場合は設定エラー(既存のvalidateと同様に `ConfigError.invalid`)
-- `refreshIntervalMinutes` / `notificationLeadMinutes` / `maxVisibleEvents` / `gapRailMinutes` / `upcomingCountdownMaxMinutes` / `ongoingCountdownMaxMinutes` は 1 以上。0 以下は設定エラー
+- `refreshIntervalMinutes` / `notificationLeadMinutes` / `endNotificationLeadMinutes` / `maxVisibleEvents` / `gapRailMinutes` / `upcomingCountdownMaxMinutes` / `ongoingCountdownMaxMinutes` は 1 以上。0 以下は設定エラー
 - `ignoreTitles` の要素が空文字(空白のみを含む)の場合は設定エラー
 - 廃止済みキー: `maxAttendees` / `selfEmail`(参加者一覧の全廃に伴い2026-07-20廃止。設定に残っていても未知キーとして無視される)
-- `notificationLeadMinutes < 5` は許容するが、同期遅延(最大3〜4分)により直前変更を拾えない可能性がある旨をREADMEに注記する
+- `notificationLeadMinutes < 5` / `endNotificationLeadMinutes < 5` は許容するが、同期遅延(最大3〜4分)により直前変更を拾えない可能性がある旨をREADMEに注記する
 - カレンダー名の解決: 一致するカレンダーが **0件** ならエラー状態(セクションに「カレンダー『◯◯』が見つからない」と表示)。**複数一致**(別アカウントに同名カレンダーがある場合など)もエラー状態とし、`ソース名/カレンダー名` の候補一覧を表示して設定の見直しを促す。統合はしない(単一カレンダーのスコープを維持)
 - `Resources/Info.plist` に `NSCalendarsFullAccessUsageDescription` を追加する(権限要求の必須キー)
 
@@ -191,6 +194,16 @@ public struct CalendarEvent: Equatable, Sendable {
     - **前倒し**(開始が近づいた): 新しい通知回の通知時刻が既に過ぎていれば、下記の一般規則で即時通知される
   - **通知判定の一般規則**: 起動時・スリープ復帰時に限らず、**すべてのスナップショット更新時**に「通知時刻 ≤ 現在 < 開始時刻 かつ 未通知の通知回」を評価し、該当があれば即時通知する(同期遅延で通知時刻経過後に初めて取得された予定・寝ていた間に通知時刻を過ぎた予定の取りこぼし防止)
   - 開始時刻を過ぎた予定には通知しない(一覧の進行中表示で足りる)
+
+## 終了前通知
+
+進行中の予定の「終了 `endNotificationLeadMinutes` 分前」にも、開始前通知と同じ特性の通知を出す(2026-07-29 タダシ要望。MTGを締めて次の行動へ移る準備の合図)。**`endNotificationLeadMinutes` を設定した場合のみ有効**(省略時は通知しない。開始前通知と違い後から増えた通知のため、望んで設定した人だけに鳴らす。2026-07-29 タダシ決定)。パネルの自動表示・入場アニメーション・フォーカス非奪取・閉じる操作・鮮度表示・表示中の更新追従は開始前通知と共通で、以下だけが異なる:
+
+- **通知回は (EventKey, 終了時刻)**(開始前の通知回とは種別で独立)。終了時刻の後ろ倒しは新しい通知回として再通知され、前倒しで通知時刻を過ぎていれば即時通知される
+- **判定規則**: すべてのスナップショット更新時に「終了-リード時間 ≤ 現在 < 終了時刻 かつ 進行中(開始 ≤ 現在)かつ 未通知の通知回」を評価する(catch-up の一般規則も開始前と同じ)
+  - **開始前には出さない**: 予定の長さがリード時間以下の場合、通知時刻は開始時刻まで繰り下がり、開始した時点の catch-up で即時通知される(タイマーの発火時刻も `max(終了-リード時間, 開始時刻)` で開始時刻を下回らない)
+  - 終了時刻を過ぎた予定には通知しない(行ごと表示から消える)
+- **ハローは進行中の間だけ灯す**: 開始前通知のハロー(未開始の間だけ)と条件が逆で、対象予定の進行中リング+橙グローの上に同じ生成りの二層ハローが重なって「この予定の終わりが近い」を指す
 
 ## 永続化
 

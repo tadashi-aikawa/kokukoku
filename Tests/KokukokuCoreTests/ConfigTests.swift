@@ -257,6 +257,17 @@ struct ConfigLoaderTests {
         }
     }
 
+    @Test("calendarの終了前通知リード時間が1未満ならinvalidエラーになる")
+    func parseCalendarInvalidEndNotificationLead() {
+        #expect(
+            throws: ConfigError.invalid(
+                description: "calendar.endNotificationLeadMinutes must be >= 1")
+        ) {
+            try ConfigLoader.parse(
+                toml: "[calendar]\nname = \"一般\"\nendNotificationLeadMinutes = 0")
+        }
+    }
+
     @Test("calendarの廃止済みキー(maxAttendees・selfEmail)が残っていてもエラーにならない")
     func parseCalendarIgnoresRemovedKeys() throws {
         let config = try ConfigLoader.parse(
@@ -363,6 +374,8 @@ struct ResolvedPanelConfigTests {
         #expect(resolved.name == "一般")
         #expect(resolved.refreshIntervalMinutes == 5)
         #expect(resolved.notificationLeadMinutes == 5)
+        // 終了前通知は望んで設定した人だけに鳴らす(既定は通知しない)
+        #expect(resolved.endNotificationLeadMinutes == nil)
         #expect(resolved.maxVisibleEvents == 2)
         #expect(resolved.gapRailMinutes == 1)
         #expect(resolved.upcomingCountdownMaxMinutes == 120)
@@ -421,11 +434,16 @@ struct ResolvedPanelConfigTests {
     @Test("calendar設定の指定値が既定値より優先される")
     func specifiedCalendar() {
         let resolved = ResolvedCalendarConfig(
-            calendar: .init(name: "仕事", refreshIntervalMinutes: 15, notificationLeadMinutes: 2))
+            calendar: .init(
+                name: "仕事", refreshIntervalMinutes: 15, notificationLeadMinutes: 2,
+                endNotificationLeadMinutes: 3))
 
         #expect(resolved == ResolvedCalendarConfig(
-            calendar: .init(name: "仕事", refreshIntervalMinutes: 15, notificationLeadMinutes: 2)))
+            calendar: .init(
+                name: "仕事", refreshIntervalMinutes: 15, notificationLeadMinutes: 2,
+                endNotificationLeadMinutes: 3)))
         #expect(resolved.refreshIntervalMinutes == 15)
         #expect(resolved.notificationLeadMinutes == 2)
+        #expect(resolved.endNotificationLeadMinutes == 3)
     }
 }

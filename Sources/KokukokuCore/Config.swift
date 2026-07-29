@@ -66,6 +66,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
         public var name: String
         public var refreshIntervalMinutes: Int?
         public var notificationLeadMinutes: Int?
+        public var endNotificationLeadMinutes: Int?
         public var maxVisibleEvents: Int?
         public var gapRailMinutes: Int?
         public var upcomingCountdownMaxMinutes: Int?
@@ -76,6 +77,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             name: String,
             refreshIntervalMinutes: Int? = nil,
             notificationLeadMinutes: Int? = nil,
+            endNotificationLeadMinutes: Int? = nil,
             maxVisibleEvents: Int? = nil,
             gapRailMinutes: Int? = nil,
             upcomingCountdownMaxMinutes: Int? = nil,
@@ -85,6 +87,7 @@ public struct KokukokuConfig: Codable, Equatable, Sendable {
             self.name = name
             self.refreshIntervalMinutes = refreshIntervalMinutes
             self.notificationLeadMinutes = notificationLeadMinutes
+            self.endNotificationLeadMinutes = endNotificationLeadMinutes
             self.maxVisibleEvents = maxVisibleEvents
             self.gapRailMinutes = gapRailMinutes
             self.upcomingCountdownMaxMinutes = upcomingCountdownMaxMinutes
@@ -181,6 +184,9 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
     public var name: String
     public var refreshIntervalMinutes: Int
     public var notificationLeadMinutes: Int
+    /// 終了前通知を出すタイミング: 進行中予定の終了の何分前か。
+    /// nil(既定)は終了前通知を出さない(望んで設定した人だけに鳴らす)
+    public var endNotificationLeadMinutes: Int?
     /// 展開前に表示する予定数の上限(超過分は「他◯件」に畳む)。
     /// パネルの本業は計測操作のため既定は控えめの3
     public var maxVisibleEvents: Int
@@ -199,6 +205,7 @@ public struct ResolvedCalendarConfig: Equatable, Sendable {
         self.name = calendar.name
         self.refreshIntervalMinutes = calendar.refreshIntervalMinutes ?? 5
         self.notificationLeadMinutes = calendar.notificationLeadMinutes ?? 5
+        self.endNotificationLeadMinutes = calendar.endNotificationLeadMinutes
         self.maxVisibleEvents = calendar.maxVisibleEvents ?? 2
         self.gapRailMinutes = calendar.gapRailMinutes ?? 1
         self.upcomingCountdownMaxMinutes = calendar.upcomingCountdownMaxMinutes ?? 120
@@ -270,6 +277,10 @@ public enum ConfigLoader {
             if let lead = calendar.notificationLeadMinutes, lead < 1 {
                 throw ConfigError.invalid(
                     description: "calendar.notificationLeadMinutes must be >= 1")
+            }
+            if let lead = calendar.endNotificationLeadMinutes, lead < 1 {
+                throw ConfigError.invalid(
+                    description: "calendar.endNotificationLeadMinutes must be >= 1")
             }
             if let max = calendar.maxVisibleEvents, max < 1 {
                 throw ConfigError.invalid(description: "calendar.maxVisibleEvents must be >= 1")

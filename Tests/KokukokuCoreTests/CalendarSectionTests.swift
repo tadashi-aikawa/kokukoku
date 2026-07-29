@@ -362,6 +362,24 @@ struct CalendarSectionModelTests {
         #expect(eventRow(rows[1])?.isAlertTarget == true)
     }
 
+    @Test("終了前通知の対象は進行中の間だけisAlertTargetになる")
+    func endAlertTargetOnlyWhileInProgress() {
+        let ongoing = makeEvent(id: "a@google.com", title: "朝会", start: at(hour: 12), end: at(hour: 15))
+        let upcoming = makeEvent(
+            id: "b@google.com", title: "定例", start: at(hour: 14), end: at(hour: 15))
+
+        let rows = CalendarSectionModel.rows(
+            state: .init(
+                events: [ongoing, upcoming],
+                endHighlightedKeys: [ongoing.key, upcoming.key]),
+            now: at(hour: 13), calendar: calendar)
+
+        #expect(eventRow(rows[0])?.isAlertTarget == true)
+        #expect(eventRow(rows[0])?.isInProgress == true)
+        // 未開始の予定は終了前通知の対象にならない(開始前通知のハローとは条件が逆)
+        #expect(eventRow(rows[1])?.isAlertTarget == false)
+    }
+
     @Test("通知対象なし(通常表示)はisAlertTargetが付かない")
     func noAlertTargetWithoutHighlightedKeys() {
         let rows = CalendarSectionModel.rows(

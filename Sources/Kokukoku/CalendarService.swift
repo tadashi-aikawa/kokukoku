@@ -18,13 +18,13 @@ final class CalendarService {
     /// --calendar-debug: 取得スモーク用にスナップショット全件をstderrへ出力する
     private let debugDump = CommandLine.arguments.contains("--calendar-debug")
 
-    /// 開始前通知の通知済み管理(通知回単位・プロセス内のみ)
+    /// 開始前・終了前通知の通知済み管理(通知回単位・プロセス内のみ)
     private var notifier = CalendarNotifier()
     private var notifyTask: Task<Void, Never>?
     /// 中止(確定)告知。通知パネルが閉じられたら clearNotices() でクリアされる
     private(set) var notices: [String] = []
-    /// 通知すべき予定が発生したときに呼ばれる(空Setは告知のみの再表示)
-    var onNotification: ((Set<CalendarEvent.EventKey>) -> Void)?
+    /// 通知すべき予定が発生したときに呼ばれる(開始前対象, 終了前対象。両方空は告知のみの再表示)
+    var onNotification: ((Set<CalendarEvent.EventKey>, Set<CalendarEvent.EventKey>) -> Void)?
 
     var maxVisibleEvents: Int { config.maxVisibleEvents }
     var gapRailMinutes: Int { config.gapRailMinutes }
@@ -168,14 +168,24 @@ final class CalendarService {
         }
     }
 
-    /// 「通知時刻 ≤ 現在 < 開始時刻 かつ 未通知の通知回」を通知する
+    /// 開始前「通知時刻 ≤ 現在 < 開始時刻」・終了前「通知時刻 ≤ 現在 < 終了時刻 かつ 進行中」の
+    /// 未通知の通知回を通知する
     private func evaluateNotifications(now: Date) {
-        let due = notifier.dueEvents(
-            in: snapshot.visibleEvents(now: now), now: now,
-            leadMinutes: config.notificationLeadMinutes)
-        guard !due.isEmpty else { return }
-        log("開始前通知: \(due.map(\.title).joined(separator: ", "))")
-        onNotification?(Set(due.map(\.key)))
+        let events = snapshot.visibleEvents(now: now)
+        let dueStart = notifier.dueEvents(
+            in: events, now: now, leadMinutes: config.notificationLeadMinutes)
+        // 終了前通知は endNotificationLeadMinutes を設定した場合のみ(既定は通知しない)
+        let dueEnd = config.endNotificationLeadMinutes.map { lead in
+            notifier.dueEndingEvents(in: events, now: now, leadMinutes: lead)
+        } ?? []
+        guard !dueStart.isEmpty || !dueEnd.isEmpty else { return }
+        if !dueStart.isEmpty {
+            log("開始前通知: \(dueStart.map(\.title).joined(separator: ", "))")
+        }
+        if !dueEnd.isEmpty {
+            log("終了前通知: \(dueEnd.map(\.title).joined(separator: ", "))")
+        }
+        onNotification?(Set(dueStart.map(\.key)), Set(dueEnd.map(\.key)))
     }
 
     /// 次の通知時刻へタイマーを仕掛け直す。表示の60秒前と表示時点に同期をキックして鮮度を上げる
@@ -185,7 +195,8 @@ final class CalendarService {
         guard
             let fireDate = notifier.nextFireDate(
                 in: snapshot.visibleEvents(now: Date()), now: Date(),
-                leadMinutes: config.notificationLeadMinutes)
+                leadMinutes: config.notificationLeadMinutes,
+                endLeadMinutes: config.endNotificationLeadMinutes)
         else { return }
         notifyTask = Task { [weak self] in
             let kickDelay = fireDate.timeIntervalSinceNow - 60
@@ -245,7 +256,7 @@ final class CalendarService {
             }
         }
         if noticed {
-            onNotification?([])
+            onNotification?([], [])
         }
     }
 

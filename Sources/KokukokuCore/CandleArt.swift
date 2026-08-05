@@ -94,9 +94,12 @@ public enum CandleArt {
     /// 炎(揺らす部分)を除いた蝋燭本体のSVG。
     /// 台・蝋・溶けたたれ・芯を描き、燃え尽き時は蝋だまりと熾火と煙に変わる。
     ///
-    /// waxOpacityは蝋(胴・芯・たれ・熾火)だけに掛ける。台は蝋燭が載る器であって
-    /// 燃えも替わりもしないため、蝋燭が滲み出す間も据え置く
-    public static func bodySVG(_ state: State, waxOpacity: Double = 1) -> String {
+    /// waxOpacityは蝋(胴・芯・たれ・蝋だまり)だけに掛ける。台は蝋燭が載る器であって
+    /// 燃えも替わりもしないため、蝋燭が滲み出す間も据え置く。
+    /// emberOpacityは熾火の朱だけを別に沈められる(火の気だけ先に静める用)
+    public static func bodySVG(
+        _ state: State, waxOpacity: Double = 1, emberOpacity: Double = 1
+    ) -> String {
         let colors = PanelLayout.Colors.self
         let wax = colors.candleWax.hexString
         let shade = colors.candleWaxShade.hexString
@@ -115,16 +118,22 @@ public enum CandleArt {
             // 蝋だまりを先に敷き、熾火はその上に重ねる(順序を逆にすると蝋の明るさが朱を覆う)。
             // 蝋だまり自体も沈めた側の色にして、熾火の朱を浮かせる
             // 煙は立ち上らせるためレイヤーへ分けてある(smokeSVG)
+            // 熾火(朱と、その芯のハイライト)は蝋だまりと分けて包む。
+            // 計測を止めたときは火の気だけ先に静め、蝋だまりは新しい蝋燭が立つまで残す
+            let embers = fading(
+                """
+                <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="13" ry="6" fill="\(ember)"
+                         opacity="0.75" filter="url(#glow)"/>
+                <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="7.5" ry="3" fill="\(ember)"/>
+                <ellipse cx="\(centerX)" cy="\(baseY - 3.5)" rx="3.4" ry="1.4" fill="\(wax)"
+                         opacity="0.55"/>
+                """, emberOpacity)
             return svg(
                 defs(blur: 3)
                     + fading(
                         """
                         <path d="M35 \(baseY) q13 -9 26 0 z" fill="\(shade)" opacity="0.95"/>
-                        <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="13" ry="6" fill="\(ember)"
-                                 opacity="0.75" filter="url(#glow)"/>
-                        <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="7.5" ry="3" fill="\(ember)"/>
-                        <ellipse cx="\(centerX)" cy="\(baseY - 3.5)" rx="3.4" ry="1.4" fill="\(wax)"
-                                 opacity="0.55"/>
+                        \(embers)
                         """, waxOpacity) + stand)
         }
 
@@ -187,11 +196,15 @@ public enum CandleArt {
         opacity >= 1 ? body : "<g opacity=\"\(opacity)\">\(body)</g>"
     }
 
-    /// 本体の絵のキャッシュキー。滲み出しの最中は不透明度でも絵が変わるため丈と併せて刻む
-    public static func bodyCacheKey(_ state: State, waxOpacity: Double = 1) -> String {
-        waxOpacity >= 1
-            ? state.cacheKey
-            : state.cacheKey + ":o\(Int((waxOpacity * 100).rounded()))"
+    /// 本体の絵のキャッシュキー。滲み出し・熾火の沈みの最中は
+    /// 不透明度でも絵が変わるため、丈と併せて刻む
+    public static func bodyCacheKey(
+        _ state: State, waxOpacity: Double = 1, emberOpacity: Double = 1
+    ) -> String {
+        var key = state.cacheKey
+        if waxOpacity < 1 { key += ":o\(Int((waxOpacity * 100).rounded()))" }
+        if emberOpacity < 1 { key += ":e\(Int((emberOpacity * 100).rounded()))" }
+        return key
     }
 
     /// 和ろうそくの胴。洋ロウソクの円筒ではなく、上が広く腰でくびれる碇型に描く。
@@ -355,27 +368,49 @@ public enum CandleArt {
     /// 丈を満丈へ戻すのにかける時間(秒)
     public static let restoreDuration = 0.55
 
+    /// 燃え尽きから戻し始めるまで、蝋だまりのまま待つ時間(秒)。
+    /// 熾火が静まり、絶えず立っていた煙が絶えるのを待つため通常より長く取る
+    /// (「煙がほぼ消えてから新しい蝋燭が立つ」2026-08-05 タダシ合意)
+    public static let emberRestoreHold = 1.2
+    /// 燃え尽きから満丈へ戻すのにかける時間(秒)。丈0から立ち上げるぶん通常より長い
+    public static let emberRestoreDuration = 0.7
+    /// 熾火の朱が沈み切るまでの時間(秒)。計測を止めた合図として煙より先に静まる
+    public static let emberFadeDuration = 0.8
+    /// 燃え尽きの煙(ループ)が絶えるまでの時間(秒)。ホストがレイヤーを薄れさせる
+    public static let emberSmokeFadeDuration = 1.4
+
     /// 計測停止の直後、実状態(満丈)の代わりに描く蝋燭の姿
     public struct Restore: Equatable, Sendable {
         public let state: State
         /// 蝋の不透明度(滲み出しの最中だけ1未満)
         public let waxOpacity: Double
+        /// 熾火の不透明度(燃え尽きから戻す間だけ1未満)
+        public let emberOpacity: Double
 
-        public init(state: State, waxOpacity: Double) {
+        public init(state: State, waxOpacity: Double, emberOpacity: Double = 1) {
             self.state = state
             self.waxOpacity = waxOpacity
+            self.emberOpacity = emberOpacity
         }
     }
 
     /// 計測停止からの経過秒に対する蝋燭の姿。戻し終えていればnil(実状態の満丈をそのまま描く)。
     ///
     /// 停止すると連続稼働は0へ戻るため実状態は即座に満丈になるが、
-    /// 火と煙が残っている間に丈だけ跳ね上がると「消えかけの火が満丈の蝋燭に載る」絵になる。
-    /// そこで火が消えた時点の丈をいったん保ち、煙が薄れる頃から戻す。
+    /// 火や熾火・煙が残っている間に丈だけ跳ね上がると
+    /// 「消えかけの火が満丈の蝋燭に載る」絵になる。
+    /// そこで火が消えた時点の姿をいったん保ち、煙が薄れる頃から戻す。
     ///
     /// 溶けた蝋は本来伸びないので、丈を戻すだけでは物として嘘になる。
     /// 伸びに合わせて滲み出させ「新しい蝋燭に替わった」と読ませる(2026-08-05 タダシ合意)
-    public static func restore(frozenRemain: Double, elapsed: Double) -> Restore? {
+    public static func restore(frozen: State, elapsed: Double) -> Restore? {
+        frozen.isBurntOut
+            ? restoreFromEmbers(elapsed: elapsed)
+            : restoreFromLit(frozenRemain: frozen.remain, elapsed: elapsed)
+    }
+
+    /// 火が点いていた蝋燭を止めたとき。消えた時点の丈を保ってから満丈へ戻す
+    private static func restoreFromLit(frozenRemain: Double, elapsed: Double) -> Restore? {
         let frozen = min(max(frozenRemain, 0), 1)
         // 丈を保つ間。火が消えた直後なので芯は炭化した短いまま(lit: true)
         guard elapsed > restoreHold else {
@@ -390,6 +425,34 @@ public enum CandleArt {
         let restored = State(remain: frozen + (1 - frozen) * eased, lit: false)
         // 滲み出しは伸びより早く終える(最後まで薄いと幽霊のように透けて見える)
         return Restore(state: restored, waxOpacity: 0.72 + 0.28 * min(eased / 0.6, 1))
+    }
+
+    /// 燃え尽き(蝋だまりと熾火と煙)から止めたとき。
+    /// 火が静まる → 煙が絶える → 新しい蝋燭が立つ、の順で片付ける
+    private static func restoreFromEmbers(elapsed: Double) -> Restore? {
+        // 熾火は止めた瞬間から沈み始める。ここを待たせると
+        // 「まだ火の気があるのに新しい蝋燭が立つ」ことになる
+        let ember = 1 - min(max(elapsed / emberFadeDuration, 0), 1)
+        guard elapsed > emberRestoreHold else {
+            return Restore(
+                state: State(remain: 0, lit: true), waxOpacity: 1, emberOpacity: ember)
+        }
+        guard elapsed < emberRestoreHold + emberRestoreDuration else { return nil }
+        let t = (elapsed - emberRestoreHold) / emberRestoreDuration
+        let eased = 1 - pow(1 - t, 3)
+        // 丈0は「燃え尽き」の姿そのものなので、立ち上がりでは0を跨がせない
+        // (跨ぐと蝋だまりの絵へ戻り、せり上がりが一瞬途切れる)
+        let restored = State(remain: max(eased, 0.01), lit: false)
+        return Restore(
+            state: restored,
+            waxOpacity: 0.72 + 0.28 * min(eased / 0.6, 1),
+            emberOpacity: 0)
+    }
+
+    /// 戻しの先頭で絵が動かない時間(秒)。ホストはこの間の描き直しを1秒tickに任せられる。
+    /// 燃え尽きからは熾火が最初から沈んでいくため、静止する間は無い
+    public static func restoreStillDuration(frozen: State) -> Double {
+        frozen.isBurntOut ? 0 : restoreHold
     }
 
     /// 煙の幅(pt)。蝋燭の枠(38pt)の縮尺には縛らないが、細い一筋の儚さは保つ

@@ -220,10 +220,13 @@ public struct PanelElementsBuilder {
             // (停止と同時に丈が跳ね上がると、消えかけの火が満丈の蝋燭に載って見える)
             let display = inputs.candleRestore?.state ?? candle
             let waxOpacity = inputs.candleRestore?.waxOpacity ?? 1
+            let emberOpacity = inputs.candleRestore?.emberOpacity ?? 1
             elements.append(.svg(
                 frame: frame,
-                svg: CandleArt.bodySVG(display, waxOpacity: waxOpacity),
-                cacheKey: CandleArt.bodyCacheKey(display, waxOpacity: waxOpacity)))
+                svg: CandleArt.bodySVG(
+                    display, waxOpacity: waxOpacity, emberOpacity: emberOpacity),
+                cacheKey: CandleArt.bodyCacheKey(
+                    display, waxOpacity: waxOpacity, emberOpacity: emberOpacity)))
         }
 
         // リセットは小さな文字ボタン(枠線なし・ホバーとリセット確認時だけ背景が浮かぶ)。

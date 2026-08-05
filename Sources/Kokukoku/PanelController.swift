@@ -65,13 +65,11 @@ final class PanelController {
     /// 連続稼働の蝋燭のうち動く部分(動かすためだけに本体と分けたレイヤー)
     private var candleFlameLayer: CALayer?
     private var candleFlameKey: String?
-    /// 前回描画時に炎があったか。点火・吹き消しの遷移演出の判定に使う。
+    /// 前回描画時の蝋燭の姿。点火・吹き消し・燃え尽きの片付けという遷移の判定に使い、
+    /// 停止時に保つ丈(停止後の実状態はもう満丈へ跳んでいる)もここから取る。
     /// nilは「不明」(パネルを開いた直後・蝋燭ごと非表示)で、遷移とは扱わない。
     /// レイヤーの生死だけで判定すると、計測中にパネルを開いた瞬間まで点火に見えてしまう
-    private var candleFlameWasPresent: Bool?
-    /// 直近に火が点いていたときの丈。計測停止の演出(保つ丈・火が吹き飛ぶ位置)の基準。
-    /// 停止した時点の実状態はもう満丈へ跳んでいるため、そこからは取れない
-    private var candleLastLitRemain: Double?
+    private var candlePreviousState: CandleArt.State?
     /// 計測停止で丈を保っている最中の情報。nilなら実状態どおりに描く
     private var candleRestore: CandleRestore?
     /// 丈を戻す間だけ描き直しを早回しするタスク(戻し終えたら1秒tickへ戻す)
@@ -393,8 +391,7 @@ final class PanelController {
         candleFlameLayer?.removeFromSuperlayer()
         candleFlameLayer = nil
         candleFlameKey = nil
-        candleFlameWasPresent = nil
-        candleLastLitRemain = nil
+        candlePreviousState = nil
         // 閉じている間は描き直しが止まるため、丈の戻しは持ち越さず捨てる
         // (次に開いたときは計測が止まった後の姿=満丈で立ち上がる)
         endCandleRestore()
@@ -549,20 +546,22 @@ final class PanelController {
         updateCandleFlame(candle: candle, transition: transition)
     }
 
-    /// 計測停止で丈を保っている最中の情報。経過時刻から今の丈を引く
+    /// 計測停止で蝋燭の姿を保っている最中の情報。経過時刻から今の姿を引く
     private struct CandleRestore {
-        /// 火が消えた時点の丈
-        let frozenRemain: Double
+        /// 火が消えた(または燃え尽きを片付けた)時点の姿
+        let frozen: CandleArt.State
         let startedAt: CFTimeInterval
     }
 
-    /// 前回描画からの炎の変化。演出を仕込むのはこの2つの遷移のときだけ
-    private enum CandleTransition {
+    /// 前回描画からの蝋燭の変化。演出を仕込むのはこの3つの遷移のときだけ
+    private enum CandleTransition: Equatable {
         case none
         /// 消えていた火が点いた(計測開始)
         case ignited
-        /// 点いていた火が消えた(計測停止)。燃え尽きは風やないので含めない
-        case blownOut
+        /// 点いていた火が消えた(計測停止)。値は火が消えた時点の姿
+        case blownOut(frozen: CandleArt.State)
+        /// 燃え尽きたまま計測を止めた。熾火が静まり、絶えず立っていた煙が絶える
+        case embersWentOut(frozen: CandleArt.State)
     }
 
     /// 連続稼働から決まる蝋燭の実状態。nilは蝋燭ごと非表示(連続稼働の編集中・閾値なし)
@@ -578,21 +577,26 @@ final class PanelController {
             isRunning: state.continuousStartedAt != nil)
     }
 
-    /// 炎の遷移を判定し、丈の戻し(復元)を仕込む・打ち切る。
+    /// 蝋燭の遷移を判定し、姿の戻し(復元)を仕込む・打ち切る。
     /// 要素の組み立てより先に呼ぶ前提(戻り値のレイヤー操作はその後で構わない)
     private func resolveCandleTransition(_ candle: CandleArt.State?) -> CandleTransition {
-        let flamePresent = candle.map { $0.lit && $0.remain > 0 } ?? false
         var transition = CandleTransition.none
-        if candleFlameWasPresent == true, !flamePresent, let candle, !candle.isBurntOut {
-            transition = .blownOut
-        } else if candleFlameWasPresent == false, flamePresent {
-            transition = .ignited
+        if let previous = candlePreviousState, let candle {
+            let wasLit = previous.lit && previous.remain > 0
+            let isLit = candle.lit && candle.remain > 0
+            if wasLit, !isLit, !candle.isBurntOut {
+                transition = .blownOut(frozen: previous)
+            } else if !wasLit, isLit {
+                transition = .ignited
+            } else if previous.isBurntOut, !candle.isBurntOut {
+                transition = .embersWentOut(frozen: previous)
+            }
         }
 
         switch transition {
-        case .blownOut:
-            // 停止で実状態は満丈へ跳ぶため、火が消えた時点の丈を保って後から戻す
-            beginCandleRestore(frozenRemain: candleLastLitRemain ?? 1)
+        case .blownOut(let frozen), .embersWentOut(let frozen):
+            // 停止で実状態は満丈へ跳ぶため、止めた時点の姿を保って後から戻す
+            beginCandleRestore(frozen: frozen)
         case .ignited:
             // 戻し切る前に計測が再開されたら満丈へ飛ばす。
             // 短い蝋燭に新しい火が点く矛盾した絵を1フレームも出さない(2026-08-05 タダシ合意)
@@ -602,23 +606,23 @@ final class PanelController {
             if candle == nil { endCandleRestore() }
         }
 
-        if flamePresent, let candle { candleLastLitRemain = candle.remain }
         // 蝋燭ごと非表示(連続稼働の編集中)は「不明」へ戻す。
-        // falseのまま持ち越すと、編集を終えて蝋燭が戻った瞬間に点火演出が走ってしまう
-        candleFlameWasPresent = candle == nil ? nil : flamePresent
+        // 持ち越すと、編集を終えて蝋燭が戻った瞬間に演出が走ってしまう
+        candlePreviousState = candle
         return transition
     }
 
-    /// 計測停止の直後、火が消えた時点の丈を保ち、煙が薄れる頃から満丈へ戻す。
-    /// 丈は要素画(SVG)なので炎のようにCoreAnimationへ預けられず、
+    /// 計測停止の直後、止めた時点の姿を保ち、煙が薄れる頃から満丈へ戻す。
+    /// 本体は要素画(SVG)なので炎のようにCoreAnimationへ預けられず、
     /// 戻す間だけ描き直しを早回しして繋ぐ(戻し終えれば1秒tickへ戻る)
-    private func beginCandleRestore(frozenRemain: Double) {
+    private func beginCandleRestore(frozen: CandleArt.State) {
         candleRestoreTask?.cancel()
-        candleRestore = CandleRestore(
-            frozenRemain: frozenRemain, startedAt: CACurrentMediaTime())
+        candleRestore = CandleRestore(frozen: frozen, startedAt: CACurrentMediaTime())
         candleRestoreTask = Task { [weak self] in
-            // 丈を保つ間は絵が変わらないため、戻し始めるまでは寝かせておく(1秒tickで足りる)
-            try? await Task.sleep(for: .seconds(CandleArt.restoreHold))
+            // 絵が動かない間は寝かせておく(1秒tickで足りる)。
+            // 燃え尽きからは熾火が最初から沈んでいくため、待たずに回り始める
+            try? await Task.sleep(
+                for: .seconds(CandleArt.restoreStillDuration(frozen: frozen)))
             while !Task.isCancelled {
                 guard let self, self.candleRestore != nil, self.visible else { return }
                 // 進捗は経過時刻から引くため、ここは描き直しを促すだけ
@@ -638,7 +642,7 @@ final class PanelController {
     private func currentCandleRestore() -> CandleArt.Restore? {
         guard let restore = candleRestore else { return nil }
         guard let current = CandleArt.restore(
-            frozenRemain: restore.frozenRemain,
+            frozen: restore.frozen,
             elapsed: CACurrentMediaTime() - restore.startedAt)
         else {
             endCandleRestore()
@@ -659,12 +663,20 @@ final class PanelController {
             calendarSectionHeight: PanelLayout.calendarSectionHeight(rows: calendarRows))
 
         // 計測終了で火が消えるときは即座に消さず、レイヤーを手放して
-        // 「風に吹かれて消える」退場に託す(手放した後のsyncCandleLayerは素通りする)。
-        // 燃え尽きは風やなく蝋が尽きた結果なので対象外(従来どおり即座に熾火と煙へ)
-        if transition == .blownOut, let layer = candleFlameLayer {
+        // 「風に吹かれて消える」退場に託す(手放した後のsyncCandleLayerは素通りする)
+        if case .blownOut(let frozen) = transition, let layer = candleFlameLayer {
             candleFlameLayer = nil
             candleFlameKey = nil
-            blowOutFlame(layer, remain: candleLastLitRemain ?? 1, frame: candleFrame)
+            blowOutFlame(layer, remain: frozen.remain, frame: candleFrame)
+        }
+
+        // 燃え尽きたまま止めたときは、絶えず立っていた煙も同じく手放して
+        // ゆっくり絶える退場に託す(火が無いぶん、煙が消える間だけが「終わり」の合図になる)
+        if case .embersWentOut = transition, let smoke = candleSmokeLayer {
+            candleSmokeLayer = nil
+            candleSmokeArtLayer = nil
+            candleSmokeKey = nil
+            fadeOutSmoke(smoke)
         }
 
         // 炎と煙は排他(燃えている間は炎だけ、燃え尽きた後は煙だけ)
@@ -753,6 +765,24 @@ final class PanelController {
             art.contentsGravity = .resizeAspect
             candleSmokeKey = newKey
         }
+        CATransaction.commit()
+    }
+
+    /// 燃え尽きの煙を絶やす。上へ流れるループはそのまま回し続けながら薄れさせ、
+    /// 消え切ってから捨てる(流れを止めると、煙が消える前にその場で固まって見える)。
+    /// 呼び出し元は参照を手放し済み(syncSmokeLayerの「無ければ即破棄」から外すため)
+    private func fadeOutSmoke(_ layer: CALayer) {
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        fade.duration = CandleArt.emberSmokeFadeDuration
+        // 緩急は付けない。煙が絶えるのは供給が止まったからで、急に消える理由が無い
+        fade.timingFunction = CAMediaTimingFunction(name: .linear)
+        fade.fillMode = .forwards
+        fade.isRemovedOnCompletion = false
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { layer.removeFromSuperlayer() }
+        layer.add(fade, forKey: nil)
         CATransaction.commit()
     }
 

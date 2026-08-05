@@ -393,6 +393,24 @@ struct PanelElementsBuilderTests {
         })
     }
 
+    @Test("燃え尽きから止めた直後は、熾火を沈めた蝋だまりを描く")
+    func candleRestoreKeepsEmberPool() {
+        let elements = builder(now: 2_800).build(inputs(
+            state: .init(continuousElapsedBase: 0, continuousStartedAt: nil),
+            alertThresholds: [3_600],
+            candleRestore: .init(
+                state: .init(remain: 0, lit: true), waxOpacity: 1, emberOpacity: 0.4)))
+
+        #expect(candleCacheKey(in: elements) == "candle:0:1:e40")
+        #expect(elements.contains { element in
+            guard case .svg(_, let svg, let cacheKey) = element, cacheKey.hasPrefix("candle:")
+            else { return false }
+            // 熾火だけが沈み、蝋だまりと台はそのまま
+            return svg.contains("<g opacity=\"0.4\">")
+                && svg.contains(PanelLayout.Colors.candleHolder.hexString)
+        })
+    }
+
     @Test("連続稼働の編集中は、丈を戻す途中でも蝋燭を描かない")
     func candleRestoreHiddenWhileEditing() {
         let elements = builder(now: 2_800).build(inputs(

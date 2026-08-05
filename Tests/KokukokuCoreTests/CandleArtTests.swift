@@ -151,15 +151,20 @@ struct CandleArtTests {
                 "viewBox=\"0 0 \(CandleArt.blowOutWispWidth) \(CandleArt.blowOutWispHeight)\""))
     }
 
+    /// 火が点いていた蝋燭の姿(計測停止の演出の起点)
+    private func lit(_ remain: Double) -> CandleArt.State {
+        .init(remain: remain, lit: true)
+    }
+
     @Test("計測停止の直後は丈を保ち、煙が薄れる頃から満丈へ戻して終わる")
     func restoreHoldsThenGrowsBackToFull() {
         let frozen = 0.4
 
         // 火と煙が残っている間は消えた時点の丈のまま。芯は炭化した短い姿(点灯中と同じ)
-        let held = try! #require(CandleArt.restore(frozenRemain: frozen, elapsed: 0))
+        let held = try! #require(CandleArt.restore(frozen: lit(frozen), elapsed: 0))
         #expect(held.state == CandleArt.State(remain: frozen, lit: true))
         #expect(held.waxOpacity == 1)
-        #expect(CandleArt.restore(frozenRemain: frozen, elapsed: CandleArt.restoreHold)?.state
+        #expect(CandleArt.restore(frozen: lit(frozen), elapsed: CandleArt.restoreHold)?.state
             == held.state)
 
         // 戻す間は単調に伸び、満丈を追い越さない
@@ -167,7 +172,7 @@ struct CandleArtTests {
         for step in 1...10 {
             let elapsed =
                 CandleArt.restoreHold + CandleArt.restoreDuration * Double(step) / 10
-            guard let current = CandleArt.restore(frozenRemain: frozen, elapsed: elapsed) else {
+            guard let current = CandleArt.restore(frozen: lit(frozen), elapsed: elapsed) else {
                 continue
             }
             #expect(current.state.remain > previous)
@@ -180,7 +185,7 @@ struct CandleArtTests {
         // 戻し終えたらnil。以後は実状態(満丈・消灯)をそのまま描く
         #expect(
             CandleArt.restore(
-                frozenRemain: frozen,
+                frozen: lit(frozen),
                 elapsed: CandleArt.restoreHold + CandleArt.restoreDuration) == nil)
     }
 
@@ -188,17 +193,78 @@ struct CandleArtTests {
     func restoreFadesWaxIn() {
         let frozen = 0.4
         let begin = try! #require(
-            CandleArt.restore(frozenRemain: frozen, elapsed: CandleArt.restoreHold + 0.01))
+            CandleArt.restore(frozen: lit(frozen), elapsed: CandleArt.restoreHold + 0.01))
         // 伸び始めは薄い。ただし透けすぎると幽霊に見えるため下限は持たせる
         #expect(begin.waxOpacity < 1)
         #expect(begin.waxOpacity > 0.5)
         // 滲み出しは伸びより早く終える
         let late = try! #require(
             CandleArt.restore(
-                frozenRemain: frozen,
+                frozen: lit(frozen),
                 elapsed: CandleArt.restoreHold + CandleArt.restoreDuration * 0.9))
         #expect(late.waxOpacity == 1)
         #expect(late.state.remain < 1)
+    }
+
+    @Test("燃え尽きから止めたときは、熾火が静まり煙が絶えてから新しい蝋燭がせり上がる")
+    func restoreFromEmbersSettlesThenGrowsBack() {
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+
+        // 熾火は止めた瞬間から沈み始める(火の気が残ったまま新しい蝋燭を立てない)
+        let start = try! #require(CandleArt.restore(frozen: burntOut, elapsed: 0))
+        #expect(start.emberOpacity == 1)
+        #expect(start.state.isBurntOut)
+        let settling = try! #require(
+            CandleArt.restore(frozen: burntOut, elapsed: CandleArt.emberFadeDuration / 2))
+        #expect(settling.emberOpacity < 1 && settling.emberOpacity > 0)
+        // 沈み切った後も、立ち上がるまでは蝋だまりのまま待つ
+        let waiting = try! #require(
+            CandleArt.restore(frozen: burntOut, elapsed: CandleArt.emberFadeDuration + 0.1))
+        #expect(waiting.emberOpacity == 0)
+        #expect(waiting.state.isBurntOut)
+
+        // 煙が絶えるのを待ってから立ち上がる(煙のフェードより後に始まる)
+        #expect(CandleArt.emberRestoreHold > CandleArt.emberSmokeFadeDuration * 0.8)
+        let rising = try! #require(
+            CandleArt.restore(frozen: burntOut, elapsed: CandleArt.emberRestoreHold + 0.01))
+        // 丈0は燃え尽きの姿そのもの。せり上がりの最中に跨ぐと蝋だまりへ一瞬戻ってしまう
+        #expect(rising.state.isBurntOut == false)
+        #expect(rising.state.remain > 0)
+        #expect(rising.emberOpacity == 0)
+
+        #expect(
+            CandleArt.restore(
+                frozen: burntOut,
+                elapsed: CandleArt.emberRestoreHold + CandleArt.emberRestoreDuration) == nil)
+    }
+
+    @Test("戻しの早回しは、絵が動き始めるまで待たせる(燃え尽きからは待たない)")
+    func restoreStillDurationSkipsQuietHead() {
+        // 火からの復元は丈を保つ間ずっと同じ絵。1秒tickに任せられる
+        #expect(CandleArt.restoreStillDuration(frozen: lit(0.4)) == CandleArt.restoreHold)
+        // 燃え尽きからは熾火が最初から沈んでいくため、静止する間が無い
+        #expect(CandleArt.restoreStillDuration(frozen: .init(remain: 0, lit: true)) == 0)
+    }
+
+    @Test("熾火だけを沈められる(蝋だまりは新しい蝋燭が立つまで残す)")
+    func emberOpacityFadesOnlyEmbers() {
+        let burntOut = CandleArt.State(remain: 0, lit: true)
+        let svg = CandleArt.bodySVG(burntOut, emberOpacity: 0.3)
+
+        // 熾火の朱だけが包まれ、蝋だまり(蝋の陰色)と台は据え置き
+        #expect(svg.contains("<g opacity=\"0.3\">"))
+        let group = try! #require(svg.range(of: "<g opacity=\"0.3\">"))
+        let pool = try! #require(svg.range(of: "M35 \(CandleArt.baseY) q13 -9 26 0 z"))
+        #expect(pool.upperBound < group.lowerBound)
+        // 熾火の朱は包みの中にある
+        let ember = try! #require(svg.range(of: PanelLayout.Colors.candleEmber.hexString))
+        #expect(group.upperBound < ember.lowerBound)
+
+        // キャッシュキーは蝋の滲み出しと熾火の沈みを別々に刻む
+        #expect(CandleArt.bodyCacheKey(burntOut, emberOpacity: 0.3) != burntOut.cacheKey)
+        #expect(
+            CandleArt.bodyCacheKey(burntOut, waxOpacity: 0.8)
+                != CandleArt.bodyCacheKey(burntOut, emberOpacity: 0.8))
     }
 
     @Test("滲み出しは蝋だけを薄くし、蝋燭が載る台は据え置く")

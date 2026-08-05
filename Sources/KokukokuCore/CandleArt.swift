@@ -92,8 +92,11 @@ public enum CandleArt {
     }
 
     /// 炎(揺らす部分)を除いた蝋燭本体のSVG。
-    /// 台・蝋・溶けたたれ・芯を描き、燃え尽き時は蝋だまりと熾火と煙に変わる
-    public static func bodySVG(_ state: State) -> String {
+    /// 台・蝋・溶けたたれ・芯を描き、燃え尽き時は蝋だまりと熾火と煙に変わる。
+    ///
+    /// waxOpacityは蝋(胴・芯・たれ・熾火)だけに掛ける。台は蝋燭が載る器であって
+    /// 燃えも替わりもしないため、蝋燭が滲み出す間も据え置く
+    public static func bodySVG(_ state: State, waxOpacity: Double = 1) -> String {
         let colors = PanelLayout.Colors.self
         let wax = colors.candleWax.hexString
         let shade = colors.candleWaxShade.hexString
@@ -114,14 +117,15 @@ public enum CandleArt {
             // 煙は立ち上らせるためレイヤーへ分けてある(smokeSVG)
             return svg(
                 defs(blur: 3)
-                    + """
-                    <path d="M35 \(baseY) q13 -9 26 0 z" fill="\(shade)" opacity="0.95"/>
-                    <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="13" ry="6" fill="\(ember)"
-                             opacity="0.75" filter="url(#glow)"/>
-                    <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="7.5" ry="3" fill="\(ember)"/>
-                    <ellipse cx="\(centerX)" cy="\(baseY - 3.5)" rx="3.4" ry="1.4" fill="\(wax)"
-                             opacity="0.55"/>
-                    """ + stand)
+                    + fading(
+                        """
+                        <path d="M35 \(baseY) q13 -9 26 0 z" fill="\(shade)" opacity="0.95"/>
+                        <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="13" ry="6" fill="\(ember)"
+                                 opacity="0.75" filter="url(#glow)"/>
+                        <ellipse cx="\(centerX)" cy="\(baseY - 3)" rx="7.5" ry="3" fill="\(ember)"/>
+                        <ellipse cx="\(centerX)" cy="\(baseY - 3.5)" rx="3.4" ry="1.4" fill="\(wax)"
+                                 opacity="0.55"/>
+                        """, waxOpacity) + stand)
         }
 
         let top = waxTop(remain: state.remain)
@@ -153,8 +157,7 @@ public enum CandleArt {
             """
         }
         let wickTop = Self.wickTop(remain: state.remain, lit: state.lit)
-        return svg(
-            """
+        let defs = """
             <defs>
               <linearGradient id="wax" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0" stop-color="\(shade)"/>
@@ -162,15 +165,33 @@ public enum CandleArt {
                 <stop offset="1" stop-color="\(shade)"/>
               </linearGradient>
             </defs>
-            <path d="M\(centerX) \(wickTop) v\(top - wickTop + 4)" stroke="\(wick)"
-                  stroke-width="3.4" stroke-linecap="round"/>
-            <path d="\(waxPath(top: top, height: height))" fill="url(#wax)"/>
-            <ellipse cx="\(centerX)" cy="\(top + 1)" rx="\(topHalfWidth - 2)" ry="2.6"
-                     fill="\(shade)" opacity="0.9"/>
-            <path d="M\(centerX) \(wickTop + 1) v4" stroke="\(wick)"
-                  stroke-width="3.4" stroke-linecap="round"/>
-            \(drips)
-            """ + stand)
+            """
+        return svg(
+            defs
+                + fading(
+                    """
+                    <path d="M\(centerX) \(wickTop) v\(top - wickTop + 4)" stroke="\(wick)"
+                          stroke-width="3.4" stroke-linecap="round"/>
+                    <path d="\(waxPath(top: top, height: height))" fill="url(#wax)"/>
+                    <ellipse cx="\(centerX)" cy="\(top + 1)" rx="\(topHalfWidth - 2)" ry="2.6"
+                             fill="\(shade)" opacity="0.9"/>
+                    <path d="M\(centerX) \(wickTop + 1) v4" stroke="\(wick)"
+                          stroke-width="3.4" stroke-linecap="round"/>
+                    \(drips)
+                    """, waxOpacity) + stand)
+    }
+
+    /// 蝋の部分をひとまとめに薄くする包み。1.0のときは包まない
+    /// (絵が変わらないので、キャッシュキーも従来のまま使える)
+    private static func fading(_ body: String, _ opacity: Double) -> String {
+        opacity >= 1 ? body : "<g opacity=\"\(opacity)\">\(body)</g>"
+    }
+
+    /// 本体の絵のキャッシュキー。滲み出しの最中は不透明度でも絵が変わるため丈と併せて刻む
+    public static func bodyCacheKey(_ state: State, waxOpacity: Double = 1) -> String {
+        waxOpacity >= 1
+            ? state.cacheKey
+            : state.cacheKey + ":o\(Int((waxOpacity * 100).rounded()))"
     }
 
     /// 和ろうそくの胴。洋ロウソクの円筒ではなく、上が広く腰でくびれる碇型に描く。
@@ -308,18 +329,67 @@ public enum CandleArt {
     public static let blowOutWispWidth = 20.0
     public static let blowOutWispHeight = 40.0
 
-    /// 吹き消しの煙を置く枠。消えた直後に立つ蝋燭の芯先を根本にして、そこから上へ伸ばす
-    public static func blowOutWispBox(remain: Double, in frame: PanelFrame) -> PanelFrame {
+    /// 吹き消しの煙を置く枠。消えたばかりの芯先を根本にして、そこから上へ伸ばす。
+    /// 丈は火が消えた時点のまま保たれる(restore)ため、そのときの丈と芯の姿で位置を出す
+    public static func blowOutWispBox(remain: Double, lit: Bool, in frame: PanelFrame) -> PanelFrame
+    {
         let side = min(frame.w, frame.h)
         let scale = side / canvas
         let originY = frame.y + (frame.h - side) / 2
-        // 根本は消灯中の芯の上端。芯へわずかに沈め、根本の切れ目を芯に隠す
-        let rootY = originY + wickTop(remain: remain, lit: false) * scale + 2
+        // 根本は芯の上端。芯へわずかに沈め、根本の切れ目を芯に隠す
+        let rootY = originY + wickTop(remain: remain, lit: lit) * scale + 2
         return PanelFrame(
             x: frame.x + frame.w / 2 - blowOutWispWidth / 2,
             y: rootY - blowOutWispHeight,
             w: blowOutWispWidth,
             h: blowOutWispHeight)
+    }
+
+    // MARK: - 計測停止後の丈の戻し
+
+    /// 計測停止から丈を戻し始めるまで、丈を保つ時間(秒)。
+    /// 火が消え(吹き消し0.4秒)、立ちのぼった煙が薄れ始める頃を狙う。
+    /// 煙が消え切るまで待つと「停止したのに蝋燭が短いまま」が2秒近く続いて間延びする
+    /// (2026-08-05 タダシ合意)
+    public static let restoreHold = 0.95
+    /// 丈を満丈へ戻すのにかける時間(秒)
+    public static let restoreDuration = 0.55
+
+    /// 計測停止の直後、実状態(満丈)の代わりに描く蝋燭の姿
+    public struct Restore: Equatable, Sendable {
+        public let state: State
+        /// 蝋の不透明度(滲み出しの最中だけ1未満)
+        public let waxOpacity: Double
+
+        public init(state: State, waxOpacity: Double) {
+            self.state = state
+            self.waxOpacity = waxOpacity
+        }
+    }
+
+    /// 計測停止からの経過秒に対する蝋燭の姿。戻し終えていればnil(実状態の満丈をそのまま描く)。
+    ///
+    /// 停止すると連続稼働は0へ戻るため実状態は即座に満丈になるが、
+    /// 火と煙が残っている間に丈だけ跳ね上がると「消えかけの火が満丈の蝋燭に載る」絵になる。
+    /// そこで火が消えた時点の丈をいったん保ち、煙が薄れる頃から戻す。
+    ///
+    /// 溶けた蝋は本来伸びないので、丈を戻すだけでは物として嘘になる。
+    /// 伸びに合わせて滲み出させ「新しい蝋燭に替わった」と読ませる(2026-08-05 タダシ合意)
+    public static func restore(frozenRemain: Double, elapsed: Double) -> Restore? {
+        let frozen = min(max(frozenRemain, 0), 1)
+        // 丈を保つ間。火が消えた直後なので芯は炭化した短いまま(lit: true)
+        guard elapsed > restoreHold else {
+            return Restore(state: State(remain: frozen, lit: true), waxOpacity: 1)
+        }
+        guard elapsed < restoreHold + restoreDuration else { return nil }
+        let t = (elapsed - restoreHold) / restoreDuration
+        // 出足で伸び、終わりへ向けて落ち着く。伸び切りで跳ね返すと蝋燭がゴムに見える
+        let eased = 1 - pow(1 - t, 3)
+        // 芯は新品の長さへ。ここで替えるのは丈が動き始める瞬間で、
+        // 煙もまだ残っているため1pt弱の伸びは紛れる(戻し終えてから替えると最後に跳ねる)
+        let restored = State(remain: frozen + (1 - frozen) * eased, lit: false)
+        // 滲み出しは伸びより早く終える(最後まで薄いと幽霊のように透けて見える)
+        return Restore(state: restored, waxOpacity: 0.72 + 0.28 * min(eased / 0.6, 1))
     }
 
     /// 煙の幅(pt)。蝋燭の枠(38pt)の縮尺には縛らないが、細い一筋の儚さは保つ

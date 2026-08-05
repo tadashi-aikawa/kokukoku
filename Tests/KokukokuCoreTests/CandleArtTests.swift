@@ -128,10 +128,10 @@ struct CandleArtTests {
         #expect(box!.y < frame.y + frame.h / 2)
     }
 
-    @Test("吹き消しの煙は真新しい蝋燭の芯先から上へ立つ")
+    @Test("吹き消しの煙は火が消えた時点の丈の芯先から上へ立つ")
     func blowOutWispRisesFromWickTip() {
         let frame = PanelFrame(x: 100, y: 200, w: 38, h: 38)
-        let box = CandleArt.blowOutWispBox(remain: 1, in: frame)
+        let box = CandleArt.blowOutWispBox(remain: 1, lit: true, in: frame)
 
         // 横は蝋燭の中心に揃う
         #expect(box.x + box.w / 2 == frame.x + frame.w / 2)
@@ -139,12 +139,89 @@ struct CandleArtTests {
         #expect(box.y + box.h < frame.y + frame.h / 2)
         #expect(box.y < frame.y)
 
+        // 丈は火が消えた時点のまま保たれるため、短い蝋燭では根本もその分だけ下がる
+        let short = CandleArt.blowOutWispBox(remain: 0.3, lit: true, in: frame)
+        #expect(short.y > box.y)
+
         let svg = CandleArt.blowOutWispSVG()
         #expect(svg.hasPrefix("<svg") && svg.hasSuffix("</svg>"))
         #expect(svg.contains(PanelLayout.Colors.candleSmoke.hexString))
         #expect(
             svg.contains(
                 "viewBox=\"0 0 \(CandleArt.blowOutWispWidth) \(CandleArt.blowOutWispHeight)\""))
+    }
+
+    @Test("計測停止の直後は丈を保ち、煙が薄れる頃から満丈へ戻して終わる")
+    func restoreHoldsThenGrowsBackToFull() {
+        let frozen = 0.4
+
+        // 火と煙が残っている間は消えた時点の丈のまま。芯は炭化した短い姿(点灯中と同じ)
+        let held = try! #require(CandleArt.restore(frozenRemain: frozen, elapsed: 0))
+        #expect(held.state == CandleArt.State(remain: frozen, lit: true))
+        #expect(held.waxOpacity == 1)
+        #expect(CandleArt.restore(frozenRemain: frozen, elapsed: CandleArt.restoreHold)?.state
+            == held.state)
+
+        // 戻す間は単調に伸び、満丈を追い越さない
+        var previous = frozen
+        for step in 1...10 {
+            let elapsed =
+                CandleArt.restoreHold + CandleArt.restoreDuration * Double(step) / 10
+            guard let current = CandleArt.restore(frozenRemain: frozen, elapsed: elapsed) else {
+                continue
+            }
+            #expect(current.state.remain > previous)
+            #expect(current.state.remain <= 1)
+            // 芯は新品の長さへ替わる(戻し終えた姿と食い違わせない)
+            #expect(current.state.lit == false)
+            previous = current.state.remain
+        }
+
+        // 戻し終えたらnil。以後は実状態(満丈・消灯)をそのまま描く
+        #expect(
+            CandleArt.restore(
+                frozenRemain: frozen,
+                elapsed: CandleArt.restoreHold + CandleArt.restoreDuration) == nil)
+    }
+
+    @Test("丈が伸びる間だけ蝋が滲み出す(戻し終える前に不透明へ戻る)")
+    func restoreFadesWaxIn() {
+        let frozen = 0.4
+        let begin = try! #require(
+            CandleArt.restore(frozenRemain: frozen, elapsed: CandleArt.restoreHold + 0.01))
+        // 伸び始めは薄い。ただし透けすぎると幽霊に見えるため下限は持たせる
+        #expect(begin.waxOpacity < 1)
+        #expect(begin.waxOpacity > 0.5)
+        // 滲み出しは伸びより早く終える
+        let late = try! #require(
+            CandleArt.restore(
+                frozenRemain: frozen,
+                elapsed: CandleArt.restoreHold + CandleArt.restoreDuration * 0.9))
+        #expect(late.waxOpacity == 1)
+        #expect(late.state.remain < 1)
+    }
+
+    @Test("滲み出しは蝋だけを薄くし、蝋燭が載る台は据え置く")
+    func waxOpacityLeavesStandOpaque() {
+        let state = CandleArt.State(remain: 0.5, lit: false)
+        let svg = CandleArt.bodySVG(state, waxOpacity: 0.8)
+
+        // 薄める包みは台(stand)より前で閉じている
+        let group = try! #require(svg.range(of: "<g opacity=\"0.8\">"))
+        let groupEnd = try! #require(svg.range(of: "</g>"))
+        let stand = try! #require(
+            svg.range(of: PanelLayout.Colors.candleHolder.hexString))
+        #expect(group.upperBound < stand.lowerBound)
+        #expect(groupEnd.upperBound < stand.lowerBound)
+
+        // 不透明のときは包まない(絵が変わらないので従来のキャッシュキーのまま使える)
+        #expect(CandleArt.bodySVG(state).contains("<g opacity=") == false)
+        #expect(CandleArt.bodyCacheKey(state) == state.cacheKey)
+        #expect(CandleArt.bodyCacheKey(state, waxOpacity: 0.8) != state.cacheKey)
+        // 滲み出しの途中どうしは別の絵として区別される
+        #expect(
+            CandleArt.bodyCacheKey(state, waxOpacity: 0.8)
+                != CandleArt.bodyCacheKey(state, waxOpacity: 0.9))
     }
 
     @Test("煙は蝋燭の枠を越えて上へ突き抜ける(枠内では小さすぎて気づけない)")

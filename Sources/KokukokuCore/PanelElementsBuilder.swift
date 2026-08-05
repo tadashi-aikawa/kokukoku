@@ -22,6 +22,9 @@ public struct PanelElementsBuilder {
         public var pinned: Bool
         /// ウィンドウがキーウィンドウ(フォーカス中)か。外枠の色切替(B)に使う
         public var focused: Bool
+        /// 計測停止の直後だけ、実状態(満丈)の代わりに描く蝋燭の姿。
+        /// 火と煙が消えるまで丈を保ち、その後アニメーションで満丈へ戻すためにホストが渡す
+        public var candleRestore: CandleArt.Restore?
 
         public init(
             projects: [KokukokuConfig.Project],
@@ -34,7 +37,8 @@ public struct PanelElementsBuilder {
             calendarRows: [CalendarSectionRow] = [],
             ui: ResolvedUIConfig,
             pinned: Bool = false,
-            focused: Bool = false
+            focused: Bool = false,
+            candleRestore: CandleArt.Restore? = nil
         ) {
             self.projects = projects
             self.state = state
@@ -47,6 +51,7 @@ public struct PanelElementsBuilder {
             self.ui = ui
             self.pinned = pinned
             self.focused = focused
+            self.candleRestore = candleRestore
         }
     }
 
@@ -211,10 +216,14 @@ public struct PanelElementsBuilder {
             let frame = metrics.candleFrame(
                 projectCount: inputs.projects.count,
                 calendarSectionHeight: calendarHeight)
+            // 計測停止の直後だけは、火が消えた時点の丈を保って後から満丈へ戻す姿に差し替える
+            // (停止と同時に丈が跳ね上がると、消えかけの火が満丈の蝋燭に載って見える)
+            let display = inputs.candleRestore?.state ?? candle
+            let waxOpacity = inputs.candleRestore?.waxOpacity ?? 1
             elements.append(.svg(
                 frame: frame,
-                svg: CandleArt.bodySVG(candle),
-                cacheKey: candle.cacheKey))
+                svg: CandleArt.bodySVG(display, waxOpacity: waxOpacity),
+                cacheKey: CandleArt.bodyCacheKey(display, waxOpacity: waxOpacity)))
         }
 
         // リセットは小さな文字ボタン(枠線なし・ホバーとリセット確認時だけ背景が浮かぶ)。

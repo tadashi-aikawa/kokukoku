@@ -361,6 +361,49 @@ struct PanelElementsBuilderTests {
         })
     }
 
+    @Test("計測停止の直後は実状態(満丈)ではなく、保たれた丈の蝋燭を描く")
+    func candleRestoreOverridesBody() {
+        // 停止直後は実状態が満丈・消灯へ跳ぶ状況
+        let stopped = inputs(
+            state: .init(continuousElapsedBase: 0, continuousStartedAt: nil),
+            alertThresholds: [3_600])
+        #expect(candleCacheKey(in: builder(now: 2_800).build(stopped)) == "candle:1000:0")
+
+        // 火が消えた時点の丈を保つ間は、その丈のまま描く
+        let held = inputs(
+            state: .init(continuousElapsedBase: 0, continuousStartedAt: nil),
+            alertThresholds: [3_600],
+            candleRestore: .init(
+                state: .init(remain: 0.5, lit: true), waxOpacity: 1))
+        #expect(candleCacheKey(in: builder(now: 2_800).build(held)) == "candle:500:1")
+
+        // 滲み出しの最中は不透明度まで絵に効き、キャッシュキーも別物になる
+        let fading = inputs(
+            state: .init(continuousElapsedBase: 0, continuousStartedAt: nil),
+            alertThresholds: [3_600],
+            candleRestore: .init(
+                state: .init(remain: 0.8, lit: false), waxOpacity: 0.8))
+        let elements = builder(now: 2_800).build(fading)
+        #expect(candleCacheKey(in: elements) == "candle:800:0:o80")
+        #expect(elements.contains { element in
+            guard case .svg(_, let svg, let cacheKey) = element,
+                cacheKey.hasPrefix("candle:")
+            else { return false }
+            return svg.contains("<g opacity=\"0.8\">")
+        })
+    }
+
+    @Test("連続稼働の編集中は、丈を戻す途中でも蝋燭を描かない")
+    func candleRestoreHiddenWhileEditing() {
+        let elements = builder(now: 2_800).build(inputs(
+            state: .init(continuousElapsedBase: 0, continuousStartedAt: nil),
+            editingTarget: .continuous,
+            alertThresholds: [3_600],
+            candleRestore: .init(state: .init(remain: 0.5, lit: true), waxOpacity: 1)))
+
+        #expect(!containsCandle(in: elements))
+    }
+
     @Test("パネル幅は最長プロジェクト名の幅に連動し下限420・上限480で頭打ちする")
     func metricsCompute() {
         func width(nameWidths: [String: Double]) -> Double {
@@ -676,7 +719,8 @@ struct PanelElementsBuilderTests {
         editingTarget: PanelEditingTarget? = nil,
         alertThresholds: [Int] = [],
         calendarRows: [CalendarSectionRow] = [],
-        pinned: Bool = false
+        pinned: Bool = false,
+        candleRestore: CandleArt.Restore? = nil
     ) -> PanelElementsBuilder.Inputs {
         .init(
             projects: [project], state: state,
@@ -685,7 +729,8 @@ struct PanelElementsBuilderTests {
             editingTarget: editingTarget,
             alertThresholds: alertThresholds,
             calendarRows: calendarRows, ui: ui,
-            pinned: pinned)
+            pinned: pinned,
+            candleRestore: candleRestore)
     }
 
     /// 蝋燭要素のキャッシュキー(残量・点灯状態がそのまま読める)。無ければnil。

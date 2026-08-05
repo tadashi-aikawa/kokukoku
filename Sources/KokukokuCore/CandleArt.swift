@@ -81,6 +81,12 @@ public enum CandleArt {
         baseY - waxHeight(remain: remain)
     }
 
+    /// 芯の上端(SVG内部座標)。和ろうそくは芯が太い。消灯中(休憩中)は長めに残して
+    /// 「まだ点けてへん新品」に見せ、点灯中は上端が炭化して短く見える
+    static func wickTop(remain: Double, lit: Bool) -> Double {
+        waxTop(remain: remain) - (lit ? 6 : 9)
+    }
+
     static func waxHeight(remain: Double) -> Double {
         remain <= 0 ? 0 : max(5, fullWaxHeight * min(remain, 1))
     }
@@ -146,9 +152,7 @@ public enum CandleArt {
             q3 \(length * 0.7) -1 \(length) q-4 -4 -1 -\(length) z" fill="\(shade)" opacity="0.85"/>
             """
         }
-        // 和ろうそくは芯が太い。消灯中(休憩中)は長めに残して「まだ点けてへん新品」に見せ、
-        // 点灯中は上端が炭化して短く見える
-        let wickTop = state.lit ? top - 6 : top - 9
+        let wickTop = Self.wickTop(remain: state.remain, lit: state.lit)
         return svg(
             """
             <defs>
@@ -272,6 +276,50 @@ public enum CandleArt {
         </g>
         </svg>
         """
+    }
+
+    /// 吹き消した直後に芯先から立つ一瞬の煙。燃え尽きの煙(smokeSVG)とは別物で、
+    /// ループも周期も持たない一発もの: ホストが浮かせながらフェードで消す。
+    /// 上りながら風下(なびいた側)へ流れる曲がりを絵に焼き込み、風の余韻を残す
+    public static func blowOutWispSVG() -> String {
+        let smoke = PanelLayout.Colors.candleSmoke.hexString
+        let w = blowOutWispWidth
+        let h = blowOutWispHeight
+        let cx = w / 2
+        // 筋の根本。丸端とぼかしの裾が下端で切れないよう内側から始める
+        let root = h - 4.0
+        return """
+        <svg xmlns="http://www.w3.org/2000/svg" width="\(w)" height="\(h)" viewBox="0 0 \(w) \(h)">
+        <defs>
+          <filter id="soft" x="-80%" y="-20%" width="260%" height="150%">
+            <feGaussianBlur stdDeviation="0.8"/>
+          </filter>
+        </defs>
+        <g filter="url(#soft)">
+        <path d="M\(cx) \(root) q-3.5 -6 0 -11 q3 -4.5 -0.5 -9 q-3 -4 -1.5 -9"
+        stroke="\(smoke)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>
+        </g>
+        </svg>
+        """
+    }
+
+    /// 吹き消しの煙の大きさ(pt)。蝋燭の枠の縮尺には縛らない(燃え尽きの煙と同じ理屈で、
+    /// 枠なりに縮めると実表示が小さすぎて見えないため)。一瞬の儚さなので煙よりは短い
+    public static let blowOutWispWidth = 20.0
+    public static let blowOutWispHeight = 40.0
+
+    /// 吹き消しの煙を置く枠。消えた直後に立つ蝋燭の芯先を根本にして、そこから上へ伸ばす
+    public static func blowOutWispBox(remain: Double, in frame: PanelFrame) -> PanelFrame {
+        let side = min(frame.w, frame.h)
+        let scale = side / canvas
+        let originY = frame.y + (frame.h - side) / 2
+        // 根本は消灯中の芯の上端。芯へわずかに沈め、根本の切れ目を芯に隠す
+        let rootY = originY + wickTop(remain: remain, lit: false) * scale + 2
+        return PanelFrame(
+            x: frame.x + frame.w / 2 - blowOutWispWidth / 2,
+            y: rootY - blowOutWispHeight,
+            w: blowOutWispWidth,
+            h: blowOutWispHeight)
     }
 
     /// 煙の幅(pt)。蝋燭の枠(38pt)の縮尺には縛らないが、細い一筋の儚さは保つ

@@ -128,6 +128,25 @@ struct CandleArtTests {
         #expect(box!.y < frame.y + frame.h / 2)
     }
 
+    @Test("吹き消しの煙は真新しい蝋燭の芯先から上へ立つ")
+    func blowOutWispRisesFromWickTip() {
+        let frame = PanelFrame(x: 100, y: 200, w: 38, h: 38)
+        let box = CandleArt.blowOutWispBox(remain: 1, in: frame)
+
+        // 横は蝋燭の中心に揃う
+        #expect(box.x + box.w / 2 == frame.x + frame.w / 2)
+        // 根本は枠の上寄り(満丈の芯先)、先は枠の上端を突き抜ける(燃え尽きの煙と同じ理屈)
+        #expect(box.y + box.h < frame.y + frame.h / 2)
+        #expect(box.y < frame.y)
+
+        let svg = CandleArt.blowOutWispSVG()
+        #expect(svg.hasPrefix("<svg") && svg.hasSuffix("</svg>"))
+        #expect(svg.contains(PanelLayout.Colors.candleSmoke.hexString))
+        #expect(
+            svg.contains(
+                "viewBox=\"0 0 \(CandleArt.blowOutWispWidth) \(CandleArt.blowOutWispHeight)\""))
+    }
+
     @Test("煙は蝋燭の枠を越えて上へ突き抜ける(枠内では小さすぎて気づけない)")
     func smokeOutgrowsCandleFrame() {
         let frame = PanelFrame(x: 100, y: 200, w: 38, h: 38)

@@ -65,6 +65,10 @@ final class PanelController {
     /// 連続稼働の蝋燭のうち動く部分(動かすためだけに本体と分けたレイヤー)
     private var candleFlameLayer: CALayer?
     private var candleFlameKey: String?
+    /// 前回描画時に炎があったか。点火・吹き消しの遷移演出の判定に使う。
+    /// nilは「不明」(パネルを開いた直後・蝋燭ごと非表示)で、遷移とは扱わない。
+    /// レイヤーの生死だけで判定すると、計測中にパネルを開いた瞬間まで点火に見えてしまう
+    private var candleFlameWasPresent: Bool?
     /// 煙は枠(マスク付き)と、その中を上へ流れる絵の二段構え
     private var candleSmokeLayer: CALayer?
     private var candleSmokeArtLayer: CALayer?
@@ -382,6 +386,7 @@ final class PanelController {
         candleFlameLayer?.removeFromSuperlayer()
         candleFlameLayer = nil
         candleFlameKey = nil
+        candleFlameWasPresent = nil
         discardSmokeLayer()
         window?.orderOut(nil)
         window?.alphaValue = 1
@@ -549,6 +554,19 @@ final class PanelController {
             projectCount: projects.count,
             calendarSectionHeight: PanelLayout.calendarSectionHeight(rows: calendarRows))
 
+        let flamePresent = candle.map { $0.lit && $0.remain > 0 } ?? false
+
+        // 計測終了で火が消えるときは即座に消さず、レイヤーを手放して
+        // 「風に吹かれて消える」退場に託す(手放した後のsyncCandleLayerは素通りする)。
+        // 燃え尽きは風やなく蝋が尽きた結果なので対象外(従来どおり即座に熾火と煙へ)
+        if candleFlameWasPresent == true, !flamePresent, let candle, !candle.isBurntOut,
+            let layer = candleFlameLayer
+        {
+            candleFlameLayer = nil
+            candleFlameKey = nil
+            blowOutFlame(layer, candle: candle, frame: candleFrame)
+        }
+
         // 炎と煙は排他(燃えている間は炎だけ、燃え尽きた後は煙だけ)
         syncCandleLayer(
             &candleFlameLayer, key: &candleFlameKey,
@@ -563,6 +581,14 @@ final class PanelController {
             box: candle.flatMap { CandleArt.smokeBox($0, in: candleFrame) },
             cacheKey: (candle?.cacheKey ?? "") + ":smoke",
             in: panelView)
+
+        // 計測開始で火が灯るときは、生成されたばかりのレイヤーに点火の演出を一度だけ仕込む
+        if candleFlameWasPresent == false, flamePresent, let layer = candleFlameLayer {
+            addIgnitionAnimation(to: layer)
+        }
+        // 蝋燭ごと非表示(連続稼働の編集中)は「不明」へ戻す。
+        // falseのまま持ち越すと、編集を終えて蝋燭が戻った瞬間に点火演出が走ってしまう
+        candleFlameWasPresent = candle == nil ? nil : flamePresent
     }
 
     /// 燃え尽きた後の煙。周期パターンの絵を1周期ぶん上へ流し続けてループさせる。
@@ -769,6 +795,162 @@ final class PanelController {
         drift.repeatCount = .greatestFiniteMagnitude
         drift.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         layer.add(drift, forKey: "candleDrift")
+    }
+
+    /// 計測開始の点火。芯先で小さく灯った火が一度大きくあおられ、揺り戻しながら
+    /// 定位置へ落ち着く(マッチで点けた直後の暴れを模す)。根本anchor基準の拡縮なので
+    /// 火は芯先から上へ育つ。常時の揺らぎ(sway/drift)とは軸が違うため同居できる
+    private func addIgnitionAnimation(to layer: CALayer) {
+        let catchFire = CAKeyframeAnimation(keyPath: "transform.scale")
+        catchFire.values = [0.05, 0.4, 1.26, 0.84, 1.1, 1.0]
+        catchFire.keyTimes = [0, 0.18, 0.42, 0.62, 0.82, 1]
+        catchFire.calculationMode = .cubic
+        catchFire.duration = 0.85
+        layer.add(catchFire, forKey: "flameIgnite")
+
+        // 灯りはじめの一瞬だけ透かして、無から滲み出るように見せる
+        let emerge = CABasicAnimation(keyPath: "opacity")
+        emerge.fromValue = 0
+        emerge.toValue = 1
+        emerge.duration = 0.18
+        layer.add(emerge, forKey: "flameIgniteEmerge")
+    }
+
+    /// 計測終了の吹き消し。突風にちぎられた火が斜め上(約50度)の風下へ、細く小さく
+    /// 吹っ飛んで消える。消えた芯先からは一筋の煙が立ち、漂いながらフェードして消える
+    /// (2026-08-05 タダシ指定)。根本を軸に傾けるだけの初案は、形の変わらない炎が
+    /// 綺麗に斜めへ倒れるだけで嘘くさかった(同日タダシ指摘)ため、傾きは飛ぶ向きへ
+    /// 揃える程度にとどめ、消える仕事は移動と痩せ細りにさせる。
+    /// 位置は消えた瞬間に立つ真新しい蝋燭の芯先へ移す
+    /// (本体の絵は即座に新品の丈へ替わるため、古い丈のまま消すと胴の中で火が燃えて見える)。
+    /// 消え終わったレイヤーはここで破棄する(呼び出し元は参照を手放し済み)
+    private func blowOutFlame(_ layer: CALayer, candle: CandleArt.State, frame: PanelFrame) {
+        guard let box = CandleArt.flameBox(.init(remain: candle.remain, lit: true), in: frame)
+        else {
+            layer.removeFromSuperlayer()
+            return
+        }
+        // 常時の揺らぎは傾きの軸を取り合うため先に外す。外した瞬間の角度から
+        // 滑らかに繋ぎ、揺れの途中で始まっても角が飛ばないようにする
+        let tilt =
+            (layer.presentation()?.value(forKeyPath: "transform.rotation.z") as? Double) ?? 0
+        layer.removeAnimation(forKey: "candleSway")
+        layer.removeAnimation(forKey: "candleDrift")
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.position = CGPoint(x: box.x + box.w / 2, y: box.y + box.h * CandleArt.flameAnchorY)
+        CATransaction.commit()
+
+        let duration = 0.4
+
+        // 傾きは飛ぶ向きへ揃えるだけの脇役(その場で回すと「綺麗に倒れる」に戻ってしまう)
+        let align = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        align.values = [tilt, -0.9, -1.0]
+        align.keyTimes = [0, 0.35, 1]
+
+        // 吹っ飛び: 出足は芯先に粘り、後半で一気に加速して飛び去る(突風の質感)。
+        // 行き先は斜め上約50度の風下(煙が流れる向きと同じ側)
+        let flyX = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        flyX.values = [0, -2.5, -18]
+        flyX.keyTimes = [0, 0.3, 1]
+
+        let flyY = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        flyY.values = [0, -3, -22]
+        flyY.keyTimes = [0, 0.3, 1]
+
+        // 細く(幅)・小さく(丈)。ちぎれた直後だけ丈がわずかに伸び、風に千切れた布のように痩せる
+        let thin = CAKeyframeAnimation(keyPath: "transform.scale.x")
+        thin.values = [1.0, 0.55, 0.1]
+        thin.keyTimes = [0, 0.4, 1]
+
+        let shrink = CAKeyframeAnimation(keyPath: "transform.scale.y")
+        shrink.values = [1.0, 1.12, 0.18]
+        shrink.keyTimes = [0, 0.3, 1]
+
+        let vanish = CAKeyframeAnimation(keyPath: "opacity")
+        vanish.values = [1.0, 0.95, 0]
+        vanish.keyTimes = [0, 0.5, 1]
+
+        // 消えた瞬間に芯先から煙を立てるため、行き先をアニメーション開始前に決めておく
+        let wispBox = CandleArt.blowOutWispBox(remain: candle.remain, in: frame)
+        let host = layer.superlayer
+        let backingScale = window?.backingScaleFactor ?? 2
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            layer.removeFromSuperlayer()
+            // パネルが閉じられていたらホストごと外れているので煙は立てない
+            guard let self, let host, host === self.panelView?.layer else { return }
+            self.spawnBlowOutWisp(on: host, at: wispBox, backingScale: backingScale)
+        }
+        for animation in [align, flyX, flyY, thin, shrink, vanish] {
+            animation.calculationMode = .cubic
+            animation.duration = duration
+            // 終わり姿(消えた状態)で止め、除去までの一瞬に元の姿へ戻るちらつきを防ぐ
+            animation.fillMode = .forwards
+            animation.isRemovedOnCompletion = false
+            layer.add(animation, forKey: nil)
+        }
+        CATransaction.commit()
+    }
+
+    /// 吹き消し直後の一筋の煙。芯先から立ちのぼり、風下へ流れながらフェードで消える。
+    /// 燃え尽きの煙(ループ)とは別物の一発ものなので、レイヤーもここで作ってここで捨てる
+    private func spawnBlowOutWisp(on host: CALayer, at box: PanelFrame, backingScale: CGFloat) {
+        let wisp = CALayer()
+        wisp.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        wisp.bounds = CGRect(x: 0, y: 0, width: box.w, height: box.h)
+        wisp.position = CGPoint(x: box.x + box.w / 2, y: box.y + box.h / 2)
+        wisp.contentsScale = backingScale
+        var proposed = CGRect(
+            x: 0, y: 0, width: box.w * backingScale * 2, height: box.h * backingScale * 2)
+        let image = NSImage(data: Data(CandleArt.blowOutWispSVG().utf8))
+        wisp.contents = image?.cgImage(forProposedRect: &proposed, context: nil, hints: nil)
+        wisp.contentsGravity = .resizeAspect
+        // 先端ほど薄れる濃淡は燃え尽きの煙と同じくマスクで作る(ホストがisGeometryFlippedの
+        // ため、単位座標のy=1側が視覚的な下端=根本になる)
+        let mask = CAGradientLayer()
+        mask.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        mask.startPoint = CGPoint(x: 0.5, y: 1)
+        mask.endPoint = CGPoint(x: 0.5, y: 0)
+        mask.colors = [0.95, 0.55, 0].map { NSColor(white: 1, alpha: $0).cgColor }
+        mask.locations = [0, 0.55, 1]
+        mask.bounds = wisp.bounds
+        mask.position = CGPoint(x: box.w / 2, y: box.h / 2)
+        wisp.mask = mask
+        // ベースは透明にしておき、姿はアニメーションだけに語らせる
+        // (不透明で置くと、フェードが始まる前の1フレームに濃い煙がちらつく)
+        wisp.opacity = 0
+        host.addSublayer(wisp)
+
+        let duration = 1.2
+
+        // 立ちのぼってすぐが最も濃く、あとは薄れていくだけ(一瞬の儚さ)
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [0, 0.9, 0.7, 0]
+        fade.keyTimes = [0, 0.12, 0.45, 1]
+
+        // 上りながら風下(なびいた側)へ流れる。実物の煙の等速に合わせ緩急は付けない
+        let rise = CABasicAnimation(keyPath: "transform.translation.y")
+        rise.fromValue = 0
+        rise.toValue = -10
+        rise.timingFunction = CAMediaTimingFunction(name: .linear)
+
+        let drift = CABasicAnimation(keyPath: "transform.translation.x")
+        drift.fromValue = 0
+        drift.toValue = -3
+        drift.timingFunction = CAMediaTimingFunction(name: .easeOut)
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { wisp.removeFromSuperlayer() }
+        for animation in [fade, rise, drift] {
+            animation.duration = duration
+            animation.fillMode = .forwards
+            animation.isRemovedOnCompletion = false
+            wisp.add(animation, forKey: nil)
+        }
+        CATransaction.commit()
     }
 
     // MARK: - 操作の実行

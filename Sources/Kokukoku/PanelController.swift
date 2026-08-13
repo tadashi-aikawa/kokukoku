@@ -15,6 +15,8 @@ final class PanelController {
         var getState: () -> TimerState
         /// カレンダー連携の現在状態。nil = 連携無効(セクション非表示)
         var getCalendarState: () -> CalendarPanelState?
+        /// KOKUKOKUの表示対応条件を満たす本日の予定(終了済みを含む)
+        var getTodayCalendarEvents: () -> [CalendarEvent]
     }
 
     private let projects: [KokukokuConfig.Project]
@@ -1276,6 +1278,14 @@ final class PanelController {
         hide()
     }
 
+    private func copyTodayScheduleToClipboard() {
+        let text = TodayScheduleCopyText.build(events: callbacks.getTodayCalendarEvents())
+        guard !text.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        hide()
+    }
+
     // MARK: - イベントハンドリング
 
     private func handleClick(elementId: String) {
@@ -1375,6 +1385,8 @@ final class PanelController {
             editContinuousTime()
         case .copyToClipboard:
             copyToClipboard()
+        case .copyTodayScheduleToClipboard:
+            copyTodayScheduleToClipboard()
         case .togglePin:
             pinned.toggle()
             rebuildPanel()

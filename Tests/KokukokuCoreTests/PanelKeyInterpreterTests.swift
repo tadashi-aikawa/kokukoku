@@ -106,7 +106,7 @@ struct PanelKeyInterpreterTests {
         let context = PanelKeyContext(
             isEventPopoverVisible: true, isCalendarEventSelected: true)
 
-        for characters in ["g", "G", "]", "h", "l", "j", "k", "q", "0", "r", "o", "e", "E", "c", "3"] {
+        for characters in ["g", "G", "]", "h", "l", "j", "k", "q", "0", "r", "o", "e", "E", "c", "C", "3"] {
             #expect(action(characters, hasModifiers: true, context: context) == .passthrough)
         }
     }
@@ -163,6 +163,7 @@ struct PanelKeyInterpreterTests {
         #expect(action("e") == .editTime)
         #expect(action("E") == .editContinuousTime)
         #expect(action("c") == .copyToClipboard)
+        #expect(action("C") == .copyTodayScheduleToClipboard)
         #expect(action("p") == .togglePin)
         #expect(action("o") == .toggleCalendar)
         #expect(action("3") == .selectProject(index: 3))

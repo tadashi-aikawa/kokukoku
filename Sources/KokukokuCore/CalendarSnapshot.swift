@@ -82,6 +82,15 @@ public struct CalendarSnapshotStore: Equatable, Sendable {
         CalendarDisplayFilter.apply(to: rawEvents ?? [], now: now, calendar: calendar)
     }
 
+    /// 本日分のコピー用リスト: 表示対応条件は保ち、終了済みの予定も含める
+    public func supportedEventsForToday(
+        now: Date, calendar: Foundation.Calendar = .autoupdatingCurrent
+    ) -> [CalendarEvent] {
+        guard lastError == nil else { return [] }
+        return CalendarDisplayFilter.supportedEventsForToday(
+            in: rawEvents ?? [], now: now, calendar: calendar)
+    }
+
     /// `start → end → 論理キー` の安定ソート(EventKitのクエリ結果に順序保証がないため)
     public static func stableSorted(_ events: [CalendarEvent]) -> [CalendarEvent] {
         events.sorted { a, b in
@@ -136,6 +145,14 @@ public enum CalendarDisplayFilter {
     public static func apply(
         to events: [CalendarEvent], now: Date, calendar: Foundation.Calendar
     ) -> [CalendarEvent] {
+        supportedEventsForToday(in: events, now: now, calendar: calendar)
+            .filter { $0.end > now }
+    }
+
+    /// KOKUKOKUが表示に対応する本日の予定。終了時刻による絞り込みは行わない
+    public static func supportedEventsForToday(
+        in events: [CalendarEvent], now: Date, calendar: Foundation.Calendar
+    ) -> [CalendarEvent] {
         let dayStart = calendar.startOfDay(for: now)
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
             return []
@@ -145,7 +162,6 @@ public enum CalendarDisplayFilter {
                 && event.myStatus != .declined
                 && event.start >= dayStart
                 && event.start < dayEnd
-                && event.end > now
         }
     }
 }

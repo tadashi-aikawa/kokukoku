@@ -138,6 +138,24 @@ struct CalendarDisplayFilterTests {
 
         #expect(CalendarDisplayFilter.apply(to: events, now: now, calendar: calendar).isEmpty)
     }
+
+    @Test("本日分のコピー対象には終了済みを含め、表示非対応の予定は含めない")
+    func supportedEventsForTodayIncludeFinishedEvents() {
+        let events = [
+            makeEvent(id: "done", start: at(hour: 9), end: at(hour: 10)),
+            makeEvent(id: "ongoing", start: at(hour: 11), end: at(hour: 13)),
+            makeEvent(id: "future", start: at(hour: 15), end: at(hour: 16)),
+            makeEvent(id: "all-day", start: at(hour: 0), end: at(hour: 24), isAllDay: true),
+            makeEvent(id: "declined", start: at(hour: 16), end: at(hour: 17), myStatus: .declined),
+            makeEvent(id: "overnight", start: at(hour: -2), end: at(hour: 13)),
+            makeEvent(id: "tomorrow", start: at(hour: 25), end: at(hour: 26)),
+        ]
+
+        let supported = CalendarDisplayFilter.supportedEventsForToday(
+            in: events, now: now, calendar: calendar)
+
+        #expect(supported.map(\.key.externalIdentifier) == ["done", "ongoing", "future"])
+    }
 }
 
 @Suite("CalendarSnapshotStore")
@@ -244,6 +262,32 @@ struct CalendarSnapshotStoreTests {
         let visible = store.visibleEvents(now: at(hour: 12), calendar: calendar)
 
         #expect(visible.map(\.key.externalIdentifier) == ["shown"])
+    }
+
+    @Test("本日分のコピー用リストには終了済み予定も含まれる")
+    func supportedEventsForTodayIncludesFinishedEvents() {
+        var store = CalendarSnapshotStore()
+        store.applySuccess(
+            events: [
+                makeEvent(id: "future", start: at(hour: 14), end: at(hour: 15)),
+                makeEvent(id: "done", start: at(hour: 9), end: at(hour: 10)),
+            ],
+            at: at(hour: 8))
+
+        let events = store.supportedEventsForToday(now: at(hour: 12), calendar: calendar)
+
+        #expect(events.map(\.key.externalIdentifier) == ["done", "future"])
+    }
+
+    @Test("取得エラー中は古い予定をコピー対象にしない")
+    func supportedEventsForTodayWhileFailed() {
+        var store = CalendarSnapshotStore()
+        store.applySuccess(
+            events: [makeEvent(id: "old", start: at(hour: 9), end: at(hour: 10))],
+            at: at(hour: 8))
+        store.markFailure(.accessDenied)
+
+        #expect(store.supportedEventsForToday(now: at(hour: 12), calendar: calendar).isEmpty)
     }
 
     @Test("start→end→論理キーの順で安定ソートされる")

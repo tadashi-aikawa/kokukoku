@@ -56,3 +56,21 @@ public enum CopyText {
         return result
     }
 }
+
+public enum TodayScheduleCopyText {
+    public static func build(
+        events: [CalendarEvent],
+        separator: String = "\n",
+        calendar: Foundation.Calendar = .autoupdatingCurrent
+    ) -> String {
+        events.map { event in
+            let startHour = calendar.component(.hour, from: event.start)
+            let startMinute = calendar.component(.minute, from: event.start)
+            let endHour = calendar.component(.hour, from: event.end)
+            let endMinute = calendar.component(.minute, from: event.end)
+            return String(
+                format: "- %02d:%02d-%02d:%02d %@",
+                startHour, startMinute, endHour, endMinute, event.title)
+        }.joined(separator: separator)
+    }
+}

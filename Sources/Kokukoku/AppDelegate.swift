@@ -93,6 +93,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         gapRailMinutes: service.gapRailMinutes,
                         upcomingCountdownMaxMinutes: service.upcomingCountdownMaxMinutes,
                         ongoingCountdownMaxMinutes: service.ongoingCountdownMaxMinutes)
+                },
+                getTodayCalendarEvents: { [weak self] in
+                    self?.calendarService?.snapshot.supportedEventsForToday(now: Date()) ?? []
                 }))
 
         self.engine = engine

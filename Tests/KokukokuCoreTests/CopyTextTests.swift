@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import KokukokuCore
@@ -84,5 +85,35 @@ struct CopyTextTests {
             .init(id: "b", name: "ProjectB"),
             .init(id: "c", name: "ProjectC"),
         ]
+    }
+}
+
+@Suite("TodayScheduleCopyText")
+struct TodayScheduleCopyTextTests {
+    @Test("開始・終了時刻と予定名を箇条書きにする")
+    func buildSchedule() {
+        let calendar = Foundation.Calendar(identifier: .gregorian)
+        let dayStart = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_752_800_000))
+        let events = [
+            event(title: "予定名称", start: dayStart.addingTimeInterval(10 * 3600 + 15 * 60)),
+            event(title: "予定名称2", start: dayStart.addingTimeInterval(10 * 3600 + 30 * 60)),
+        ]
+
+        let result = TodayScheduleCopyText.build(events: events, calendar: calendar)
+
+        #expect(result == "- 10:15-11:15 予定名称\n- 10:30-11:30 予定名称2")
+    }
+
+    @Test("予定がなければ空文字を返す")
+    func buildEmptySchedule() {
+        #expect(TodayScheduleCopyText.build(events: []).isEmpty)
+    }
+
+    private func event(title: String, start: Date) -> CalendarEvent {
+        CalendarEvent(
+            key: .init(externalIdentifier: title, occurrenceDate: start),
+            title: title,
+            start: start,
+            end: start.addingTimeInterval(3600))
     }
 }

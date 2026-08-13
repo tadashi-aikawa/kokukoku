@@ -8,6 +8,7 @@ public enum PanelKeyAction: Equatable, Sendable {
     case editTime
     case editContinuousTime
     case copyToClipboard
+    case copyTodayScheduleToClipboard
     case toggleCalendar
     case selectProject(index: Int)
     /// 予定詳細popover内のボタンフォーカスを移動する
@@ -98,6 +99,7 @@ public enum PanelKeyInterpreter {
         if characters == "p" { return .togglePin }
         if characters == "e" { return .editTime }
         if characters == "c" { return .copyToClipboard }
+        if characters == "C" { return .copyTodayScheduleToClipboard }
         if characters == "E" { return .editContinuousTime }
         if let characters, characters.count == 1,
             let scalar = characters.unicodeScalars.first,

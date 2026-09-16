@@ -1292,7 +1292,12 @@ final class PanelController {
         if editingTarget != nil { endInlineEdit() }
 
         if elementId.hasPrefix("row_") {
-            selectProject(String(elementId.dropFirst(4)))
+            let projectId = String(elementId.dropFirst(4))
+            // 予定行のクリックと同じく、カーソルもクリックした行へ移す
+            if let index = projects.firstIndex(where: { $0.id == projectId }) {
+                selectedTarget = .project(index: index + 1)
+            }
+            selectProject(projectId)
             return
         } else if elementId == "btn_reset" {
             handleResetAction()

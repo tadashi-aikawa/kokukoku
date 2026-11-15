@@ -60,3 +60,7 @@ semantic-release が前回のタグ以降の Conventional Commits から次の�
 - 署名は自己署名証明書 `kokukoku-dev` で固定します (repo secrets: `MACOS_CERT_P12_BASE64` / `MACOS_CERT_PASSWORD`)。Keychain アクセスや TCC 許可をリリースをまたいで維持するためです
 - tap 更新には repo secret `TAP_GITHUB_TOKEN` (homebrew-tap への Contents: Read and write 権限の fine-grained PAT) を使います
 - `Resources/Info.plist` の追跡中のバージョンは `0.0.0-development` のまま維持し、リリースバージョンは配布 ZIP 内にだけ埋め込みます
+- semantic-release とプラグインは `.github/release/` の `package.json` と `pnpm-lock.yaml` で、推移的な依存まで固定します。workflow は `pnpm install --frozen-lockfile` で入れます
+  - 理由: 署名の証明書と `TAP_GITHUB_TOKEN` と同じジョブで動くため、実行のたびに新しいバージョンを取ってこない
+  - 上げるとき: `package.json` のバージョンを変え、`pnpm install --dir .github/release` で lockfile を作り直してコミットします
+- pnpm のバージョンは release.yml の `npm install --global pnpm@x.y.z` と、`.github/release/package.json` の `packageManager` の2か所で指定します。上げるときは2か所をそろえ、lockfile を作り直します

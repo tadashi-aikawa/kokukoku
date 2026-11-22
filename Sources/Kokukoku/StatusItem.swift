@@ -1,10 +1,12 @@
 import AppKit
+import KokukokuCore
 
-/// メニューバー常駐アイコン(バージョン確認・設定再読込・終了の入口。JINRAIのStatusItemと同型)
+/// メニューバー常駐アイコン(バージョン確認・アップデート確認・設定ファイル・設定再読込・終了の入口。JINRAIのStatusItemと同型)
 @MainActor
 final class StatusItem {
     private let item: NSStatusItem
     var onReloadConfig: (() -> Void)?
+    var onCheckForUpdates: (() -> Void)?
 
     init() {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -23,7 +25,21 @@ final class StatusItem {
         )
         versionItem.isEnabled = false
         menu.addItem(versionItem)
+        let updateItem = NSMenuItem(
+            title: "アップデートを確認…",
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        updateItem.target = self
+        menu.addItem(updateItem)
         menu.addItem(.separator())
+        let openConfigItem = NSMenuItem(
+            title: "設定ファイルを開く",
+            action: #selector(openConfigFile),
+            keyEquivalent: ""
+        )
+        openConfigItem.target = self
+        menu.addItem(openConfigItem)
         let reloadItem = NSMenuItem(
             title: "設定を再読込",
             action: #selector(reloadConfig),
@@ -43,6 +59,14 @@ final class StatusItem {
 
     @objc private func reloadConfig() {
         onReloadConfig?()
+    }
+
+    @objc private func checkForUpdates() {
+        onCheckForUpdates?()
+    }
+
+    @objc private func openConfigFile() {
+        ConfigLoader.openInEditor()
     }
 
     private static func menuBarIcon() -> NSImage? {

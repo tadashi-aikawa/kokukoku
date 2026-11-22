@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var calendarService: CalendarService?
     private var tickTask: Task<Void, Never>?
     private let persistence = Persistence()
+    private let updater = UpdaterFeature()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let config: KokukokuConfig
@@ -26,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let statusItem = StatusItem()
         statusItem.onReloadConfig = { [weak self] in self?.reloadConfig() }
+        statusItem.onCheckForUpdates = { [weak self] in self?.updater.checkForUpdates() }
         self.statusItem = statusItem
 
         // 通知クリックでパネルを開く(バンドル実行時のみ有効)
